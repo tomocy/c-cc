@@ -79,3 +79,23 @@ void gen(Node* node) {
 
   printf("  push rax\n");
 }
+
+void gen_program() {
+  printf(".intel_syntax noprefix\n");
+  printf(".global main\n");
+  printf("main:\n");
+
+  printf("  push rbp\n");
+  printf("  mov rbp, rsp\n");
+  printf("  sub rsp, %d\n", 8 * 26);
+
+  for (int i = 0; stmts[i]; i++) {
+    gen(stmts[i]);
+    printf("  pop rax\n");
+  }
+
+  printf("  mov rsp, rbp\n");
+  printf("  pop rbp\n");
+
+  printf("  ret\n");
+}

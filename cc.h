@@ -80,4 +80,4 @@ Token* tokenize();
 
 void program();
 
-void gen(Node* node);
+void gen_program();
