@@ -80,6 +80,14 @@ void gen(Node* node) {
   printf("  push rax\n");
 }
 
+int count_local_vars() {
+  int len = 0;
+  for (Var* var = local_vars; var; var = var->next) {
+    len++;
+  }
+  return len;
+}
+
 void gen_program() {
   printf(".intel_syntax noprefix\n");
   printf(".global main\n");
@@ -87,7 +95,7 @@ void gen_program() {
 
   printf("  push rbp\n");
   printf("  mov rbp, rsp\n");
-  printf("  sub rsp, %d\n", 8 * 26);
+  printf("  sub rsp, %d\n", 8 * count_local_vars());
 
   for (int i = 0; stmts[i]; i++) {
     gen(stmts[i]);
