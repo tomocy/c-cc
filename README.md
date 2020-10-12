@@ -2,6 +2,8 @@
 
 ## Production rule
 ```
+program = stmt*
+stmt = expr ";"
 expr = assign
 assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*

@@ -1,5 +1,7 @@
 #include "cc.h"
 
+Node* stmts[100];
+
 Node* new_node(NodeKind kind, Node* lhs, Node* rhs) {
   Node* node = calloc(1, sizeof(Node));
   node->kind = kind;
@@ -21,6 +23,8 @@ Node* new_node_ident(char name) {
   node->offset = (name - 'a' + 1) * 8;
   return node;
 }
+
+Node* expr();
 
 Node* primary() {
   if (consume("(")) {
@@ -121,3 +125,17 @@ Node* assign() {
 }
 
 Node* expr() { return assign(); }
+
+Node* stmt() {
+  Node* node = expr();
+  expect(";");
+  return node;
+}
+
+void program() {
+  int i = 0;
+  while (!at_eof()) {
+    stmts[i++] = stmt();
+  }
+  stmts[i] = NULL;
+}

@@ -8,7 +8,7 @@ int main(int argc, char** argv) {
 
   user_input = argv[1];
   token = tokenize();
-  Node* node = expr();
+  program();
 
   printf(".intel_syntax noprefix\n");
   printf(".global main\n");
@@ -18,9 +18,10 @@ int main(int argc, char** argv) {
   printf("  mov rbp, rsp\n");
   printf("  sub rsp, %d\n", 8 * 26);
 
-  gen(node);
-
-  printf("  pop rax\n");
+  for (int i = 0; stmts[i]; i++) {
+    gen(stmts[i]);
+    printf("  pop rax\n");
+  }
 
   printf("  mov rsp, rbp\n");
   printf("  pop rbp\n");

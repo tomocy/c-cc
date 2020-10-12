@@ -51,6 +51,8 @@ extern char* user_input;
 
 extern Token* token;
 
+extern Node* stmts[100];
+
 void error(char* fmt, ...);
 
 void error_at(char* loc, char* fmt, ...);
@@ -73,20 +75,6 @@ Node* new_node(NodeKind kind, Node* lhs, Node* rhs);
 
 Node* new_node_num(int val);
 
-Node* expr();
-
-Node* primary();
-
-Node* unary();
-
-Node* mul();
-
-Node* add();
-
-Node* relational();
-
-Node* equality();
-
-Node* expr();
+void program();
 
 void gen(Node* node);
