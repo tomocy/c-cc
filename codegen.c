@@ -21,6 +21,15 @@ void gen(Node* node) {
       printf("  mov rax, [rax]\n");
       printf("  push rax\n");
       return;
+    case ND_ASSIGN:
+      gen_lval(node->lhs);
+      gen(node->rhs);
+
+      printf("  pop rdi\n");
+      printf("  pop rax\n");
+      printf("  mov [rax], rdi\n");
+      printf("  push rdi\n");
+      return;
     default:
       break;
   }

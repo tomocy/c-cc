@@ -24,6 +24,7 @@ struct Token {
 };
 
 typedef enum {
+  ND_ASSIGN,
   ND_EQ,
   ND_NE,
   ND_LT,

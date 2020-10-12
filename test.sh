@@ -47,5 +47,7 @@ assert 1 '1>=1'
 assert 0 '1>=2'
 assert 0 'a'
 assert 0 'z'
+assert 1 'a=1'
+assert 41 'z =  12 + 34 - 5 '
 
 echo "OK"

@@ -108,4 +108,16 @@ Node* equality() {
   }
 }
 
-Node* expr() { return equality(); }
+Node* assign() {
+  Node* node = equality();
+
+  for (;;) {
+    if (consume("=")) {
+      node = new_node(ND_ASSIGN, node, equality());
+    } else {
+      return node;
+    }
+  }
+}
+
+Node* expr() { return assign(); }

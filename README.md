@@ -2,7 +2,8 @@
 
 ## Production rule
 ```
-expr = equality
+expr = assign
+assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*
 relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
