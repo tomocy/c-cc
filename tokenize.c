@@ -37,7 +37,7 @@ bool consume(char* op) {
 void expect(char* op) {
   if (token->kind != TK_RESERVED || token->len != strlen(op) ||
       memcmp(token->str, op, token->len)) {
-    error_at(token->str, "expected '%c'", op);
+    error_at(token->str, "expected '%s'", op);
   }
   token = token->next;
 }
