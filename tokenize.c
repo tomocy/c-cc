@@ -64,6 +64,11 @@ Token* new_token(TokenKind kind, Token* cur, char* str, int len) {
 
 bool startswith(char* p, char* q) { return memcmp(p, q, strlen(q)) == 0; }
 
+bool is_alnum(char c) {
+  return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') ||
+         ('0' <= c && c <= '9');
+}
+
 Token* tokenize() {
   char* p = user_input;
   Token head;
@@ -73,6 +78,12 @@ Token* tokenize() {
   while (*p) {
     if (isspace(*p)) {
       p++;
+      continue;
+    }
+
+    if (startswith(p, "return") && !is_alnum(p[6])) {
+      cur = new_token(TK_RESERVED, cur, p, 6);
+      p += 6;
       continue;
     }
 
