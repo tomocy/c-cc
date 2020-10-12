@@ -10,6 +10,7 @@ $(OBJS): cc.h
 .PHONY: test
 test: cc
 	./test.sh
+	make clean
 
 .PHONY: clean
 clean: cc
