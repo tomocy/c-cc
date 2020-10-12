@@ -1,9 +1,28 @@
 #include "cc.h"
 
+void gen_lval(Node* node) {
+  if (node->kind != ND_IDENT) {
+    error("non left value");
+  }
+
+  printf("  mov rax, rbp\n");
+  printf("  sub rax, %d\n", node->offset);
+  printf("  push rax\n");
+}
+
 void gen(Node* node) {
-  if (node->kind == ND_NUM) {
-    printf("  push %d\n", node->val);
-    return;
+  switch (node->kind) {
+    case ND_NUM:
+      printf("  push %d\n", node->val);
+      return;
+    case ND_IDENT:
+      gen_lval(node);
+      printf("  pop rax\n");
+      printf("  mov rax, [rax]\n");
+      printf("  push rax\n");
+      return;
+    default:
+      break;
   }
 
   gen(node->lhs);

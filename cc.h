@@ -9,6 +9,7 @@
 typedef enum {
   TK_RESERVED,
   TK_NUM,
+  TK_IDENT,
   TK_EOF,
 } TokenKind;
 
@@ -32,6 +33,7 @@ typedef enum {
   ND_MUL,
   ND_DIV,
   ND_NUM,
+  ND_IDENT,
 } NodeKind;
 
 typedef struct Node Node;
@@ -41,6 +43,7 @@ struct Node {
   Node* lhs;
   Node* rhs;
   int val;
+  int offset;
 };
 
 extern char* user_input;

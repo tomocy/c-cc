@@ -14,9 +14,17 @@ int main(int argc, char** argv) {
   printf(".global main\n");
   printf("main:\n");
 
+  printf("  push rbp\n");
+  printf("  mov rbp, rsp\n");
+  printf("  sub rsp, %d\n", 8 * 26);
+
   gen(node);
 
   printf("  pop rax\n");
+
+  printf("  mov rsp, rbp\n");
+  printf("  pop rbp\n");
+
   printf("  ret\n");
   return 0;
 }

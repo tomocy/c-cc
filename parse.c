@@ -15,10 +15,23 @@ Node* new_node_num(int val) {
   return node;
 }
 
+Node* new_node_ident(char name) {
+  Node* node = calloc(1, sizeof(Node));
+  node->kind = ND_IDENT;
+  node->offset = (name - 'a' + 1) * 8;
+  return node;
+}
+
 Node* primary() {
   if (consume("(")) {
     Node* node = expr();
     expect(")");
+    return node;
+  }
+
+  if (token->kind == TK_IDENT) {
+    Node* node = new_node_ident(token->str[0]);
+    token = token->next;
     return node;
   }
 
