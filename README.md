@@ -3,7 +3,8 @@
 ## Production rule
 ```
 expr = equality
-equality = add ("==" add | "!=" add)*
+equality = realtional ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
 mul = unary ("*" unary | "/" unary)*
 unary = ("+" | "-")? primary
