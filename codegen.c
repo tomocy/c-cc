@@ -1,7 +1,7 @@
 #include "cc.h"
 
 void gen_lval(Node* node) {
-  if (node->kind != ND_IDENT) {
+  if (node->kind != ND_VAR) {
     error("non left value");
   }
 
@@ -15,7 +15,7 @@ void gen(Node* node) {
     case ND_NUM:
       printf("  push %d\n", node->val);
       return;
-    case ND_IDENT:
+    case ND_VAR:
       gen_lval(node);
       printf("  pop rax\n");
       printf("  mov rax, [rax]\n");

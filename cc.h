@@ -34,7 +34,7 @@ typedef enum {
   ND_MUL,
   ND_DIV,
   ND_NUM,
-  ND_IDENT,
+  ND_VAR,
 } NodeKind;
 
 typedef struct Node Node;
@@ -47,10 +47,10 @@ struct Node {
   int offset;
 };
 
-typedef struct Ident Ident;
+typedef struct Var Var;
 
-struct Ident {
-  Ident* next;
+struct Var {
+  Var* next;
   char* name;
   int len;
   int offset;
@@ -62,7 +62,7 @@ extern Token* token;
 
 extern Node* stmts[100];
 
-extern Ident* idents;
+extern Var* local_vars;
 
 void error(char* fmt, ...);
 
