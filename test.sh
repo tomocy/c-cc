@@ -52,5 +52,7 @@ assert 41 'z =  12 + 34 - 5 ;'
 assert 3 '1;2;3;'
 assert 1 'a=1;a;'
 assert 41 'z =  12 + 34 - 5 ;z;'
+assert 2 'foo = 2;'
+assert 5 'foo = 2; bar = foo; bar + 3;'
 
 echo "OK"

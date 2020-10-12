@@ -47,11 +47,22 @@ struct Node {
   int offset;
 };
 
+typedef struct Ident Ident;
+
+struct Ident {
+  Ident* next;
+  char* name;
+  int len;
+  int offset;
+};
+
 extern char* user_input;
 
 extern Token* token;
 
 extern Node* stmts[100];
+
+extern Ident* idents;
 
 void error(char* fmt, ...);
 
@@ -65,15 +76,7 @@ int expect_number();
 
 bool at_eof();
 
-Token* new_token(TokenKind kind, Token* cur, char* str, int len);
-
-bool startswith(char* p, char* q);
-
 Token* tokenize();
-
-Node* new_node(NodeKind kind, Node* lhs, Node* rhs);
-
-Node* new_node_num(int val);
 
 void program();
 

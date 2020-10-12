@@ -2,6 +2,8 @@
 
 Node* stmts[100];
 
+Ident* idents;
+
 Node* new_node(NodeKind kind, Node* lhs, Node* rhs) {
   Node* node = calloc(1, sizeof(Node));
   node->kind = kind;
@@ -17,10 +19,37 @@ Node* new_node_num(int val) {
   return node;
 }
 
-Node* new_node_ident(char name) {
+Ident* find_ident(Token* tok) {
+  if (tok->kind != TK_IDENT) {
+    error("non ident");
+  }
+
+  for (Ident* ident = idents; ident; ident = ident->next) {
+    if (ident->len == tok->len &&
+        memcmp(ident->name, tok->str, tok->len) == 0) {
+      return ident;
+    }
+  }
+
+  return NULL;
+}
+
+Node* new_node_ident(Token* tok) {
   Node* node = calloc(1, sizeof(Node));
   node->kind = ND_IDENT;
-  node->offset = (name - 'a' + 1) * 8;
+
+  Ident* ident = find_ident(tok);
+  if (ident) {
+    node->offset = ident->offset;
+  } else {
+    ident = calloc(1, sizeof(Ident));
+    ident->next = idents;
+    ident->name = tok->str;
+    ident->len = tok->len;
+    ident->offset = (idents) ? idents->offset + 8 : 8;
+    node->offset = ident->offset;
+    idents = ident;
+  }
   return node;
 }
 
@@ -34,7 +63,7 @@ Node* primary() {
   }
 
   if (token->kind == TK_IDENT) {
-    Node* node = new_node_ident(token->str[0]);
+    Node* node = new_node_ident(token);
     token = token->next;
     return node;
   }
