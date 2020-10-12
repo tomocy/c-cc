@@ -1,6 +1,11 @@
 CFLAGS=-std=c11 -g -static -Wall
+SRCS=$(wildcard *.c)
+OBJS=$(SRCS:.c=.o)
 
-cc: cc.c
+cc: $(OBJS)
+	$(CC) -o cc $(OBJS) $(LDFLAGS)
+
+$(OBJS): cc.h
 
 .PHONY: test
 test: cc
