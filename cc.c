@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 
 typedef enum {
@@ -23,6 +24,8 @@ struct Token {
 typedef enum {
   ND_ADD,
   ND_SUB,
+  ND_MUL,
+  ND_DIV,
   ND_NUM,
 } NodeKind;
 
@@ -106,7 +109,7 @@ Token* tokenize() {
       continue;
     }
 
-    if (*p == '+' || *p == '-') {
+    if (strchr("+-*/", *p)) {
       cur = new_token(TK_RESERVED, cur, p++);
       continue;
     }
@@ -117,7 +120,7 @@ Token* tokenize() {
       continue;
     }
 
-    error_at(p, "expected a number");
+    error_at(p, "invalid character");
   }
 
   new_token(TK_EOF, cur, p);
@@ -143,14 +146,28 @@ Node* expr();
 
 Node* num() { return new_node_num(expect_number()); }
 
-Node* expr() {
+Node* mul() {
   Node* node = num();
 
   for (;;) {
+    if (consume('*')) {
+      node = new_node(ND_MUL, node, num());
+    } else if (consume('/')) {
+      node = new_node(ND_DIV, node, num());
+    } else {
+      return node;
+    }
+  }
+}
+
+Node* expr() {
+  Node* node = mul();
+
+  for (;;) {
     if (consume('+')) {
-      node = new_node(ND_ADD, node, num());
+      node = new_node(ND_ADD, node, mul());
     } else if (consume('-')) {
-      node = new_node(ND_SUB, node, num());
+      node = new_node(ND_SUB, node, mul());
     } else {
       return node;
     }
@@ -176,6 +193,12 @@ void gen(Node* node) {
     case ND_SUB:
       printf("  sub rax, rdi\n");
       break;
+    case ND_MUL:
+      printf("  imul rax, rdi\n");
+      break;
+    case ND_DIV:
+      printf("  cqo\n");
+      printf("  idiv rdi\n");
     default:
       break;
   }
