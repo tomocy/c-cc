@@ -87,15 +87,21 @@ Token* tokenize() {
       continue;
     }
 
-    if (startswith(p, "if") && !is_alnum(p[2])) {
-      cur = new_token(TK_RESERVED, cur, p, 2);
-      p += 2;
+    if (startswith(p, "while") && !is_alnum(p[5])) {
+      cur = new_token(TK_RESERVED, cur, p, 5);
+      p += 5;
       continue;
     }
 
     if (startswith(p, "else") && !is_alnum(p[4])) {
       cur = new_token(TK_RESERVED, cur, p, 4);
       p += 4;
+      continue;
+    }
+
+    if (startswith(p, "if") && !is_alnum(p[2])) {
+      cur = new_token(TK_RESERVED, cur, p, 2);
+      p += 2;
       continue;
     }
 

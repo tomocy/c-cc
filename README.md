@@ -3,7 +3,7 @@
 ## Production rule
 ```
 program = stmt*
-stmt = expr ";" | "if" "(" expr ")" stmt ("else" stmt)? | "return" expr ";"
+stmt = expr ";" | "if" "(" expr ")" stmt ("else" stmt)? | "while" "(" expr ")" stmt | "return" expr ";"
 expr = assign
 assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*
