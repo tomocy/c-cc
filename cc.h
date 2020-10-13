@@ -25,7 +25,6 @@ struct Token {
 
 typedef enum {
   ND_IF,
-  ND_WHILE,
   ND_FOR,
   ND_RETURN,
   ND_ASSIGN,

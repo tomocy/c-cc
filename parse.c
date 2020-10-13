@@ -168,7 +168,7 @@ Node* stmt() {
     return node;
   } else if (consume("while")) {
     expect("(");
-    node = new_node(ND_WHILE, NULL, NULL);
+    node = new_node(ND_FOR, NULL, NULL);
     node->cond = expr();
     expect(")");
     node->then = stmt();
