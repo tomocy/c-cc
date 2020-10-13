@@ -38,7 +38,7 @@ void gen(Node* node) {
       printf("  pop rbp\n");
       printf("  ret\n");
       return;
-    case ND_IF:
+    case ND_IF: {
       gen(node->cond);
       int lelse = label_count++;
       int lend = label_count++;
@@ -52,6 +52,7 @@ void gen(Node* node) {
       }
       printf(".Lend%d:\n", lend);
       return;
+    }
     case ND_WHILE: {
       int lbegin = label_count++;
       int lend = label_count++;
