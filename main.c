@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
   }
 
   user_input = argv[1];
-  token = tokenize();
+  tokenize();
   program();
   gen_program();
   return 0;

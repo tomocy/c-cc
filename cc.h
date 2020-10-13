@@ -54,13 +54,13 @@ struct Node {
   Node* inc;
   Node* then;
   Node* els;
-  Node* next;
   Node* body;
-  char* name;
   Node* args;
   Node* params;
-  int len;
+  Node* next;
   int val;
+  char* name;
+  int len;
   int offset;
 };
 
@@ -77,7 +77,7 @@ extern char* user_input;
 
 extern Token* token;
 
-extern Node* codes[100];
+extern Node* codes;
 
 extern Var* local_vars;
 
@@ -91,11 +91,11 @@ bool consume(char* op);
 
 void expect(char* op);
 
-int expect_number();
+int expect_num();
 
 bool at_eof();
 
-Token* tokenize();
+void tokenize();
 
 void program();
 

@@ -1,20 +1,30 @@
 #include "cc.h"
 
-Node* codes[100];
+Node* codes;
 
 Var* local_vars;
 
-Node* new_node(NodeKind kind, Node* lhs, Node* rhs) {
+Node* new_node(NodeKind kind) {
   Node* node = calloc(1, sizeof(Node));
   node->kind = kind;
+  return node;
+}
+
+Node* new_unary_node(NodeKind kind, Node* lhs) {
+  Node* node = new_node(kind);
+  node->lhs = lhs;
+  return node;
+}
+
+Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
+  Node* node = new_node(kind);
   node->lhs = lhs;
   node->rhs = rhs;
   return node;
 }
 
-Node* new_node_num(int val) {
-  Node* node = calloc(1, sizeof(Node));
-  node->kind = ND_NUM;
+Node* new_num_node(int val) {
+  Node* node = new_node(ND_NUM);
   node->val = val;
   return node;
 }
@@ -33,9 +43,8 @@ Var* find_var(Token* tok) {
   return NULL;
 }
 
-Node* new_node_var(Token* tok) {
-  Node* node = calloc(1, sizeof(Node));
-  node->kind = ND_VAR;
+Node* new_var_node(Token* tok) {
+  Node* node = new_node(ND_VAR);
 
   Var* var = find_var(tok);
   if (var) {
@@ -78,7 +87,7 @@ Node* primary() {
 
   if (token->kind == TK_IDENT) {
     if (equal(token->next, "(")) {
-      Node* node = new_node(ND_FUNCCALL, NULL, NULL);
+      Node* node = new_node(ND_FUNCCALL);
       node->name = token->str;
       node->len = token->len;
       token = token->next;
@@ -86,19 +95,19 @@ Node* primary() {
       return node;
     }
 
-    Node* node = new_node_var(token);
+    Node* node = new_var_node(token);
     token = token->next;
     return node;
   }
 
-  return new_node_num(expect_number());
+  return new_num_node(expect_num());
 }
 
 Node* unary() {
   if (consume("+")) {
     return primary();
   } else if (consume("-")) {
-    return new_node(ND_SUB, new_node_num(0), primary());
+    return new_binary_node(ND_SUB, new_num_node(0), primary());
   } else {
     return primary();
   }
@@ -109,9 +118,9 @@ Node* mul() {
 
   for (;;) {
     if (consume("*")) {
-      node = new_node(ND_MUL, node, unary());
+      node = new_binary_node(ND_MUL, node, unary());
     } else if (consume("/")) {
-      node = new_node(ND_DIV, node, unary());
+      node = new_binary_node(ND_DIV, node, unary());
     } else {
       return node;
     }
@@ -123,9 +132,9 @@ Node* add() {
 
   for (;;) {
     if (consume("+")) {
-      node = new_node(ND_ADD, node, mul());
+      node = new_binary_node(ND_ADD, node, mul());
     } else if (consume("-")) {
-      node = new_node(ND_SUB, node, mul());
+      node = new_binary_node(ND_SUB, node, mul());
     } else {
       return node;
     }
@@ -137,13 +146,13 @@ Node* relational() {
 
   for (;;) {
     if (consume("<")) {
-      node = new_node(ND_LT, node, add());
+      node = new_binary_node(ND_LT, node, add());
     } else if (consume("<=")) {
-      node = new_node(ND_LE, node, add());
+      node = new_binary_node(ND_LE, node, add());
     } else if (consume(">")) {
-      node = new_node(ND_LT, add(), node);
+      node = new_binary_node(ND_LT, add(), node);
     } else if (consume(">=")) {
-      node = new_node(ND_LE, add(), node);
+      node = new_binary_node(ND_LE, add(), node);
     } else {
       return node;
     }
@@ -155,9 +164,9 @@ Node* equality() {
 
   for (;;) {
     if (consume("==")) {
-      node = new_node(ND_EQ, node, relational());
+      node = new_binary_node(ND_EQ, node, relational());
     } else if (consume("!=")) {
-      node = new_node(ND_NE, node, relational());
+      node = new_binary_node(ND_NE, node, relational());
     } else {
       return node;
     }
@@ -169,7 +178,7 @@ Node* assign() {
 
   for (;;) {
     if (consume("=")) {
-      node = new_node(ND_ASSIGN, node, equality());
+      node = new_binary_node(ND_ASSIGN, node, equality());
     } else {
       return node;
     }
@@ -181,12 +190,11 @@ Node* expr() { return assign(); }
 Node* bloc_stmt();
 
 Node* stmt() {
-  Node* node;
   if (equal(token, "{")) {
     return bloc_stmt();
   } else if (consume("if")) {
     expect("(");
-    node = new_node(ND_IF, NULL, NULL);
+    Node* node = new_node(ND_IF);
     node->cond = expr();
     expect(")");
     node->then = stmt();
@@ -196,14 +204,14 @@ Node* stmt() {
     return node;
   } else if (consume("while")) {
     expect("(");
-    node = new_node(ND_FOR, NULL, NULL);
+    Node* node = new_node(ND_FOR);
     node->cond = expr();
     expect(")");
     node->then = stmt();
     return node;
   } else if (consume("for")) {
     expect("(");
-    node = new_node(ND_FOR, NULL, NULL);
+    Node* node = new_node(ND_FOR);
     if (!consume(";")) {
       node->init = expr();
       expect(";");
@@ -219,25 +227,26 @@ Node* stmt() {
     node->then = stmt();
     return node;
   } else if (consume("return")) {
-    node = new_node(ND_RETURN, expr(), NULL);
+    Node* node = new_unary_node(ND_RETURN, expr());
+    expect(";");
+    return node;
   } else {
-    node = expr();
+    Node* node = expr();
+    expect(";");
+    return node;
   }
-  expect(";");
-  return node;
 }
 
 Node* bloc_stmt() {
   expect("{");
   Node head = {};
   Node* curr = &head;
-
   while (!consume("}")) {
     curr->next = stmt();
     curr = curr->next;
   }
 
-  Node* node = new_node(ND_BLOCK, NULL, NULL);
+  Node* node = new_node(ND_BLOCK);
   node->body = head.next;
   return node;
 }
@@ -247,7 +256,7 @@ Node* func_decl() {
     error_at(token->str, "expected ident");
   }
 
-  Node* node = new_node(ND_FUNC, NULL, NULL);
+  Node* node = new_node(ND_FUNC);
   node->name = token->str;
   node->len = token->len;
   token = token->next;
@@ -260,7 +269,7 @@ Node* func_decl() {
       expect(",");
     }
 
-    cur->next = new_node_var(token);
+    cur->next = new_var_node(token);
     cur = cur->next;
     token = token->next;
   }
@@ -271,9 +280,11 @@ Node* func_decl() {
 }
 
 void program() {
-  int i = 0;
+  Node head = {};
+  Node* cur = &head;
   while (!at_eof()) {
-    codes[i++] = func_decl();
+    cur->next = func_decl();
+    cur = cur->next;
   }
-  codes[i] = NULL;
+  codes = head.next;
 }

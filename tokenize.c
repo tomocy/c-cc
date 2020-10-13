@@ -26,12 +26,12 @@ void error_at(char* loc, char* fmt, ...) {
 }
 
 bool equal(Token* tok, char* op) {
-  return memcmp(tok->str, op, tok->len) == 0 && op[tok->len] == '\0';
+  return tok->kind == TK_RESERVED && memcmp(tok->str, op, tok->len) == 0 &&
+         op[tok->len] == '\0';
 }
 
 bool consume(char* op) {
-  if (token->kind != TK_RESERVED || token->len != strlen(op) ||
-      memcmp(token->str, op, token->len)) {
+  if (!equal(token, op)) {
     return false;
   }
   token = token->next;
@@ -39,17 +39,17 @@ bool consume(char* op) {
 }
 
 void expect(char* op) {
-  if (token->kind != TK_RESERVED || token->len != strlen(op) ||
-      memcmp(token->str, op, token->len)) {
+  if (!equal(token, op)) {
     error_at(token->str, "expected '%s'", op);
   }
   token = token->next;
 }
 
-int expect_number() {
+int expect_num() {
   if (token->kind != TK_NUM) {
     error_at(token->str, "expected a number");
   }
+
   int val = token->val;
   token = token->next;
   return val;
@@ -57,12 +57,11 @@ int expect_number() {
 
 bool at_eof() { return token->kind == TK_EOF; }
 
-Token* new_token(TokenKind kind, Token* cur, char* str, int len) {
+Token* new_token(TokenKind kind, char* str, int len) {
   Token* tok = calloc(1, sizeof(Token));
   tok->kind = kind;
   tok->str = str;
   tok->len = len;
-  cur->next = tok;
   return tok;
 }
 
@@ -73,63 +72,58 @@ bool is_alnum(char c) {
          ('0' <= c && c <= '9');
 }
 
-Token* tokenize() {
-  char* p = user_input;
-  Token head;
-  head.next = NULL;
-  Token* cur = &head;
+bool equal_str(char* p, char* keyword) {
+  return startswith(p, keyword) && !is_alnum(p[strlen(keyword)]);
+}
 
+bool consume_keyword(Token** tok, char** p) {
+  static char* ks[] = {"if", "else", "for", "while", "return"};
+  int len = sizeof(ks) / sizeof(char*);
+  for (int i = 0; i < len; i++) {
+    if (equal_str(*p, ks[i])) {
+      int klen = strlen(ks[i]);
+      *tok = new_token(TK_RESERVED, *p, klen);
+      *p += klen;
+      return true;
+    }
+  }
+  return false;
+}
+
+void tokenize() {
+  char* p = user_input;
+
+  Token head = {};
+  Token* cur = &head;
   while (*p) {
     if (isspace(*p)) {
       p++;
       continue;
     }
 
-    if (startswith(p, "return") && !is_alnum(p[6])) {
-      cur = new_token(TK_RESERVED, cur, p, 6);
-      p += 6;
-      continue;
-    }
-
-    if (startswith(p, "while") && !is_alnum(p[5])) {
-      cur = new_token(TK_RESERVED, cur, p, 5);
-      p += 5;
-      continue;
-    }
-
-    if (startswith(p, "for") && !is_alnum(p[3])) {
-      cur = new_token(TK_RESERVED, cur, p, 3);
-      p += 3;
-      continue;
-    }
-
-    if (startswith(p, "else") && !is_alnum(p[4])) {
-      cur = new_token(TK_RESERVED, cur, p, 4);
-      p += 4;
-      continue;
-    }
-
-    if (startswith(p, "if") && !is_alnum(p[2])) {
-      cur = new_token(TK_RESERVED, cur, p, 2);
-      p += 2;
+    if (consume_keyword(&cur->next, &p)) {
+      cur = cur->next;
       continue;
     }
 
     if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
         startswith(p, ">=")) {
-      cur = new_token(TK_RESERVED, cur, p, 2);
+      cur->next = new_token(TK_RESERVED, p, 2);
+      cur = cur->next;
       p += 2;
       continue;
     }
 
     if (strchr("+-*/()<>=;{},", *p)) {
-      cur = new_token(TK_RESERVED, cur, p++, 1);
+      cur->next = new_token(TK_RESERVED, p++, 1);
+      cur = cur->next;
       continue;
     }
 
     if (isdigit(*p)) {
-      cur = new_token(TK_NUM, cur, p, 0);
-      cur->val = strtol(p, &p, 10);
+      cur->next = new_token(TK_NUM, p, 0);
+      cur->next->val = strtol(p, &p, 10);
+      cur = cur->next;
       continue;
     }
 
@@ -138,13 +132,14 @@ Token* tokenize() {
       do {
         p++;
       } while ('a' <= *p && *p <= 'z');
-      cur = new_token(TK_IDENT, cur, start, p - start);
+      cur->next = new_token(TK_IDENT, start, p - start);
+      cur = cur->next;
       continue;
     }
 
     error_at(p, "invalid character");
   }
 
-  new_token(TK_EOF, cur, p, 0);
-  return head.next;
+  cur->next = new_token(TK_EOF, p, 0);
+  token = head.next;
 }
