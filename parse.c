@@ -62,6 +62,16 @@ Node* primary() {
   }
 
   if (token->kind == TK_IDENT) {
+    if (equal(token->next, "(")) {
+      Node* node = new_node(ND_FUNCCALL, NULL, NULL);
+      node->name = token->str;
+      node->len = token->len;
+      token = token->next;
+      expect("(");
+      expect(")");
+      return node;
+    }
+
     Node* node = new_node_var(token);
     token = token->next;
     return node;

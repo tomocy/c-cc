@@ -39,6 +39,7 @@ typedef enum {
   ND_DIV,
   ND_NUM,
   ND_VAR,
+  ND_FUNCCALL,
 } NodeKind;
 
 typedef struct Node Node;
@@ -54,6 +55,8 @@ struct Node {
   Node* els;
   Node* next;
   Node* body;
+  char* name;
+  int len;
   int val;
   int offset;
 };
@@ -78,6 +81,8 @@ extern Var* local_vars;
 void error(char* fmt, ...);
 
 void error_at(char* loc, char* fmt, ...);
+
+bool equal(Token* tok, char* op);
 
 bool consume(char* op);
 

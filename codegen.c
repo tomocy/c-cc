@@ -23,6 +23,10 @@ void gen(Node* node) {
       printf("  mov rax, [rax]\n");
       printf("  push rax\n");
       return;
+    case ND_FUNCCALL:
+      printf("  call %.*s\n", node->len, node->name);
+      printf("  push rax\n");
+      return;
     case ND_ASSIGN:
       gen_lval(node->lhs);
       gen(node->rhs);

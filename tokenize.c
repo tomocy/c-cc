@@ -25,6 +25,10 @@ void error_at(char* loc, char* fmt, ...) {
   exit(1);
 }
 
+bool equal(Token* tok, char* op) {
+  return memcmp(tok->str, op, tok->len) == 0 && op[tok->len] == '\0';
+}
+
 bool consume(char* op) {
   if (token->kind != TK_RESERVED || token->len != strlen(op) ||
       memcmp(token->str, op, token->len)) {
