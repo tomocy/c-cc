@@ -60,5 +60,7 @@ assert 3 'returnx = 3;'
 assert 5 'a=1; if (a) 5;'
 assert 4 'a=0; if (a) 5; else 4;'
 assert 5 'i=0; while (i < 5) i = i + 1;'
+assert 3 'i=3; while (0) i = i + 1;'
+assert 5 'for (i=0; i < 5; i = i + 1) i;'
 
 echo "OK"

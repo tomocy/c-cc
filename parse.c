@@ -173,6 +173,23 @@ Node* stmt() {
     expect(")");
     node->then = stmt();
     return node;
+  } else if (consume("for")) {
+    expect("(");
+    node = new_node(ND_FOR, NULL, NULL);
+    if (!consume(";")) {
+      node->init = expr();
+      expect(";");
+    }
+    if (!consume(";")) {
+      node->cond = expr();
+      expect(";");
+    }
+    if (!consume(")")) {
+      node->inc = expr();
+      expect(")");
+    }
+    node->then = stmt();
+    return node;
   } else if (consume("return")) {
     node = new_node(ND_RETURN, expr(), NULL);
   } else {
