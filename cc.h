@@ -24,6 +24,7 @@ struct Token {
 };
 
 typedef enum {
+  ND_FUNC,
   ND_BLOCK,
   ND_IF,
   ND_FOR,
@@ -75,7 +76,7 @@ extern char* user_input;
 
 extern Token* token;
 
-extern Node* stmts[100];
+extern Node* codes[100];
 
 extern Var* local_vars;
 

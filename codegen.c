@@ -13,6 +13,14 @@ void gen_lval(Node* node) {
   printf("  push rax\n");
 }
 
+int count_local_vars() {
+  int len = 0;
+  for (Var* var = local_vars; var; var = var->next) {
+    len++;
+  }
+  return len;
+}
+
 void gen(Node* node) {
   switch (node->kind) {
     case ND_NUM:
@@ -93,6 +101,20 @@ void gen(Node* node) {
         gen(body);
       }
       return;
+    case ND_FUNC:
+      printf(".global %.*s\n", node->len, node->name);
+      printf("%.*s:\n", node->len, node->name);
+      printf("  push rbp\n");
+      printf("  mov rbp, rsp\n");
+      printf("  sub rsp, %d\n", 8 * count_local_vars());
+
+      gen(node->body);
+      printf("  pop rax\n");
+
+      printf("  mov rsp, rbp\n");
+      printf("  pop rbp\n");
+      printf("  ret\n");
+      return;
     default:
       break;
   }
@@ -143,30 +165,9 @@ void gen(Node* node) {
   printf("  push rax\n");
 }
 
-int count_local_vars() {
-  int len = 0;
-  for (Var* var = local_vars; var; var = var->next) {
-    len++;
-  }
-  return len;
-}
-
 void gen_program() {
   printf(".intel_syntax noprefix\n");
-  printf(".global main\n");
-  printf("main:\n");
-
-  printf("  push rbp\n");
-  printf("  mov rbp, rsp\n");
-  printf("  sub rsp, %d\n", 8 * count_local_vars());
-
-  for (int i = 0; stmts[i]; i++) {
-    gen(stmts[i]);
-    printf("  pop rax\n");
+  for (int i = 0; codes[i]; i++) {
+    gen(codes[i]);
   }
-
-  printf("  mov rsp, rbp\n");
-  printf("  pop rbp\n");
-
-  printf("  ret\n");
 }

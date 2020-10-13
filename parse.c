@@ -1,6 +1,6 @@
 #include "cc.h"
 
-Node* stmts[100];
+Node* codes[100];
 
 Var* local_vars;
 
@@ -178,19 +178,12 @@ Node* assign() {
 
 Node* expr() { return assign(); }
 
+Node* bloc_stmt();
+
 Node* stmt() {
   Node* node;
-  if (consume("{")) {
-    Node head;
-    Node* cur = &head;
-    while (!consume("}")) {
-      cur->next = stmt();
-      cur = cur->next;
-    }
-
-    node = new_node(ND_BLOCK, NULL, NULL);
-    node->body = head.next;
-    return node;
+  if (equal(token, "{")) {
+    return bloc_stmt();
   } else if (consume("if")) {
     expect("(");
     node = new_node(ND_IF, NULL, NULL);
@@ -234,10 +227,40 @@ Node* stmt() {
   return node;
 }
 
+Node* bloc_stmt() {
+  expect("{");
+  Node head = {};
+  Node* curr = &head;
+
+  while (!consume("}")) {
+    curr->next = stmt();
+    curr = curr->next;
+  }
+
+  Node* node = new_node(ND_BLOCK, NULL, NULL);
+  node->body = head.next;
+  return node;
+}
+
+Node* func_decl() {
+  if (token->kind != TK_IDENT) {
+    error_at(token->str, "expected ident");
+  }
+
+  Node* node = new_node(ND_FUNC, NULL, NULL);
+  node->name = token->str;
+  node->len = token->len;
+  token = token->next;
+  expect("(");
+  expect(")");
+  node->body = bloc_stmt();
+  return node;
+}
+
 void program() {
   int i = 0;
   while (!at_eof()) {
-    stmts[i++] = stmt();
+    codes[i++] = func_decl();
   }
-  stmts[i] = NULL;
+  codes[i] = NULL;
 }

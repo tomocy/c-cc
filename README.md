@@ -2,9 +2,10 @@
 
 ## Production rule
 ```
-program = stmt*
+program = func-decl*
+func-decl = ident ident "(" ")" bloc-stmt
+bloc-stmt = "{" stmt* "}"
 stmt = expr ";" | 
-    "{" stmt* "}" |
     "if" "(" expr ")" stmt ("else" stmt)? | 
     "while" "(" expr ")" stmt | 
     "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
