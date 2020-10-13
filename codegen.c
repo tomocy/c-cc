@@ -1,6 +1,7 @@
 #include "cc.h"
 
 int label_count = 0;
+char* arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
 void gen_lval(Node* node) {
   if (node->kind != ND_VAR) {
@@ -23,10 +24,19 @@ void gen(Node* node) {
       printf("  mov rax, [rax]\n");
       printf("  push rax\n");
       return;
-    case ND_FUNCCALL:
+    case ND_FUNCCALL: {
+      int arg_count = 0;
+      for (Node* arg = node->args; arg; arg = arg->next) {
+        gen(arg);
+        arg_count++;
+      }
+      for (int i = arg_count - 1; i >= 0; i--) {
+        printf("  pop %s\n", arg_regs[i]);
+      }
       printf("  call %.*s\n", node->len, node->name);
       printf("  push rax\n");
       return;
+    }
     case ND_ASSIGN:
       gen_lval(node->lhs);
       gen(node->rhs);

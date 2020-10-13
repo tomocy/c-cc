@@ -4,6 +4,9 @@ set -u
 
 cat << EOF | cc -xc -c -o tmp.o -
 int test() { return 5; }
+int testadd(int a, int b) { return a + b; }
+int testaddmul(int a, int b, int c) { return a + b * c; }
+int testsum(int a, int b, int c, int d, int e, int f) { return a + b + c + d + e + f; }
 EOF
 
 assert() {
@@ -70,5 +73,8 @@ assert 4 '{ {2;} {3;} 4; }'
 assert 1 '{ a = 0; b = a; c = b; return a == c; }'
 assert 5 'i=0; while (i < 5) { i = i + 1; }'
 assert 5 'test();'
+assert 13 'testadd(6, 7);'
+assert 62 'testaddmul(6, 7, 8);'
+assert 21 'testsum(1, 2, 3, 4, 5, 6);'
 
 echo "OK"

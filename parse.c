@@ -54,6 +54,21 @@ Node* new_node_var(Token* tok) {
 
 Node* expr();
 
+Node* func_args() {
+  expect("(");
+  Node head = {};
+  Node* cur = &head;
+  while (!consume(")")) {
+    if (cur != &head) {
+      expect(",");
+    }
+
+    cur->next = expr();
+    cur = cur->next;
+  }
+  return head.next;
+}
+
 Node* primary() {
   if (consume("(")) {
     Node* node = expr();
@@ -67,8 +82,7 @@ Node* primary() {
       node->name = token->str;
       node->len = token->len;
       token = token->next;
-      expect("(");
-      expect(")");
+      node->args = func_args();
       return node;
     }
 
