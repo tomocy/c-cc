@@ -156,7 +156,17 @@ Node* expr() { return assign(); }
 
 Node* stmt() {
   Node* node;
-  if (consume("return")) {
+  if (consume("if")) {
+    expect("(");
+    node = new_node(ND_IF, NULL, NULL);
+    node->cond = expr();
+    expect(")");
+    node->then = stmt();
+    if (consume("else")) {
+      node->els = stmt();
+    }
+    return node;
+  } else if (consume("return")) {
     node = new_node(ND_RETURN, expr(), NULL);
   } else {
     node = expr();

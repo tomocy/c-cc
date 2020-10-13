@@ -1,5 +1,7 @@
 #include "cc.h"
 
+int label_count = 0;
+
 void gen_lval(Node* node) {
   if (node->kind != ND_VAR) {
     error("non left value");
@@ -36,6 +38,20 @@ void gen(Node* node) {
       printf("  mov rsp, rbp\n");
       printf("  pop rbp\n");
       printf("  ret\n");
+      return;
+    case ND_IF:
+      gen(node->cond);
+      int lelse = label_count++;
+      int lend = label_count++;
+      printf("  pop rax\n");
+      printf("  cmp rax, 0\n");
+      printf("  je .Lelse%d\n", lelse);
+      gen(node->then);
+      printf(".Lelse%d:\n", lelse);
+      if (node->els) {
+        gen(node->els);
+      }
+      printf(".Lend%d:\n", lend);
       return;
     default:
       break;
