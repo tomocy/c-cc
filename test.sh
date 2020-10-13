@@ -62,5 +62,8 @@ assert 4 'a=0; if (a) 5; else 4;'
 assert 5 'i=0; while (i < 5) i = i + 1;'
 assert 3 'i=3; while (0) i = i + 1;'
 assert 5 'for (i=0; i < 5; i = i + 1) i;'
+assert 4 '{ {2;} {3;} 4; }'
+assert 1 '{ a = 0; b = a; c = b; return a == c; }'
+assert 5 'i=0; while (i < 5) { i = i + 1; }'
 
 echo "OK"

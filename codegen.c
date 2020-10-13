@@ -74,6 +74,11 @@ void gen(Node* node) {
       printf(".Lend%d:\n", lend);
       return;
     }
+    case ND_BLOCK:
+      for (Node* body = node->body; body; body = body->next) {
+        gen(body);
+      }
+      return;
     default:
       break;
   }

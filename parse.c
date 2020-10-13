@@ -156,7 +156,18 @@ Node* expr() { return assign(); }
 
 Node* stmt() {
   Node* node;
-  if (consume("if")) {
+  if (consume("{")) {
+    Node head;
+    Node* cur = &head;
+    while (!consume("}")) {
+      cur->next = stmt();
+      cur = cur->next;
+    }
+
+    node = new_node(ND_BLOCK, NULL, NULL);
+    node->body = head.next;
+    return node;
+  } else if (consume("if")) {
     expect("(");
     node = new_node(ND_IF, NULL, NULL);
     node->cond = expr();

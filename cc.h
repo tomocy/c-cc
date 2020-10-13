@@ -24,6 +24,7 @@ struct Token {
 };
 
 typedef enum {
+  ND_BLOCK,
   ND_IF,
   ND_FOR,
   ND_RETURN,
@@ -51,6 +52,8 @@ struct Node {
   Node* inc;
   Node* then;
   Node* els;
+  Node* next;
+  Node* body;
   int val;
   int offset;
 };
