@@ -251,8 +251,21 @@ Node* func_decl() {
   node->name = token->str;
   node->len = token->len;
   token = token->next;
+
   expect("(");
-  expect(")");
+  Node head = {};
+  Node* cur = &head;
+  while (!consume(")")) {
+    if (cur != &head) {
+      expect(",");
+    }
+
+    cur->next = new_node_var(token);
+    cur = cur->next;
+    token = token->next;
+  }
+  node->params = head.next;
+
   node->body = bloc_stmt();
   return node;
 }

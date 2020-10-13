@@ -101,12 +101,18 @@ void gen(Node* node) {
         gen(body);
       }
       return;
-    case ND_FUNC:
+    case ND_FUNC: {
       printf(".global %.*s\n", node->len, node->name);
       printf("%.*s:\n", node->len, node->name);
       printf("  push rbp\n");
       printf("  mov rbp, rsp\n");
       printf("  sub rsp, %d\n", 8 * count_local_vars());
+      int i = 0;
+      for (Node* param = node->params; param; param = param->next) {
+        gen_lval(param);
+        printf("  pop rax\n");
+        printf("  mov [rax], %s\n", arg_regs[i++]);
+      }
 
       gen(node->body);
       printf("  pop rax\n");
@@ -115,6 +121,7 @@ void gen(Node* node) {
       printf("  pop rbp\n");
       printf("  ret\n");
       return;
+    }
     default:
       break;
   }

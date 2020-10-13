@@ -77,5 +77,9 @@ assert 13 'main() { testadd(6, 7); }'
 assert 62 'main() { testaddmul(6, 7, 8); }'
 assert 21 'main() { testsum(1, 2, 3, 4, 5, 6); }'
 assert 3 'three() { return 3; } main() { return three(); }'
+assert 3 'add(a, b) { return a + b; } main() { return add(1, 2); }'
+assert 3 'a() { c=1; } add(a, b) { return a+b; } main() { return add(1, 2); }'
+assert 62 'addmul(a, b, c) { return a + b * c; } main() { return addmul(6, 7, 8); }'
+assert 21 'sum(a, b, c, d, e, f) { return a+b+c+d+e+f; } main() { return sum(1, 2, 3, 4, 5, 6); }'
 
 echo "OK"

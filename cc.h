@@ -58,6 +58,7 @@ struct Node {
   Node* body;
   char* name;
   Node* args;
+  Node* params;
   int len;
   int val;
   int offset;
