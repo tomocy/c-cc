@@ -29,31 +29,25 @@ Node* new_num_node(int val) {
   return node;
 }
 
-Var* find_var(Token* tok) {
-  if (tok->kind != TK_IDENT) {
-    error("non ident");
-  }
-
+Var* find_var(char* name, int len) {
   for (Var* var = local_vars; var; var = var->next) {
-    if (var->len == tok->len && memcmp(var->name, tok->str, tok->len) == 0) {
+    if (var->len == len && memcmp(var->name, name, len) == 0) {
       return var;
     }
   }
-
   return NULL;
 }
 
-Node* new_var_node(Token* tok) {
+Node* new_var_node(char* name, int len) {
   Node* node = new_node(ND_VAR);
-
-  Var* var = find_var(tok);
+  Var* var = find_var(name, len);
   if (var) {
     node->offset = var->offset;
   } else {
     var = calloc(1, sizeof(Var));
     var->next = local_vars;
-    var->name = tok->str;
-    var->len = tok->len;
+    var->name = name;
+    var->len = len;
     var->offset = (local_vars) ? local_vars->offset + 8 : 8;
     node->offset = var->offset;
     local_vars = var;
@@ -71,7 +65,6 @@ Node* func_args() {
     if (cur != &head) {
       expect(",");
     }
-
     cur->next = expr();
     cur = cur->next;
   }
@@ -95,7 +88,10 @@ Node* primary() {
       return node;
     }
 
-    Node* node = new_var_node(token);
+    if (!find_var(token->str, token->len)) {
+      error_at(token->str, "undefined ident");
+    }
+    Node* node = new_var_node(token->str, token->len);
     token = token->next;
     return node;
   }
@@ -234,6 +230,14 @@ Node* stmt() {
     Node* node = new_unary_node(ND_RETURN, expr());
     expect(";");
     return node;
+  } else if (consume("int")) {
+    if (token->kind != TK_IDENT) {
+      error_at(token->str, "expected an ident");
+    }
+    Node* node = new_var_node(token->str, token->len);
+    token = token->next;
+    expect(";");
+    return node;
   } else {
     Node* node = expr();
     expect(";");
@@ -257,9 +261,8 @@ Node* bloc_stmt() {
 
 Node* func_decl() {
   if (token->kind != TK_IDENT) {
-    error_at(token->str, "expected ident");
+    error_at(token->str, "expected an ident");
   }
-
   Node* node = new_node(ND_FUNC);
   node->name = token->str;
   node->len = token->len;
@@ -272,8 +275,10 @@ Node* func_decl() {
     if (cur != &head) {
       expect(",");
     }
-
-    cur->next = new_var_node(token);
+    if (token->kind != TK_IDENT) {
+      error_at(token->str, "expected an ident");
+    }
+    cur->next = new_var_node(token->str, token->len);
     cur = cur->next;
     token = token->next;
   }

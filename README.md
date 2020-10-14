@@ -9,7 +9,8 @@ stmt = expr ";" |
     "if" "(" expr ")" stmt ("else" stmt)? | 
     "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt | 
-    "return" expr ";"
+    "return" expr ";" |
+    "int" ident ";"
 expr = assign
 assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*
