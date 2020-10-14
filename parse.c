@@ -108,6 +108,10 @@ Node* unary() {
     return primary();
   } else if (consume("-")) {
     return new_binary_node(ND_SUB, new_num_node(0), primary());
+  } else if (consume("&")) {
+    return new_unary_node(ND_ADDR, unary());
+  } else if (consume("*")) {
+    return new_unary_node(ND_DEREF, unary());
   } else {
     return primary();
   }

@@ -114,7 +114,7 @@ void tokenize() {
       continue;
     }
 
-    if (strchr("+-*/()<>=;{},", *p)) {
+    if (strchr("+-*/()<>=;{},&", *p)) {
       cur->next = new_token(TK_RESERVED, p++, 1);
       cur = cur->next;
       continue;

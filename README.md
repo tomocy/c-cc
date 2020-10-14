@@ -16,7 +16,7 @@ equality = realtional ("==" relational | "!=" relational)*
 relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
 mul = unary ("*" unary | "/" unary)*
-unary = ("+" | "-")? primary
+unary = ("+" | "-")? primary | ("&" | "*") unary
 primary = num | ident func-args? | "(" expr ")"
 func-args = "(" (expr (, expr)*)? ")"
 ```

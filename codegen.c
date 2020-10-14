@@ -10,14 +10,21 @@ void genln(char* fmt, ...) {
   printf("\n");
 }
 
-void gen_lval(Node* node) {
-  if (node->kind != ND_VAR) {
-    error("non left value");
-  }
+void gen(Node* node);
 
-  genln("  mov rax, rbp");
-  genln("  sub rax, %d", node->offset);
-  genln("  push rax");
+void gen_lval(Node* node) {
+  switch (node->kind) {
+    case ND_VAR:
+      genln("  mov rax, rbp");
+      genln("  sub rax, %d", node->offset);
+      genln("  push rax");
+      break;
+    case ND_DEREF:
+      gen(node->lhs);
+      break;
+    default:
+      error("non left value");
+  }
 }
 
 int count_local_vars() {
@@ -106,6 +113,15 @@ void gen(Node* node) {
       genln("  pop rax");
       genln("  mov [rax], rdi");
       genln("  push rdi");
+      return;
+    case ND_ADDR:
+      gen_lval(node->lhs);
+      return;
+    case ND_DEREF:
+      gen(node->lhs);
+      genln("  pop rax");
+      genln("  mov rax, [rax]");
+      genln("  push rax");
       return;
     case ND_NUM:
       genln("  push %d", node->val);
