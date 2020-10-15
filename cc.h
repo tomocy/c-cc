@@ -24,6 +24,18 @@ struct Token {
 };
 
 typedef enum {
+  TY_INT,
+  TY_PTR,
+} TypeKind;
+
+typedef struct Type Type;
+
+struct Type {
+  TypeKind kind;
+  Type* ptr_to;
+};
+
+typedef enum {
   ND_FUNC,
   ND_BLOCK,
   ND_IF,
@@ -60,6 +72,7 @@ struct Node {
   Node* args;
   Node* params;
   Node* next;
+  Type* type;
   int val;
   char* name;
   int len;
@@ -70,6 +83,7 @@ typedef struct Var Var;
 
 struct Var {
   Var* next;
+  Type* type;
   char* name;
   int len;
   int offset;

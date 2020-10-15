@@ -83,5 +83,8 @@ assert 62 'int addmul(int a, int b, int c) { return a + b * c; } int main() { re
 assert 21 'int sum(int a, int b, int c, int d, int e, int f) { return a+b+c+d+e+f; } int main() { return sum(1, 2, 3, 4, 5, 6); }'
 assert 3 'int main() { int x; x = 3; int y; y = &x; return *y; }'
 assert 5 'int main() { int x; x = 3; int y; y = &x; *y = 5; return x; }'
+assert 5 'int main() { int x; x = 3; int* y; y = &x; *y = 5; return x; }'
+assert 3 'int main() { int x; x = 3; int* y; y = &x; int** z; z = &y; return **z; }'
+assert 7 'int* a(int val) { int x; x = val; return &x; } int main() { int* y; y = a(7); return *y; }'
 
 echo "OK"

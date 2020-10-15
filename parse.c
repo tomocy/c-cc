@@ -38,21 +38,48 @@ Var* find_var(char* name, int len) {
   return NULL;
 }
 
-Node* new_var_node(char* name, int len) {
-  Node* node = new_node(ND_VAR);
+Var* new_var(Type* type, char* name, int len) {
+  Var* var = calloc(1, sizeof(Var));
+  var->next = local_vars;
+  var->type = type;
+  var->name = name;
+  var->len = len;
+  var->offset = (local_vars) ? local_vars->offset + 8 : 8;
+  local_vars = var;
+  return var;
+}
+
+Var* find_or_new_var(Type* type, char* name, int len) {
   Var* var = find_var(name, len);
   if (var) {
-    node->offset = var->offset;
-  } else {
-    var = calloc(1, sizeof(Var));
-    var->next = local_vars;
-    var->name = name;
-    var->len = len;
-    var->offset = (local_vars) ? local_vars->offset + 8 : 8;
-    node->offset = var->offset;
-    local_vars = var;
+    return var;
   }
+  return new_var(type, name, len);
+}
+
+Node* new_var_node(Type* ty, int offset) {
+  Node* node = new_node(ND_VAR);
+  node->type = ty;
+  node->offset = offset;
   return node;
+}
+
+Type* new_type(TypeKind kind) {
+  Type* type = calloc(1, sizeof(Type));
+  type->kind = kind;
+  return type;
+}
+
+Type* type() {
+  expect("int");
+  Type* cur = new_type(TY_INT);
+
+  while (consume("*")) {
+    Type* head = new_type(TY_PTR);
+    head->ptr_to = cur;
+    cur = head;
+  }
+  return cur;
 }
 
 Node* expr();
@@ -88,10 +115,11 @@ Node* primary() {
       return node;
     }
 
-    if (!find_var(token->str, token->len)) {
+    Var* var = find_var(token->str, token->len);
+    if (!var) {
       error_at(token->str, "undefined ident");
     }
-    Node* node = new_var_node(token->str, token->len);
+    Node* node = new_var_node(var->type, var->offset);
     token = token->next;
     return node;
   }
@@ -230,11 +258,14 @@ Node* stmt() {
     Node* node = new_unary_node(ND_RETURN, expr());
     expect(";");
     return node;
-  } else if (consume("int")) {
+  } else if (equal(token, "int")) {
+    Type* ty = type();
+
     if (token->kind != TK_IDENT) {
       error_at(token->str, "expected an ident");
     }
-    Node* node = new_var_node(token->str, token->len);
+    Var* var = find_or_new_var(ty, token->str, token->len);
+    Node* node = new_var_node(var->type, var->offset);
     token = token->next;
     expect(";");
     return node;
@@ -260,12 +291,13 @@ Node* bloc_stmt() {
 }
 
 Node* func_def() {
-  expect("int");
+  Type* ty = type();
 
   if (token->kind != TK_IDENT) {
     error_at(token->str, "expected an ident");
   }
   Node* node = new_node(ND_FUNC);
+  node->type = ty;
   node->name = token->str;
   node->len = token->len;
   token = token->next;
@@ -278,12 +310,13 @@ Node* func_def() {
       expect(",");
     }
 
-    expect("int");
+    Type* ty = type();
 
     if (token->kind != TK_IDENT) {
       error_at(token->str, "expected an ident");
     }
-    cur->next = new_var_node(token->str, token->len);
+    Var* var = find_or_new_var(ty, token->str, token->len);
+    cur->next = new_var_node(var->type, var->offset);
     cur = cur->next;
     token = token->next;
   }
