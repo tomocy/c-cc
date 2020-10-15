@@ -3,10 +3,20 @@
 set -u
 
 cat << EOF | cc -xc -c -o tmp.o -
+#include <stdlib.h>
+
 int test() { return 5; }
 int testadd(int a, int b) { return a + b; }
 int testaddmul(int a, int b, int c) { return a + b * c; }
 int testsum(int a, int b, int c, int d, int e, int f) { return a + b + c + d + e + f; }
+void testalloc(int** p, int a, int b, int c, int d) {
+  void* vs = calloc(4, 8);
+  *(int*)vs = a;
+  *(int*)(vs + 8) = b;
+  *(int*)(vs + 16) = c;
+  *(int*)(vs + 24) = d;
+  *p = vs;
+}
 EOF
 
 assert() {
@@ -32,6 +42,8 @@ assert 21 'int main() { 5+20-4; }'
 assert 41 'int main() {  12 + 34 - 5 ; }'
 assert 47 'int main() { 5+6*7; }'
 assert 8 'int main() { 5+6/2; }'
+assert 60 'int main() { 3*4*5; }'
+assert 2 'int main() { 3*4/6; }'
 assert 15 'int main() { 5*(9-6); }'
 assert 4 'int main() { (3+5)/2; }'
 assert 10 'int main() { -10+20; }'
@@ -86,5 +98,10 @@ assert 5 'int main() { int x; x = 3; int y; y = &x; *y = 5; return x; }'
 assert 5 'int main() { int x; x = 3; int* y; y = &x; *y = 5; return x; }'
 assert 3 'int main() { int x; x = 3; int* y; y = &x; int** z; z = &y; return **z; }'
 assert 7 'int* a(int val) { int x; x = val; return &x; } int main() { int* y; y = a(7); return *y; }'
+assert 1 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *p; }'
+assert 2 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *(p + 1); }'
+assert 4 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *(p + 2); }'
+assert 8 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *(p + 3); }'
+assert 2 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *(p + 3 - 2); }'
 
 echo "OK"

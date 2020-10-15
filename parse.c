@@ -4,6 +4,43 @@ Node* codes;
 
 Var* local_vars;
 
+Type* new_type(TypeKind kind) {
+  Type* type = calloc(1, sizeof(Type));
+  type->kind = kind;
+  return type;
+}
+
+Node* add_type(Node* node) {
+  if (node->type) {
+    return node;
+  }
+
+  switch (node->kind) {
+    case ND_EQ:
+    case ND_NE:
+    case ND_LT:
+    case ND_LE:
+    case ND_NUM:
+      node->type = new_type(TY_INT);
+      break;
+    case ND_ASSIGN:
+    case ND_DEREF:
+    case ND_ADD:
+    case ND_SUB:
+    case ND_MUL:
+    case ND_DIV:
+      node->type = node->lhs->type;
+      break;
+    case ND_ADDR:
+      node->type = new_type(TY_PTR);
+      node->type->ptr_to = node->lhs->type;
+      break;
+    default:
+      break;
+  }
+  return node;
+}
+
 Node* new_node(NodeKind kind) {
   Node* node = calloc(1, sizeof(Node));
   node->kind = kind;
@@ -13,20 +50,20 @@ Node* new_node(NodeKind kind) {
 Node* new_unary_node(NodeKind kind, Node* lhs) {
   Node* node = new_node(kind);
   node->lhs = lhs;
-  return node;
+  return add_type(node);
 }
 
 Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   Node* node = new_node(kind);
   node->lhs = lhs;
   node->rhs = rhs;
-  return node;
+  return add_type(node);
 }
 
 Node* new_num_node(int val) {
   Node* node = new_node(ND_NUM);
   node->val = val;
-  return node;
+  return add_type(node);
 }
 
 Var* find_var(char* name, int len) {
@@ -62,12 +99,6 @@ Node* new_var_node(Type* ty, int offset) {
   node->type = ty;
   node->offset = offset;
   return node;
-}
-
-Type* new_type(TypeKind kind) {
-  Type* type = calloc(1, sizeof(Type));
-  type->kind = kind;
-  return type;
 }
 
 Type* type() {
@@ -160,9 +191,31 @@ Node* add() {
 
   for (;;) {
     if (consume("+")) {
-      node = new_binary_node(ND_ADD, node, mul());
+      Node* rhs = mul();
+      if (node->type->kind == TY_PTR && rhs->type->kind == TY_PTR) {
+        error_at(token->str, "invalid operands");
+      } else if (node->type->kind == TY_INT && rhs->type->kind == TY_INT) {
+        node = new_binary_node(ND_ADD, node, rhs);
+      } else if (node->type->kind == TY_PTR && rhs->type->kind == TY_INT) {
+        rhs = new_binary_node(ND_MUL, rhs, new_num_node(8));
+        node = new_binary_node(ND_ADD, node, rhs);
+      } else {
+        node = new_binary_node(ND_MUL, node, new_num_node(8));
+        node = new_binary_node(ND_ADD, node, rhs);
+      }
     } else if (consume("-")) {
-      node = new_binary_node(ND_SUB, node, mul());
+      Node* rhs = mul();
+      if (node->type->kind == TY_PTR && rhs->type->kind == TY_PTR) {
+        error_at(token->str, "invalid operands");
+      } else if (node->type->kind == TY_INT && rhs->type->kind == TY_INT) {
+        node = new_binary_node(ND_SUB, node, rhs);
+      } else if (node->type->kind == TY_PTR && rhs->type->kind == TY_INT) {
+        rhs = new_binary_node(ND_MUL, rhs, new_num_node(8));
+        node = new_binary_node(ND_SUB, node, rhs);
+      } else {
+        node = new_binary_node(ND_MUL, node, new_num_node(8));
+        node = new_binary_node(ND_SUB, node, rhs);
+      }
     } else {
       return node;
     }
