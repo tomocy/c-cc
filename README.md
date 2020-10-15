@@ -2,8 +2,8 @@
 
 ## Production rule
 ```
-program = func-decl*
-func-decl = ident ident "(" (ident (, ident)*)? ")" bloc-stmt
+program = func-def*
+func-def = ident "(" (ident (, ident)*)? ")" bloc-stmt
 bloc-stmt = "{" stmt* "}"
 stmt = expr ";" | 
     "if" "(" expr ")" stmt ("else" stmt)? | 

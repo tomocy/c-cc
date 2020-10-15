@@ -259,7 +259,7 @@ Node* bloc_stmt() {
   return node;
 }
 
-Node* func_decl() {
+Node* func_def() {
   if (token->kind != TK_IDENT) {
     error_at(token->str, "expected an ident");
   }
@@ -292,7 +292,7 @@ void program() {
   Node head = {};
   Node* cur = &head;
   while (!at_eof()) {
-    cur->next = func_decl();
+    cur->next = func_def();
     cur = cur->next;
   }
   codes = head.next;
