@@ -103,5 +103,8 @@ assert 2 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *(p + 1); }'
 assert 4 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *(p + 2); }'
 assert 8 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *(p + 3); }'
 assert 2 'int main() { int* p; testalloc(&p, 1, 2, 4, 8); return *(p + 3 - 2); }'
+assert 8 'int main() { return sizeof 1; }'
+assert 8 'int main() { int a; return sizeof(a); }'
+assert 8 'int main() { int a; return sizeof(&a); }'
 
 echo "OK"
