@@ -260,6 +260,8 @@ Node* bloc_stmt() {
 }
 
 Node* func_def() {
+  expect("int");
+
   if (token->kind != TK_IDENT) {
     error_at(token->str, "expected an ident");
   }
@@ -275,6 +277,9 @@ Node* func_def() {
     if (cur != &head) {
       expect(",");
     }
+
+    expect("int");
+
     if (token->kind != TK_IDENT) {
       error_at(token->str, "expected an ident");
     }

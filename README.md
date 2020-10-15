@@ -3,7 +3,7 @@
 ## Production rule
 ```
 program = func-def*
-func-def = ident "(" (ident (, ident)*)? ")" bloc-stmt
+func-def = "int" ident "(" ("int" ident (, "int" ident)*)? ")" bloc-stmt
 bloc-stmt = "{" stmt* "}"
 stmt = expr ";" | 
     "if" "(" expr ")" stmt ("else" stmt)? | 
