@@ -72,8 +72,16 @@ bool is_alnum(char c) {
          ('0' <= c && c <= '9');
 }
 
+bool is_identable1(char c) {
+  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+bool is_identable2(char c) {
+  return is_identable1(c) || ('0' <= c && c <= '9');
+}
+
 bool equal_str(char* p, char* keyword) {
-  return startswith(p, keyword) && !is_alnum(p[strlen(keyword)]);
+  return startswith(p, keyword) && !is_identable2(p[strlen(keyword)]);
 }
 
 bool consume_keyword(Token** tok, char** p) {
@@ -127,11 +135,11 @@ void tokenize() {
       continue;
     }
 
-    if ('a' <= *p && *p <= 'z') {
+    if (is_identable1(*p)) {
       char* start = p;
       do {
         p++;
-      } while ('a' <= *p && *p <= 'z');
+      } while (is_identable2(*p));
       cur->next = new_token(TK_IDENT, start, p - start);
       cur = cur->next;
       continue;
