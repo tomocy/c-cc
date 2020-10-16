@@ -23,7 +23,10 @@ assert() {
   expected="$1"
   input="$2"
 
-  ./cc "$input" > tmp.s
+  if ! ./cc "$input" > tmp.s; then
+    echo "$input"
+    exit 1
+  fi
   cc -o tmp tmp.s tmp.o
   ./tmp
   actual="$?"
@@ -79,8 +82,8 @@ assert 3 'int main() { int returnx; returnx = 3; }'
 assert 5 'int main() { int a; a=1; if (a) 5; }'
 assert 4 'int main() { int a; a=0; if (a) 5; else 4; }'
 assert 5 'int main() { int i; i=0; while (i < 5) i = i + 1; }'
-assert 3 'int main() { int i; i=3; while (0) i = i + 1; }'
-assert 5 'int main() { int i; for (i=0; i < 5; i = i + 1) i; }'
+assert 3 'int main() { int i; i=3; while (0) i = i + 1; i; }'
+assert 5 'int main() { int i; for (i=0; i < 5; i = i + 1) i; i; }'
 assert 4 'int main() { { {2;} {3;} 4; } }'
 assert 1 'int main() { { int a; a = 0; int b; b = a; int c; c = b; return a == c; } }'
 assert 5 'int main() { int i; i=0; while (i < 5) { i = i + 1; } }'
@@ -118,5 +121,6 @@ assert 1 'int main() { int a[10]; a[0] = 1; return a[0]; }'
 assert 2 'int main() { int a[10]; a[0] = 1; a[1] = 2; return a[1]; }'
 assert 3 'int main() { int a[10]; a[0] = 1; a[4] = 2; return a[0] + a[4] + a[9]; }'
 assert 4 'int main() { int a[10]; int middle; middle = 9 - 5; a[middle] = 4; return a[middle]; }'
+assert 55 'int main() { int a[10]; int i; for (i = 0; i < 10; i = i + 1) { a[i] = i + 1; } int sum; sum = 0; for (i = 0; i < 10; i = i + 1) { sum = sum + a[i]; } return sum; }'
 
 echo "OK"
