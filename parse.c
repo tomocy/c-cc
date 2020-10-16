@@ -24,7 +24,6 @@ Node* add_type(Node* node) {
       node->type = new_type(TY_INT);
       break;
     case ND_ASSIGN:
-    case ND_DEREF:
     case ND_ADD:
     case ND_SUB:
     case ND_MUL:
@@ -35,6 +34,12 @@ Node* add_type(Node* node) {
       node->type = new_type(TY_PTR);
       node->type->ptr_to = node->lhs->type;
       break;
+    case ND_DEREF:
+      if (node->lhs->type->kind == TY_PTR) {
+        node->type = node->lhs->type->ptr_to;
+      } else {
+        node->type = node->lhs->type;
+      }
     default:
       break;
   }
