@@ -26,13 +26,17 @@ struct Token {
 typedef enum {
   TY_INT,
   TY_PTR,
+  TY_ARRAY,
 } TypeKind;
 
 typedef struct Type Type;
 
 struct Type {
   TypeKind kind;
+  int size;
   Type* ptr_to;
+  Type* array_of;
+  int len;
 };
 
 typedef enum {

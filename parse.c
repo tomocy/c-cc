@@ -10,6 +10,20 @@ Type* new_type(TypeKind kind) {
   return type;
 }
 
+Type* add_size(Type* type) {
+  switch (type->kind) {
+    case TY_INT:
+    case TY_PTR:
+      type->size = 8;
+      break;
+    case TY_ARRAY:
+      type->size = type->array_of->size * type->len;
+      break;
+  }
+
+  return type;
+}
+
 Node* add_type(Node* node) {
   if (node->type) {
     return node;
@@ -21,7 +35,7 @@ Node* add_type(Node* node) {
     case ND_LT:
     case ND_LE:
     case ND_NUM:
-      node->type = new_type(TY_INT);
+      node->type = add_size(new_type(TY_INT));
       break;
     case ND_ASSIGN:
     case ND_ADD:
@@ -31,12 +45,14 @@ Node* add_type(Node* node) {
       node->type = node->lhs->type;
       break;
     case ND_ADDR:
-      node->type = new_type(TY_PTR);
+      node->type = add_size(new_type(TY_PTR));
       node->type->ptr_to = node->lhs->type;
       break;
     case ND_DEREF:
       if (node->lhs->type->kind == TY_PTR) {
         node->type = node->lhs->type->ptr_to;
+      } else if (node->lhs->type->kind == TY_ARRAY) {
+        node->type = node->lhs->type->array_of;
       } else {
         node->type = node->lhs->type;
       }
@@ -86,7 +102,7 @@ Var* new_var(Type* type, char* name, int len) {
   var->type = type;
   var->name = name;
   var->len = len;
-  var->offset = (local_vars) ? local_vars->offset + 8 : 8;
+  var->offset = (local_vars) ? local_vars->offset + type->size : type->size;
   local_vars = var;
   return var;
 }
@@ -108,10 +124,10 @@ Node* new_var_node(Type* ty, int offset) {
 
 Type* type() {
   expect("int");
-  Type* cur = new_type(TY_INT);
+  Type* cur = add_size(new_type(TY_INT));
 
   while (consume("*")) {
-    Type* head = new_type(TY_PTR);
+    Type* head = add_size(new_type(TY_PTR));
     head->ptr_to = cur;
     cur = head;
   }
@@ -173,8 +189,8 @@ Node* unary() {
   } else if (consume("*")) {
     return new_unary_node(ND_DEREF, unary());
   } else if (consume("sizeof")) {
-    unary();
-    return new_num_node(8);
+    Node* node = unary();
+    return new_num_node(node->type->size);
   } else {
     return primary();
   }
@@ -194,34 +210,38 @@ Node* mul() {
   }
 }
 
+bool is_pointable(Node* node) {
+  return node->type->kind == TY_PTR || node->type->kind == TY_ARRAY;
+}
+
 Node* add() {
   Node* node = mul();
 
   for (;;) {
     if (consume("+")) {
       Node* rhs = mul();
-      if (node->type->kind == TY_PTR && rhs->type->kind == TY_PTR) {
+      if (is_pointable(node) && is_pointable(rhs)) {
         error_at(token->str, "invalid operands");
       } else if (node->type->kind == TY_INT && rhs->type->kind == TY_INT) {
         node = new_binary_node(ND_ADD, node, rhs);
-      } else if (node->type->kind == TY_PTR && rhs->type->kind == TY_INT) {
-        rhs = new_binary_node(ND_MUL, rhs, new_num_node(8));
+      } else if (is_pointable(node) && rhs->type->kind == TY_INT) {
+        rhs = new_binary_node(ND_MUL, rhs, new_num_node(rhs->type->size));
         node = new_binary_node(ND_ADD, node, rhs);
       } else {
-        node = new_binary_node(ND_MUL, node, new_num_node(8));
+        node = new_binary_node(ND_MUL, node, new_num_node(rhs->type->size));
         node = new_binary_node(ND_ADD, node, rhs);
       }
     } else if (consume("-")) {
       Node* rhs = mul();
-      if (node->type->kind == TY_PTR && rhs->type->kind == TY_PTR) {
+      if (is_pointable(node) && is_pointable(rhs)) {
         error_at(token->str, "invalid operands");
       } else if (node->type->kind == TY_INT && rhs->type->kind == TY_INT) {
         node = new_binary_node(ND_SUB, node, rhs);
-      } else if (node->type->kind == TY_PTR && rhs->type->kind == TY_INT) {
-        rhs = new_binary_node(ND_MUL, rhs, new_num_node(8));
+      } else if (is_pointable(node) && rhs->type->kind == TY_INT) {
+        rhs = new_binary_node(ND_MUL, rhs, new_num_node(rhs->type->size));
         node = new_binary_node(ND_SUB, node, rhs);
       } else {
-        node = new_binary_node(ND_MUL, node, new_num_node(8));
+        node = new_binary_node(ND_MUL, node, new_num_node(rhs->type->size));
         node = new_binary_node(ND_SUB, node, rhs);
       }
     } else {
@@ -325,9 +345,21 @@ Node* stmt() {
     if (token->kind != TK_IDENT) {
       error_at(token->str, "expected an ident");
     }
-    Var* var = find_or_new_var(ty, token->str, token->len);
-    Node* node = new_var_node(var->type, var->offset);
+    Token* ident = token;
     token = token->next;
+
+    if (consume("[")) {
+      int len = expect_num();
+      expect("]");
+      Type* array = new_type(TY_ARRAY);
+      array->len = len;
+      array->array_of = ty;
+      ty = add_size(array);
+    }
+
+    Var* var = find_or_new_var(ty, ident->str, ident->len);
+    Node* node = new_var_node(var->type, var->offset);
+
     expect(";");
     return node;
   } else {

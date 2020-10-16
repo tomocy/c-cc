@@ -27,12 +27,12 @@ void gen_lval(Node* node) {
   }
 }
 
-int count_local_vars() {
-  int len = 0;
+int sum_local_var_size() {
+  int sum = 0;
   for (Var* var = local_vars; var; var = var->next) {
-    len++;
+    sum += var->type->size;
   }
-  return len;
+  return sum;
 }
 
 void gen(Node* node) {
@@ -42,7 +42,7 @@ void gen(Node* node) {
       genln("%.*s:", node->len, node->name);
       genln("  push rbp");
       genln("  mov rbp, rsp");
-      genln("  sub rsp, %d", 8 * count_local_vars());
+      genln("  sub rsp, %d", sum_local_var_size());
       int i = 0;
       for (Node* param = node->params; param; param = param->next) {
         gen_lval(param);
@@ -129,7 +129,9 @@ void gen(Node* node) {
     case ND_VAR:
       gen_lval(node);
       genln("  pop rax");
-      genln("  mov rax, [rax]");
+      if (node->type->kind != TY_ARRAY) {
+        genln("  mov rax, [rax]");
+      }
       genln("  push rax");
       return;
     case ND_FUNCCALL: {

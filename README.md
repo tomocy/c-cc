@@ -10,7 +10,7 @@ stmt = expr ";" |
     "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt | 
     "return" expr ";" |
-    type ident ";"
+    type ident ("[" num "]")? ";"
 expr = assign
 assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*
