@@ -122,18 +122,6 @@ Node* new_var_node(Type* ty, int offset) {
   return node;
 }
 
-Type* type() {
-  expect("int");
-  Type* cur = add_size(new_type(TY_INT));
-
-  while (consume("*")) {
-    Type* head = add_size(new_type(TY_PTR));
-    head->ptr_to = cur;
-    cur = head;
-  }
-  return cur;
-}
-
 Node* expr();
 
 Node* func_args() {
@@ -305,6 +293,46 @@ Node* assign() {
 
 Node* expr() { return assign(); }
 
+Type* type_head() {
+  expect("int");
+  Type* cur = add_size(new_type(TY_INT));
+
+  while (consume("*")) {
+    Type* head = add_size(new_type(TY_PTR));
+    head->ptr_to = cur;
+    cur = head;
+  }
+  return cur;
+}
+
+Type* type_tail(Type* head) {
+  expect("[");
+  int len = expect_num();
+  expect("]");
+
+  Type* array = new_type(TY_ARRAY);
+  array->len = len;
+  array->array_of = head;
+  return add_size(array);
+}
+
+Node* var_decl() {
+  Type* ty = type_head();
+
+  if (token->kind != TK_IDENT) {
+    error_at(token->str, "expected an ident");
+  }
+  Token* ident = token;
+  token = token->next;
+
+  if (equal(token, "[")) {
+    ty = type_tail(ty);
+  }
+
+  Var* var = find_or_new_var(ty, ident->str, ident->len);
+  return new_var_node(var->type, var->offset);
+}
+
 Node* bloc_stmt();
 
 Node* stmt() {
@@ -349,26 +377,7 @@ Node* stmt() {
     expect(";");
     return node;
   } else if (equal(token, "int")) {
-    Type* ty = type();
-
-    if (token->kind != TK_IDENT) {
-      error_at(token->str, "expected an ident");
-    }
-    Token* ident = token;
-    token = token->next;
-
-    if (consume("[")) {
-      int len = expect_num();
-      expect("]");
-      Type* array = new_type(TY_ARRAY);
-      array->len = len;
-      array->array_of = ty;
-      ty = add_size(array);
-    }
-
-    Var* var = find_or_new_var(ty, ident->str, ident->len);
-    Node* node = new_var_node(var->type, var->offset);
-
+    Node* node = var_decl();
     expect(";");
     return node;
   } else {
@@ -393,7 +402,7 @@ Node* bloc_stmt() {
 }
 
 Node* func_def() {
-  Type* ty = type();
+  Type* ty = type_head();
 
   if (token->kind != TK_IDENT) {
     error_at(token->str, "expected an ident");
@@ -412,15 +421,9 @@ Node* func_def() {
       expect(",");
     }
 
-    Type* ty = type();
-
-    if (token->kind != TK_IDENT) {
-      error_at(token->str, "expected an ident");
-    }
-    Var* var = find_or_new_var(ty, token->str, token->len);
-    cur->next = new_var_node(var->type, var->offset);
+    Node* param = var_decl();
+    cur->next = param;
     cur = cur->next;
-    token = token->next;
   }
   node->params = head.next;
 
