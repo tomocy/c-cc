@@ -124,5 +124,14 @@ assert 4 'int main() { int a[10]; int middle; middle = 9 - 5; a[middle] = 4; ret
 assert 55 'int main() { int a[10]; int i; for (i = 0; i < 10; i = i + 1) { a[i] = i + 1; } int sum; sum = 0; for (i = 0; i < 10; i = i + 1) { sum = sum + a[i]; } return sum; }'
 assert 15 'int a(int aa) { int aaa; aaa = aa + aa / 2; return aaa; } int main() { int aa; aa = 10; int aaa; aaa = a(aa); return aaa; }'
 assert 60 'int add_vals(int* vs, int n) { int i; for (i = 0; i < 5; i = i + 1) {  vs[i] = vs[i] + n; } return 0; }  int main() { int vs[5]; int i; for (i = 0; i < 5; i = i + 1) { vs[i] = i; } add_vals(vs, 10); int sum; sum = 0; for (i = 0; i < 5; i = i + 1) { sum = sum + vs[i]; } return sum; }'
+assert 0 'int x; int main() { return x; }'
+assert 3 'int x; int main() { x=3; return x; }'
+assert 7 'int x; int y; int main() { x=3; y=4; return x+y; }'
+assert 0 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[0]; }'
+assert 1 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[1]; }'
+assert 2 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[2]; }'
+assert 3 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[3]; }'
+assert 8 'int x; int main() { return sizeof(x); }'
+assert 32 'int x[4]; int main() { return sizeof(x); }'
 
 echo "OK"

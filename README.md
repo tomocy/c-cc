@@ -2,8 +2,11 @@
 
 ## Production rule
 ```
-program = func_def*
+program = (func_def | var_decl)*
 func_def = type_head ident "(" (type_head ident (, type_head ident)*)? ")" bloc_stmt
+var_decl = type_head ident type_tail?
+type_head = "int" "*"*
+type_tail = ("[" num "]")
 bloc_stmt = "{" stmt* "}"
 stmt = expr ";" | 
     "if" "(" expr ")" stmt ("else" stmt)? | 
@@ -11,9 +14,6 @@ stmt = expr ";" |
     "while" "(" expr ")" stmt | 
     "return" expr ";" |
     var_decl ";"
-var_decl = type_head ident type_tail?
-type_head = "int" "*"*
-type_tail = ("[" num "]")
 expr = assign
 assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*

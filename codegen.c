@@ -31,7 +31,10 @@ void gen(Node* node);
 
 void gen_lval(Node* node) {
   switch (node->kind) {
-    case ND_VAR:
+    case ND_GLOBAL_VAR:
+      genln("  lea rax, %.*s[rip]", node->len, node->name);
+      break;
+    case ND_LOCAL_VAR:
       genln("  mov rax, rbp");
       genln("  sub rax, %d", node->offset);
       break;
@@ -75,6 +78,12 @@ void gen(Node* node) {
       genln("  ret");
       return;
     }
+    case ND_GLOBAL_VAR_DECL:
+      printf(".data\n");
+      printf(".global %.*s\n", node->len, node->name);
+      printf("%.*s:\n", node->len, node->name);
+      printf("  .zero %d\n", node->type->size);
+      return;
     case ND_BLOCK:
       for (Node* body = node->body; body; body = body->next) {
         gen(body);
@@ -142,7 +151,8 @@ void gen(Node* node) {
       push_val(node->val);
       pop("rax");
       return;
-    case ND_VAR:
+    case ND_GLOBAL_VAR:
+    case ND_LOCAL_VAR:
       gen_lval(node);
       if (node->type->kind != TY_ARRAY) {
         genln("  mov rax, [rax]");

@@ -2,6 +2,7 @@
 
 Node* codes;
 
+Var* global_vars;
 Var* local_vars;
 
 Type* new_type(TypeKind kind) {
@@ -87,8 +88,8 @@ Node* new_num_node(int val) {
   return add_type(node);
 }
 
-Var* find_var(char* name, int len) {
-  for (Var* var = local_vars; var; var = var->next) {
+Var* find_var_from(Var* head, char* name, int len) {
+  for (Var* var = head; var; var = var->next) {
     if (var->len == len && memcmp(var->name, name, len) == 0) {
       return var;
     }
@@ -96,7 +97,17 @@ Var* find_var(char* name, int len) {
   return NULL;
 }
 
-Var* new_var(Type* type, char* name, int len) {
+Var* new_global_var(Type* type, char* name, int len) {
+  Var* var = calloc(1, sizeof(Var));
+  var->next = global_vars;
+  var->type = type;
+  var->name = name;
+  var->len = len;
+  global_vars = var;
+  return var;
+}
+
+Var* new_local_var(Type* type, char* name, int len) {
   Var* var = calloc(1, sizeof(Var));
   var->next = local_vars;
   var->type = type;
@@ -107,16 +118,32 @@ Var* new_var(Type* type, char* name, int len) {
   return var;
 }
 
-Var* find_or_new_var(Type* type, char* name, int len) {
-  Var* var = find_var(name, len);
+Var* find_or_new_local_var(Type* type, char* name, int len) {
+  Var* var = find_var_from(local_vars, name, len);
   if (var) {
     return var;
   }
-  return new_var(type, name, len);
+  return new_local_var(type, name, len);
 }
 
-Node* new_var_node(Type* ty, int offset) {
-  Node* node = new_node(ND_VAR);
+Node* new_global_var_decl_node(Type* ty, char* name, int len) {
+  Node* node = new_node(ND_GLOBAL_VAR_DECL);
+  node->type = ty;
+  node->name = name;
+  node->len = len;
+  return node;
+}
+
+Node* new_global_var_node(Type* ty, char* name, int len) {
+  Node* node = new_node(ND_GLOBAL_VAR);
+  node->type = ty;
+  node->name = name;
+  node->len = len;
+  return node;
+}
+
+Node* new_local_var_node(Type* ty, int offset) {
+  Node* node = new_node(ND_LOCAL_VAR);
   node->type = ty;
   node->offset = offset;
   return node;
@@ -155,11 +182,17 @@ Node* primary() {
       return node;
     }
 
-    Var* var = find_var(token->str, token->len);
+    Var* var = find_var_from(local_vars, token->str, token->len);
+    if (var) {
+      Node* node = new_local_var_node(var->type, var->offset);
+      token = token->next;
+      return node;
+    }
+    var = find_var_from(global_vars, token->str, token->len);
     if (!var) {
       error_at(token->str, "undefined ident");
     }
-    Node* node = new_var_node(var->type, var->offset);
+    Node* node = new_global_var_node(var->type, var->name, var->len);
     token = token->next;
     return node;
   }
@@ -316,7 +349,7 @@ Type* type_tail(Type* head) {
   return add_size(array);
 }
 
-Node* var_decl() {
+Node* local_var_decl() {
   Type* ty = type_head();
 
   if (token->kind != TK_IDENT) {
@@ -329,8 +362,8 @@ Node* var_decl() {
     ty = type_tail(ty);
   }
 
-  Var* var = find_or_new_var(ty, ident->str, ident->len);
-  return new_var_node(var->type, var->offset);
+  Var* var = find_or_new_local_var(ty, ident->str, ident->len);
+  return new_local_var_node(var->type, var->offset);
 }
 
 Node* bloc_stmt();
@@ -377,7 +410,7 @@ Node* stmt() {
     expect(";");
     return node;
   } else if (equal(token, "int")) {
-    Node* node = var_decl();
+    Node* node = local_var_decl();
     expect(";");
     return node;
   } else {
@@ -401,6 +434,23 @@ Node* bloc_stmt() {
   return node;
 }
 
+Node* global_var_decl() {
+  Type* ty = type_head();
+
+  if (token->kind != TK_IDENT) {
+    error_at(token->str, "expected an ident");
+  }
+  Token* ident = token;
+  token = token->next;
+
+  if (equal(token, "[")) {
+    ty = type_tail(ty);
+  }
+
+  Var* var = new_global_var(ty, ident->str, ident->len);
+  return new_global_var_decl_node(var->type, var->name, var->len);
+}
+
 Node* func_def() {
   Type* ty = type_head();
 
@@ -421,7 +471,7 @@ Node* func_def() {
       expect(",");
     }
 
-    Node* param = var_decl();
+    Node* param = local_var_decl();
     cur->next = param;
     cur = cur->next;
   }
@@ -438,7 +488,22 @@ void program() {
   Node head = {};
   Node* cur = &head;
   while (!at_eof()) {
-    cur->next = func_def();
+    Token* start = token;
+
+    type_head();
+    if (token->kind != TK_IDENT) {
+      error_at(token->str, "expected an ident");
+    }
+    token = token->next;
+    bool is_func = equal(token, "(");
+    token = start;
+
+    if (is_func) {
+      cur->next = func_def();
+    } else {
+      cur->next = global_var_decl();
+      expect(";");
+    }
     cur = cur->next;
   }
   codes = head.next;

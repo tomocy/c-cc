@@ -51,6 +51,7 @@ struct Var {
 
 typedef enum {
   ND_FUNC,
+  ND_GLOBAL_VAR_DECL,
   ND_BLOCK,
   ND_IF,
   ND_FOR,
@@ -67,7 +68,8 @@ typedef enum {
   ND_MUL,
   ND_DIV,
   ND_NUM,
-  ND_VAR,
+  ND_GLOBAL_VAR,
+  ND_LOCAL_VAR,
   ND_FUNCCALL,
 } NodeKind;
 
