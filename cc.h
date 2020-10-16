@@ -39,6 +39,16 @@ struct Type {
   int len;
 };
 
+typedef struct Var Var;
+
+struct Var {
+  Var* next;
+  Type* type;
+  char* name;
+  int len;
+  int offset;
+};
+
 typedef enum {
   ND_FUNC,
   ND_BLOCK,
@@ -75,19 +85,10 @@ struct Node {
   Node* body;
   Node* args;
   Node* params;
+  Var* local_vars;
   Node* next;
   Type* type;
   int val;
-  char* name;
-  int len;
-  int offset;
-};
-
-typedef struct Var Var;
-
-struct Var {
-  Var* next;
-  Type* type;
   char* name;
   int len;
   int offset;
@@ -98,8 +99,6 @@ extern char* user_input;
 extern Token* token;
 
 extern Node* codes;
-
-extern Var* local_vars;
 
 void error(char* fmt, ...);
 

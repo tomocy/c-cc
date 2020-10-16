@@ -425,6 +425,9 @@ Node* func_def() {
   node->params = head.next;
 
   node->body = bloc_stmt();
+
+  node->local_vars = local_vars;
+  local_vars = NULL;
   return node;
 }
 

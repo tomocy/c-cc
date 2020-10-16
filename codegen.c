@@ -43,9 +43,9 @@ void gen_lval(Node* node) {
   }
 }
 
-int sum_local_var_size() {
+int sum_vars_size(Var* vars) {
   int sum = 0;
-  for (Var* var = local_vars; var; var = var->next) {
+  for (Var* var = vars; var; var = var->next) {
     sum += var->type->size;
   }
   return sum;
@@ -60,7 +60,7 @@ void gen(Node* node) {
       genln("%.*s:", node->len, node->name);
       push_reg("rbp");
       genln("  mov rbp, rsp");
-      genln("  sub rsp, %d", align(sum_local_var_size(), 16));
+      genln("  sub rsp, %d", align(sum_vars_size(node->local_vars), 16));
       int i = 0;
       for (Node* param = node->params; param; param = param->next) {
         gen_lval(param);
