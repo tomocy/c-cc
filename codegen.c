@@ -51,6 +51,8 @@ int sum_local_var_size() {
   return sum;
 }
 
+int align(int n, int align) { return (n + align - 1) / align * align; }
+
 void gen(Node* node) {
   switch (node->kind) {
     case ND_FUNC: {
@@ -58,7 +60,7 @@ void gen(Node* node) {
       genln("%.*s:", node->len, node->name);
       push_reg("rbp");
       genln("  mov rbp, rsp");
-      genln("  sub rsp, %d", sum_local_var_size());
+      genln("  sub rsp, %d", align(sum_local_var_size(), 16));
       int i = 0;
       for (Node* param = node->params; param; param = param->next) {
         gen_lval(param);
