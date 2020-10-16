@@ -2,9 +2,9 @@
 
 ## Production rule
 ```
-program = func-def*
-func-def = type ident "(" (type ident (, "int" ident)*)? ")" bloc-stmt
-bloc-stmt = "{" stmt* "}"
+program = func_def*
+func_def = type ident "(" (type ident (, "int" ident)*)? ")" bloc_stmt
+bloc_stmt = "{" stmt* "}"
 stmt = expr ";" | 
     "if" "(" expr ")" stmt ("else" stmt)? | 
     "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
@@ -19,7 +19,7 @@ add = mul ("+" mul | "-" mul)*
 mul = unary ("*" unary | "/" unary)*
 unary = ("+" | "-")? primary | ("&" | "*") unary | "sizeof" unary | postfix
 postfix = primary ("[" expr "]")?
-primary = num | ident func-args? | "(" expr ")"
-func-args = "(" (expr (, expr)*)? ")"
+primary = num | ident func_args? | "(" expr ")"
+func_args = "(" (expr (, expr)*)? ")"
 type = "int" "*"*
 ```
