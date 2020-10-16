@@ -179,6 +179,39 @@ Node* primary() {
   return new_num_node(expect_num());
 }
 
+bool is_pointable(Node* node) {
+  return node->type->kind == TY_PTR || node->type->kind == TY_ARRAY;
+}
+
+Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
+  if (kind != ND_ADD && kind != ND_SUB) {
+    error("expected an add");
+  }
+
+  if (is_pointable(lhs) && is_pointable(rhs)) {
+    error_at(token->str, "invalid operands");
+  }
+  if (lhs->type->kind == TY_INT && rhs->type->kind == TY_INT) {
+    return new_binary_node(kind, lhs, rhs);
+  } else if (is_pointable(lhs) && rhs->type->kind == TY_INT) {
+    rhs = new_binary_node(ND_MUL, rhs, new_num_node(rhs->type->size));
+    return new_binary_node(kind, lhs, rhs);
+  } else {
+    lhs = new_binary_node(ND_MUL, lhs, new_num_node(rhs->type->size));
+    return new_binary_node(kind, lhs, rhs);
+  }
+}
+
+Node* postfix() {
+  Node* node = primary();
+  if (!consume("[")) {
+    return node;
+  }
+  Node* index = expr();
+  expect("]");
+  return new_unary_node(ND_DEREF, new_add_node(ND_ADD, node, index));
+}
+
 Node* unary() {
   if (consume("+")) {
     return primary();
@@ -192,7 +225,7 @@ Node* unary() {
     Node* node = unary();
     return new_num_node(node->type->size);
   } else {
-    return primary();
+    return postfix();
   }
 }
 
@@ -210,40 +243,16 @@ Node* mul() {
   }
 }
 
-bool is_pointable(Node* node) {
-  return node->type->kind == TY_PTR || node->type->kind == TY_ARRAY;
-}
-
 Node* add() {
   Node* node = mul();
 
   for (;;) {
     if (consume("+")) {
       Node* rhs = mul();
-      if (is_pointable(node) && is_pointable(rhs)) {
-        error_at(token->str, "invalid operands");
-      } else if (node->type->kind == TY_INT && rhs->type->kind == TY_INT) {
-        node = new_binary_node(ND_ADD, node, rhs);
-      } else if (is_pointable(node) && rhs->type->kind == TY_INT) {
-        rhs = new_binary_node(ND_MUL, rhs, new_num_node(rhs->type->size));
-        node = new_binary_node(ND_ADD, node, rhs);
-      } else {
-        node = new_binary_node(ND_MUL, node, new_num_node(rhs->type->size));
-        node = new_binary_node(ND_ADD, node, rhs);
-      }
+      node = new_add_node(ND_ADD, node, rhs);
     } else if (consume("-")) {
       Node* rhs = mul();
-      if (is_pointable(node) && is_pointable(rhs)) {
-        error_at(token->str, "invalid operands");
-      } else if (node->type->kind == TY_INT && rhs->type->kind == TY_INT) {
-        node = new_binary_node(ND_SUB, node, rhs);
-      } else if (is_pointable(node) && rhs->type->kind == TY_INT) {
-        rhs = new_binary_node(ND_MUL, rhs, new_num_node(rhs->type->size));
-        node = new_binary_node(ND_SUB, node, rhs);
-      } else {
-        node = new_binary_node(ND_MUL, node, new_num_node(rhs->type->size));
-        node = new_binary_node(ND_SUB, node, rhs);
-      }
+      node = new_add_node(ND_SUB, node, rhs);
     } else {
       return node;
     }

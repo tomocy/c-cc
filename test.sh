@@ -114,5 +114,9 @@ assert 1 'int main() { int a[10]; *a = 1; return *a; }'
 assert 2 'int main() { int a[10]; *a = 1; *(a + 1) = 2; return *(a + 1); }'
 assert 3 'int main() { int a[10]; *a = 1; *(a + 4) = 2; return *a + *(a + 4) + *(a + 9); }'
 assert 4 'int main() { int a[10]; int* last; last = a + 9; *(last - 5) = 4; return *(last - 5); }'
+assert 1 'int main() { int a[10]; a[0] = 1; return a[0]; }'
+assert 2 'int main() { int a[10]; a[0] = 1; a[1] = 2; return a[1]; }'
+assert 3 'int main() { int a[10]; a[0] = 1; a[4] = 2; return a[0] + a[4] + a[9]; }'
+assert 4 'int main() { int a[10]; int middle; middle = 9 - 5; a[middle] = 4; return a[middle]; }'
 
 echo "OK"
