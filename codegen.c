@@ -199,7 +199,13 @@ void gen_data() {
     printf(".data\n");
     printf(".global %.*s\n", var->len, var->name);
     printf("%.*s:\n", var->len, var->name);
-    printf("  .zero %d\n", var->type->size);
+    if (var->data) {
+      for (int i = 0; i < var->type->len; i++) {
+        printf("  .byte %d\n", var->data[i]);
+      }
+    } else {
+      printf("  .zero %d\n", var->type->size);
+    }
   }
 }
 

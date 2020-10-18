@@ -130,6 +130,16 @@ void tokenize() {
       continue;
     }
 
+    if (is_identable1(*p)) {
+      char* start = p;
+      do {
+        p++;
+      } while (is_identable2(*p));
+      cur->next = new_token(TK_IDENT, start, p - start);
+      cur = cur->next;
+      continue;
+    }
+
     if (isdigit(*p)) {
       cur->next = new_token(TK_NUM, p, 0);
       cur->next->val = strtol(p, &p, 10);
@@ -137,12 +147,16 @@ void tokenize() {
       continue;
     }
 
-    if (is_identable1(*p)) {
-      char* start = p;
-      do {
-        p++;
-      } while (is_identable2(*p));
-      cur->next = new_token(TK_IDENT, start, p - start);
+    if (*p == '"') {
+      char* start = p++;
+      for (; *p != '"'; p++) {
+        if (*p == '\n' || *p == '\0') {
+          error_at(start, "unclosed string literal");
+        }
+      }
+      char* end = p++;
+
+      cur->next = new_token(TK_STR, start + 1, end - start - 1);
       cur = cur->next;
       continue;
     }

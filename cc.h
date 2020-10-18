@@ -9,6 +9,7 @@
 typedef enum {
   TK_RESERVED,
   TK_NUM,
+  TK_STR,
   TK_IDENT,
   TK_EOF,
 } TokenKind;
@@ -35,8 +36,7 @@ typedef struct Type Type;
 struct Type {
   TypeKind kind;
   int size;
-  Type* ptr_to;
-  Type* array_of;
+  Type* base;
   int len;
 };
 
@@ -101,6 +101,7 @@ struct Obj {
   Node* params;
   Node* body;
   int offset;
+  char* data;
 };
 
 extern char* user_input;

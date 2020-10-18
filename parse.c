@@ -5,6 +5,8 @@ Obj* codes;
 Obj* gvars;
 Obj* lvars;
 
+int str_count = 0;
+
 void add_code(Obj* code) {
   if (code->kind != OJ_FUNC && code->kind != OJ_GVAR) {
     error("expected a top level object");
@@ -51,7 +53,7 @@ Type* add_size(Type* type) {
       type->size = 8;
       break;
     case TY_ARRAY:
-      type->size = type->array_of->size * type->len;
+      type->size = type->base->size * type->len;
       break;
   }
 
@@ -80,13 +82,13 @@ Node* add_type(Node* node) {
       break;
     case ND_ADDR:
       node->type = add_size(new_type(TY_PTR));
-      node->type->ptr_to = node->lhs->type;
+      node->type->base = node->lhs->type;
       break;
     case ND_DEREF:
       if (node->lhs->type->kind == TY_PTR) {
-        node->type = node->lhs->type->ptr_to;
+        node->type = node->lhs->type->base;
       } else if (node->lhs->type->kind == TY_ARRAY) {
-        node->type = node->lhs->type->array_of;
+        node->type = node->lhs->type->base;
       } else {
         node->type = node->lhs->type;
       }
@@ -148,6 +150,18 @@ Obj* new_gvar(Type* type, char* name, int len) {
   var->len = len;
   add_gvar(var);
   return var;
+}
+
+Obj* new_str(char* name, int len, char* data, int data_len) {
+  Type* ty = new_type(TY_ARRAY);
+  ty->base = add_size(new_type(TY_CHAR));
+  ty->len = data_len + 1;
+  ty = add_size(ty);
+  Obj* str = new_gvar(ty, name, len);
+  str->data = malloc(ty->size);
+  sprintf(str->data, "%.*s", data_len, data);
+  add_code(str);
+  return str;
 }
 
 Obj* new_lvar(Type* type, char* name, int len) {
@@ -234,7 +248,18 @@ Node* primary() {
     return node;
   }
 
-  return new_num_node(expect_num());
+  if (token->kind == TK_NUM) {
+    return new_num_node(expect_num());
+  }
+
+  if (token->kind != TK_STR) {
+    error_at(token->str, "expected a string literal");
+  }
+  char* name = calloc(20, sizeof(char));
+  int len = sprintf(name, ".Lstr%d", str_count++);
+  Obj* str = new_str(name, len, token->str, token->len);
+  token = token->next;
+  return new_var_node(str);
 }
 
 bool is_num(Node* node) {
@@ -256,10 +281,10 @@ Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
   if (is_num(lhs) && is_num(rhs)) {
     return new_binary_node(kind, lhs, rhs);
   } else if (is_pointable(lhs) && is_num(rhs)) {
-    rhs = new_binary_node(ND_MUL, rhs, new_num_node(rhs->type->size));
+    rhs = new_binary_node(ND_MUL, rhs, new_num_node(lhs->type->base->size));
     return new_binary_node(kind, lhs, rhs);
   } else {
-    lhs = new_binary_node(ND_MUL, lhs, new_num_node(rhs->type->size));
+    lhs = new_binary_node(ND_MUL, lhs, new_num_node(rhs->type->base->size));
     return new_binary_node(kind, lhs, rhs);
   }
 }
@@ -378,7 +403,7 @@ Type* type_head() {
 
   while (consume("*")) {
     Type* head = add_size(new_type(TY_PTR));
-    head->ptr_to = cur;
+    head->base = cur;
     cur = head;
   }
   return cur;
@@ -391,7 +416,7 @@ Type* type_tail(Type* head) {
 
   Type* array = new_type(TY_ARRAY);
   array->len = len;
-  array->array_of = head;
+  array->base = head;
   return add_size(array);
 }
 
