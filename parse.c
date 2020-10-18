@@ -5,6 +5,30 @@ Node* codes;
 Node* global_vars;
 Node* local_vars;
 
+void add_code(Node* code) {
+  if (code->kind != ND_FUNC && code->kind != ND_GLOBAL_VAR_DECL) {
+    error("expected a top level node");
+  }
+  code->next = codes;
+  codes = code;
+}
+
+void add_global_var(Node* var) {
+  if (var->kind != ND_GLOBAL_VAR) {
+    error("expected a global var");
+  }
+  var->next = global_vars;
+  global_vars = var;
+}
+
+void add_local_var(Node* var) {
+  if (var->kind != ND_LOCAL_VAR) {
+    error("expected a local var");
+  }
+  var->next = local_vars;
+  local_vars = var;
+}
+
 Type* new_type(TypeKind kind) {
   Type* type = calloc(1, sizeof(Type));
   type->kind = kind;
@@ -93,6 +117,9 @@ Node* new_num_node(int val) {
 
 Node* find_var_from(Node* head, char* name, int len) {
   for (Node* var = head; var; var = var->next) {
+    if (var->kind != ND_GLOBAL_VAR && var->kind != ND_LOCAL_VAR) {
+      continue;
+    }
     if (var->len == len && memcmp(var->name, name, len) == 0) {
       return var;
     }
@@ -101,23 +128,21 @@ Node* find_var_from(Node* head, char* name, int len) {
 }
 
 Node* new_global_var(Type* type, char* name, int len) {
-  Node* var = calloc(1, sizeof(Node));
-  var->next = global_vars;
+  Node* var = new_node(ND_GLOBAL_VAR);
   var->type = type;
   var->name = name;
   var->len = len;
-  global_vars = var;
+  add_global_var(var);
   return var;
 }
 
 Node* new_local_var(Type* type, char* name, int len) {
-  Node* var = calloc(1, sizeof(Node));
-  var->next = local_vars;
+  Node* var = new_node(ND_LOCAL_VAR);
   var->type = type;
   var->name = name;
   var->len = len;
   var->offset = (local_vars) ? local_vars->offset + type->size : type->size;
-  local_vars = var;
+  add_local_var(var);
   return var;
 }
 
@@ -508,8 +533,6 @@ Node* func_def() {
 }
 
 void program() {
-  Node head = {};
-  Node* cur = &head;
   while (!at_eof()) {
     Token* start = token;
 
@@ -521,13 +544,13 @@ void program() {
     bool is_func = equal(token, "(");
     token = start;
 
+    Node* node;
     if (is_func) {
-      cur->next = func_def();
+      node = func_def();
     } else {
-      cur->next = global_var_decl();
+      node = global_var_decl();
       expect(";");
     }
-    cur = cur->next;
+    add_code(node);
   }
-  codes = head.next;
 }
