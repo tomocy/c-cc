@@ -7,36 +7,6 @@ Obj* lvars;
 
 int str_count = 0;
 
-void add_code(Obj* code) {
-  if (code->kind != OJ_FUNC && code->kind != OJ_GVAR) {
-    error("expected a top level object");
-  }
-  code->next = codes;
-  codes = code;
-}
-
-void add_gvar(Obj* var) {
-  if (var->kind != OJ_GVAR) {
-    error("expected a global var");
-  }
-  var->next = gvars;
-  gvars = var;
-}
-
-void add_lvar(Obj* var) {
-  if (var->kind != OJ_LVAR) {
-    error("expected a local var");
-  }
-  var->next = lvars;
-  lvars = var;
-}
-
-Obj* new_obj(ObjKind kind) {
-  Obj* obj = calloc(1, sizeof(Obj));
-  obj->kind = kind;
-  return obj;
-}
-
 Type* new_type(TypeKind kind) {
   Type* type = calloc(1, sizeof(Type));
   type->kind = kind;
@@ -60,67 +30,34 @@ Type* add_size(Type* type) {
   return type;
 }
 
-Node* add_type(Node* node) {
-  if (node->type) {
-    return node;
+Obj* new_obj(ObjKind kind) {
+  Obj* obj = calloc(1, sizeof(Obj));
+  obj->kind = kind;
+  return obj;
+}
+
+void add_code(Obj* code) {
+  if (code->kind != OJ_FUNC && code->kind != OJ_GVAR) {
+    error("expected a top level object");
   }
+  code->next = codes;
+  codes = code;
+}
 
-  switch (node->kind) {
-    case ND_EQ:
-    case ND_NE:
-    case ND_LT:
-    case ND_LE:
-    case ND_NUM:
-      node->type = add_size(new_type(TY_INT));
-      break;
-    case ND_ASSIGN:
-    case ND_ADD:
-    case ND_SUB:
-    case ND_MUL:
-    case ND_DIV:
-      node->type = node->lhs->type;
-      break;
-    case ND_ADDR:
-      node->type = add_size(new_type(TY_PTR));
-      node->type->base = node->lhs->type;
-      break;
-    case ND_DEREF:
-      if (node->lhs->type->kind == TY_PTR) {
-        node->type = node->lhs->type->base;
-      } else if (node->lhs->type->kind == TY_ARRAY) {
-        node->type = node->lhs->type->base;
-      } else {
-        node->type = node->lhs->type;
-      }
-    default:
-      break;
+void add_gvar(Obj* var) {
+  if (var->kind != OJ_GVAR) {
+    error("expected a global var");
   }
-  return node;
+  var->next = gvars;
+  gvars = var;
 }
 
-Node* new_node(NodeKind kind) {
-  Node* node = calloc(1, sizeof(Node));
-  node->kind = kind;
-  return node;
-}
-
-Node* new_unary_node(NodeKind kind, Node* lhs) {
-  Node* node = new_node(kind);
-  node->lhs = lhs;
-  return add_type(node);
-}
-
-Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
-  Node* node = new_node(kind);
-  node->lhs = lhs;
-  node->rhs = rhs;
-  return add_type(node);
-}
-
-Node* new_num_node(int val) {
-  Node* node = new_node(ND_NUM);
-  node->val = val;
-  return add_type(node);
+void add_lvar(Obj* var) {
+  if (var->kind != OJ_LVAR) {
+    error("expected a local var");
+  }
+  var->next = lvars;
+  lvars = var;
 }
 
 Obj* find_var_from(Obj* head, char* name, int len) {
@@ -180,6 +117,69 @@ Obj* find_or_new_lvar(Type* type, char* name, int len) {
     return var;
   }
   return new_lvar(type, name, len);
+}
+
+Node* add_type(Node* node) {
+  if (node->type) {
+    return node;
+  }
+
+  switch (node->kind) {
+    case ND_EQ:
+    case ND_NE:
+    case ND_LT:
+    case ND_LE:
+    case ND_NUM:
+      node->type = add_size(new_type(TY_INT));
+      break;
+    case ND_ASSIGN:
+    case ND_ADD:
+    case ND_SUB:
+    case ND_MUL:
+    case ND_DIV:
+      node->type = node->lhs->type;
+      break;
+    case ND_ADDR:
+      node->type = add_size(new_type(TY_PTR));
+      node->type->base = node->lhs->type;
+      break;
+    case ND_DEREF:
+      if (node->lhs->type->kind == TY_PTR ||
+          node->lhs->type->kind == TY_ARRAY) {
+        node->type = node->lhs->type->base;
+      } else {
+        node->type = node->lhs->type;
+      }
+      break;
+    default:
+      break;
+  }
+  return node;
+}
+
+Node* new_node(NodeKind kind) {
+  Node* node = calloc(1, sizeof(Node));
+  node->kind = kind;
+  return node;
+}
+
+Node* new_unary_node(NodeKind kind, Node* lhs) {
+  Node* node = new_node(kind);
+  node->lhs = lhs;
+  return add_type(node);
+}
+
+Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
+  Node* node = new_node(kind);
+  node->lhs = lhs;
+  node->rhs = rhs;
+  return add_type(node);
+}
+
+Node* new_num_node(int val) {
+  Node* node = new_node(ND_NUM);
+  node->val = val;
+  return add_type(node);
 }
 
 Node* new_gvar_node(Type* type, char* name, int len) {
@@ -262,7 +262,7 @@ Node* primary() {
   return new_var_node(str);
 }
 
-bool is_num(Node* node) {
+bool is_numable(Node* node) {
   return node->type->kind == TY_INT || node->type->kind == TY_CHAR;
 }
 
@@ -278,9 +278,9 @@ Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
   if (is_pointable(lhs) && is_pointable(rhs)) {
     error_at(token->str, "invalid operands");
   }
-  if (is_num(lhs) && is_num(rhs)) {
+  if (is_numable(lhs) && is_numable(rhs)) {
     return new_binary_node(kind, lhs, rhs);
-  } else if (is_pointable(lhs) && is_num(rhs)) {
+  } else if (is_pointable(lhs) && is_numable(rhs)) {
     rhs = new_binary_node(ND_MUL, rhs, new_num_node(lhs->type->base->size));
     return new_binary_node(kind, lhs, rhs);
   } else {
@@ -437,7 +437,7 @@ Node* lvar() {
   return new_var_node(var);
 }
 
-bool equal_typename(Token* tok) {
+bool equal_type_name(Token* tok) {
   static char* tnames[] = {"int", "char"};
   int len = sizeof(tnames) / sizeof(char*);
   for (int i = 0; i < len; i++) {
@@ -491,7 +491,7 @@ Node* stmt() {
     Node* node = new_unary_node(ND_RETURN, expr());
     expect(";");
     return node;
-  } else if (equal_typename(token)) {
+  } else if (equal_type_name(token)) {
     Node* node = lvar();
     expect(";");
     return node;
