@@ -25,3 +25,9 @@ postfix = primary ("[" expr "]")?
 primary = num | ident func_args? | "(" expr ")"
 func_args = "(" (expr (, expr)*)? ")"
 ```
+
+## Build and Run docker image
+```
+docker build -t c-cc .
+docker run -it --rm -v $PWD:/home/cc/cc --name c-cc c-cc /bin/bash
+```
