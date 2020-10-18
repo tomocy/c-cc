@@ -32,10 +32,10 @@ void gen(Node* node);
 
 void gen_lval(Node* node) {
   switch (node->kind) {
-    case ND_GLOBAL_VAR:
+    case ND_GVAR:
       genln("  lea rax, %.*s[rip]", node->len, node->name);
       break;
-    case ND_LOCAL_VAR:
+    case ND_LVAR:
       genln("  mov rax, rbp");
       genln("  sub rax, %d", node->offset);
       break;
@@ -47,48 +47,8 @@ void gen_lval(Node* node) {
   }
 }
 
-int sum_vars_size(Node* vars) {
-  int sum = 0;
-  for (Node* var = vars; var; var = var->next) {
-    sum += var->type->size;
-  }
-  return sum;
-}
-
-int align(int n, int align) { return (n + align - 1) / align * align; }
-
 void gen(Node* node) {
   switch (node->kind) {
-    case ND_FUNC: {
-      genln(".global %.*s", node->len, node->name);
-      genln("%.*s:", node->len, node->name);
-      push_reg("rbp");
-      genln("  mov rbp, rsp");
-      genln("  sub rsp, %d", align(sum_vars_size(node->local_vars), 16));
-      int i = 0;
-      for (Node* param = node->params; param; param = param->next) {
-        gen_lval(param);
-        if (param->type->kind == TY_CHAR) {
-          genln("  mov [rax], %s", arg_regs8[i++]);
-        } else {
-          genln("  mov [rax], %s", arg_regs64[i++]);
-        }
-      }
-
-      gen(node->body);
-
-      genln(".Lreturn%d:", func_count++);
-      genln("  mov rsp, rbp");
-      pop("rbp");
-      genln("  ret");
-      return;
-    }
-    case ND_GLOBAL_VAR_DECL:
-      printf(".data\n");
-      printf(".global %.*s\n", node->len, node->name);
-      printf("%.*s:\n", node->len, node->name);
-      printf("  .zero %d\n", node->type->size);
-      return;
     case ND_BLOCK:
       for (Node* body = node->body; body; body = body->next) {
         gen(body);
@@ -158,8 +118,8 @@ void gen(Node* node) {
       push_val(node->val);
       pop("rax");
       return;
-    case ND_GLOBAL_VAR:
-    case ND_LOCAL_VAR:
+    case ND_GVAR:
+    case ND_LVAR:
       gen_lval(node);
       if (node->type->kind == TY_ARRAY) {
       } else if (node->type->kind == TY_CHAR) {
@@ -230,11 +190,64 @@ void gen(Node* node) {
   }
 }
 
+void gen_data() {
+  for (Obj* var = codes; var; var = var->next) {
+    if (var->kind != OJ_GVAR) {
+      continue;
+    }
+
+    printf(".data\n");
+    printf(".global %.*s\n", var->len, var->name);
+    printf("%.*s:\n", var->len, var->name);
+    printf("  .zero %d\n", var->type->size);
+  }
+}
+
+int sum_vars_size(Obj* vars) {
+  int sum = 0;
+  for (Obj* var = vars; var; var = var->next) {
+    sum += var->type->size;
+  }
+  return sum;
+}
+
+int align(int n, int align) { return (n + align - 1) / align * align; }
+
+void gen_text() {
+  for (Obj* func = codes; func; func = func->next) {
+    if (func->kind != OJ_FUNC) {
+      continue;
+    }
+
+    genln(".text");
+    genln(".global %.*s", func->len, func->name);
+    genln("%.*s:", func->len, func->name);
+    push_reg("rbp");
+    genln("  mov rbp, rsp");
+    genln("  sub rsp, %d", align(sum_vars_size(func->lvars), 16));
+    int i = 0;
+    for (Node* param = func->params; param; param = param->next) {
+      gen_lval(param);
+      if (param->type->kind == TY_CHAR) {
+        genln("  mov [rax], %s", arg_regs8[i++]);
+      } else {
+        genln("  mov [rax], %s", arg_regs64[i++]);
+      }
+    }
+
+    gen(func->body);
+
+    genln(".Lreturn%d:", func_count++);
+    genln("  mov rsp, rbp");
+    pop("rbp");
+    genln("  ret");
+  }
+}
+
 void gen_program() {
   genln(".intel_syntax noprefix");
-  for (Node* code = codes; code; code = code->next) {
-    gen(code);
-  }
+  gen_data();
+  gen_text();
   if (depth != 0) {
     error("push and pop do not offset each other: depth %d", depth);
   }

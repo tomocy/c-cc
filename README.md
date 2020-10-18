@@ -2,10 +2,12 @@
 
 ## Production rule
 ```
-program = (func_def | var_decl)*
-func_def = type_head ident "(" (type_head ident (, type_head ident)*)? ")" bloc_stmt
-var_decl = type_head ident type_tail?
-type_head = "int" "*"*
+program = (func | gvar)*
+func = type_head ident "(" (type_head ident (, type_head ident)*)? ")" bloc_stmt
+gvar = var ";"
+var = type_head ident type_tail?
+type_head = type_name "*"*
+type_name = "int" | "char"
 type_tail = ("[" num "]")
 bloc_stmt = "{" stmt* "}"
 stmt = expr ";" | 
@@ -13,7 +15,7 @@ stmt = expr ";" |
     "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt | 
     "return" expr ";" |
-    var_decl ";"
+    var ";"
 expr = assign
 assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*
@@ -22,7 +24,7 @@ add = mul ("+" mul | "-" mul)*
 mul = unary ("*" unary | "/" unary)*
 unary = ("+" | "-")? primary | ("&" | "*") unary | "sizeof" unary | postfix
 postfix = primary ("[" expr "]")?
-primary = num | ident func_args? | "(" expr ")"
+primary = "(" expr ")" | ident func_args? | num
 func_args = "(" (expr (, expr)*)? ")"
 ```
 

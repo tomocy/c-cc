@@ -1,32 +1,38 @@
 #include "cc.h"
 
-Node* codes;
+Obj* codes;
 
-Node* global_vars;
-Node* local_vars;
+Obj* gvars;
+Obj* lvars;
 
-void add_code(Node* code) {
-  if (code->kind != ND_FUNC && code->kind != ND_GLOBAL_VAR_DECL) {
-    error("expected a top level node");
+void add_code(Obj* code) {
+  if (code->kind != OJ_FUNC && code->kind != OJ_GVAR) {
+    error("expected a top level object");
   }
   code->next = codes;
   codes = code;
 }
 
-void add_global_var(Node* var) {
-  if (var->kind != ND_GLOBAL_VAR) {
+void add_gvar(Obj* var) {
+  if (var->kind != OJ_GVAR) {
     error("expected a global var");
   }
-  var->next = global_vars;
-  global_vars = var;
+  var->next = gvars;
+  gvars = var;
 }
 
-void add_local_var(Node* var) {
-  if (var->kind != ND_LOCAL_VAR) {
+void add_lvar(Obj* var) {
+  if (var->kind != OJ_LVAR) {
     error("expected a local var");
   }
-  var->next = local_vars;
-  local_vars = var;
+  var->next = lvars;
+  lvars = var;
+}
+
+Obj* new_obj(ObjKind kind) {
+  Obj* obj = calloc(1, sizeof(Obj));
+  obj->kind = kind;
+  return obj;
 }
 
 Type* new_type(TypeKind kind) {
@@ -115,9 +121,9 @@ Node* new_num_node(int val) {
   return add_type(node);
 }
 
-Node* find_var_from(Node* head, char* name, int len) {
-  for (Node* var = head; var; var = var->next) {
-    if (var->kind != ND_GLOBAL_VAR && var->kind != ND_LOCAL_VAR) {
+Obj* find_var_from(Obj* head, char* name, int len) {
+  for (Obj* var = head; var; var = var->next) {
+    if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
       continue;
     }
     if (var->len == len && memcmp(var->name, name, len) == 0) {
@@ -127,68 +133,66 @@ Node* find_var_from(Node* head, char* name, int len) {
   return NULL;
 }
 
-Node* find_var(char* name, int len) {
-  Node* var = find_var_from(local_vars, name, len);
+Obj* find_var(char* name, int len) {
+  Obj* var = find_var_from(lvars, name, len);
   if (var) {
     return var;
   }
-  return find_var_from(global_vars, name, len);
+  return find_var_from(gvars, name, len);
 }
 
-Node* new_global_var(Type* type, char* name, int len) {
-  Node* var = new_node(ND_GLOBAL_VAR);
+Obj* new_gvar(Type* type, char* name, int len) {
+  Obj* var = new_obj(OJ_GVAR);
   var->type = type;
   var->name = name;
   var->len = len;
-  add_global_var(var);
+  add_gvar(var);
   return var;
 }
 
-Node* new_local_var(Type* type, char* name, int len) {
-  Node* var = new_node(ND_LOCAL_VAR);
+Obj* new_lvar(Type* type, char* name, int len) {
+  Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
   var->len = len;
-  var->offset = (local_vars) ? local_vars->offset + type->size : type->size;
-  add_local_var(var);
+  var->offset = (lvars) ? lvars->offset + type->size : type->size;
+  add_lvar(var);
   return var;
 }
 
-Node* find_or_new_local_var(Type* type, char* name, int len) {
-  Node* var = find_var_from(local_vars, name, len);
+Obj* find_or_new_lvar(Type* type, char* name, int len) {
+  Obj* var = find_var_from(lvars, name, len);
   if (var) {
     return var;
   }
-  return new_local_var(type, name, len);
+  return new_lvar(type, name, len);
 }
 
-Node* new_global_var_decl_node(Type* ty, char* name, int len) {
-  Node* node = new_node(ND_GLOBAL_VAR_DECL);
-  node->type = ty;
+Node* new_gvar_node(Type* type, char* name, int len) {
+  Node* node = new_node(ND_GVAR);
+  node->type = type;
   node->name = name;
   node->len = len;
   return node;
 }
 
-Node* new_global_var_node(Type* ty, char* name, int len) {
-  Node* node = new_node(ND_GLOBAL_VAR);
-  node->type = ty;
-  node->name = name;
-  node->len = len;
-  return node;
-}
-
-Node* new_local_var_node(Type* ty, int offset) {
-  Node* node = new_node(ND_LOCAL_VAR);
-  node->type = ty;
+Node* new_lvar_node(Type* type, int offset) {
+  Node* node = new_node(ND_LVAR);
+  node->type = type;
   node->offset = offset;
   return node;
 }
 
-Node* copy_var_node(Node* node) {
-  return (node->kind == ND_GLOBAL_VAR)
-             ? new_global_var_node(node->type, node->name, node->len)
-             : new_local_var_node(node->type, node->offset);
+Node* new_var_node(Obj* obj) {
+  switch (obj->kind) {
+    case OJ_GVAR:
+      return new_gvar_node(obj->type, obj->name, obj->len);
+    case OJ_LVAR:
+      return new_lvar_node(obj->type, obj->offset);
+    default:
+      error("expected a variable object");
+      return NULL;
+  }
 }
 
 Node* expr();
@@ -224,10 +228,10 @@ Node* primary() {
       return node;
     }
 
-    Node* var = find_var(token->str, token->len);
-    var = copy_var_node(var);
+    Obj* var = find_var(token->str, token->len);
+    Node* node = new_var_node(var);
     token = token->next;
-    return var;
+    return node;
   }
 
   return new_num_node(expect_num());
@@ -391,7 +395,7 @@ Type* type_tail(Type* head) {
   return add_size(array);
 }
 
-Node* local_var_decl() {
+Node* lvar() {
   Type* ty = type_head();
 
   if (token->kind != TK_IDENT) {
@@ -404,8 +408,8 @@ Node* local_var_decl() {
     ty = type_tail(ty);
   }
 
-  Node* var = find_or_new_local_var(ty, ident->str, ident->len);
-  return copy_var_node(var);
+  Obj* var = find_or_new_lvar(ty, ident->str, ident->len);
+  return new_var_node(var);
 }
 
 bool equal_typename(Token* tok) {
@@ -463,7 +467,7 @@ Node* stmt() {
     expect(";");
     return node;
   } else if (equal_typename(token)) {
-    Node* node = local_var_decl();
+    Node* node = lvar();
     expect(";");
     return node;
   } else {
@@ -487,7 +491,7 @@ Node* bloc_stmt() {
   return node;
 }
 
-Node* global_var_decl() {
+void gvar() {
   Type* ty = type_head();
 
   if (token->kind != TK_IDENT) {
@@ -500,20 +504,20 @@ Node* global_var_decl() {
     ty = type_tail(ty);
   }
 
-  Node* var = new_global_var(ty, ident->str, ident->len);
-  return new_global_var_decl_node(var->type, var->name, var->len);
+  Obj* var = new_gvar(ty, ident->str, ident->len);
+  add_code(var);
 }
 
-Node* func_def() {
+void func() {
   Type* ty = type_head();
 
   if (token->kind != TK_IDENT) {
     error_at(token->str, "expected an ident");
   }
-  Node* node = new_node(ND_FUNC);
-  node->type = ty;
-  node->name = token->str;
-  node->len = token->len;
+  Obj* func = new_obj(OJ_FUNC);
+  func->type = ty;
+  func->name = token->str;
+  func->len = token->len;
   token = token->next;
 
   expect("(");
@@ -524,20 +528,25 @@ Node* func_def() {
       expect(",");
     }
 
-    Node* param = local_var_decl();
+    Node* param = lvar();
     cur->next = param;
     cur = cur->next;
   }
-  node->params = head.next;
+  func->params = head.next;
 
-  node->body = bloc_stmt();
+  func->body = bloc_stmt();
 
-  node->local_vars = local_vars;
-  local_vars = NULL;
-  return node;
+  func->lvars = lvars;
+  lvars = NULL;
+
+  add_code(func);
 }
 
 void program() {
+  codes = NULL;
+  gvars = NULL;
+  lvars = NULL;
+
   while (!at_eof()) {
     Token* start = token;
 
@@ -549,13 +558,11 @@ void program() {
     bool is_func = equal(token, "(");
     token = start;
 
-    Node* node;
     if (is_func) {
-      node = func_def();
+      func();
     } else {
-      node = global_var_decl();
+      gvar();
       expect(";");
     }
-    add_code(node);
   }
 }

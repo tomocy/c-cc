@@ -41,8 +41,6 @@ struct Type {
 };
 
 typedef enum {
-  ND_FUNC,
-  ND_GLOBAL_VAR_DECL,
   ND_BLOCK,
   ND_IF,
   ND_FOR,
@@ -59,15 +57,19 @@ typedef enum {
   ND_MUL,
   ND_DIV,
   ND_NUM,
-  ND_GLOBAL_VAR,
-  ND_LOCAL_VAR,
+  ND_GVAR,
+  ND_LVAR,
   ND_FUNCCALL,
 } NodeKind;
+
+typedef struct Obj Obj;
 
 typedef struct Node Node;
 
 struct Node {
+  Node* next;
   NodeKind kind;
+  Type* type;
   Node* lhs;
   Node* rhs;
   Node* init;
@@ -77,13 +79,27 @@ struct Node {
   Node* els;
   Node* body;
   Node* args;
-  Node* params;
-  Node* local_vars;
-  Node* next;
-  Type* type;
-  int val;
   char* name;
   int len;
+  int offset;
+  int val;
+};
+
+typedef enum {
+  OJ_FUNC,
+  OJ_GVAR,
+  OJ_LVAR,
+} ObjKind;
+
+struct Obj {
+  Obj* next;
+  ObjKind kind;
+  Type* type;
+  char* name;
+  int len;
+  Obj* lvars;
+  Node* params;
+  Node* body;
   int offset;
 };
 
@@ -91,7 +107,7 @@ extern char* user_input;
 
 extern Token* token;
 
-extern Node* codes;
+extern Obj* codes;
 
 void error(char* fmt, ...);
 
