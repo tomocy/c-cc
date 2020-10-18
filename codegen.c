@@ -47,9 +47,9 @@ void gen_lval(Node* node) {
   }
 }
 
-int sum_vars_size(Var* vars) {
+int sum_vars_size(Node* vars) {
   int sum = 0;
-  for (Var* var = vars; var; var = var->next) {
+  for (Node* var = vars; var; var = var->next) {
     sum += var->type->size;
   }
   return sum;

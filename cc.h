@@ -40,16 +40,6 @@ struct Type {
   int len;
 };
 
-typedef struct Var Var;
-
-struct Var {
-  Var* next;
-  Type* type;
-  char* name;
-  int len;
-  int offset;
-};
-
 typedef enum {
   ND_FUNC,
   ND_GLOBAL_VAR_DECL,
@@ -88,7 +78,7 @@ struct Node {
   Node* body;
   Node* args;
   Node* params;
-  Var* local_vars;
+  Node* local_vars;
   Node* next;
   Type* type;
   int val;

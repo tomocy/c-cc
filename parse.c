@@ -2,8 +2,8 @@
 
 Node* codes;
 
-Var* global_vars;
-Var* local_vars;
+Node* global_vars;
+Node* local_vars;
 
 Type* new_type(TypeKind kind) {
   Type* type = calloc(1, sizeof(Type));
@@ -91,8 +91,8 @@ Node* new_num_node(int val) {
   return add_type(node);
 }
 
-Var* find_var_from(Var* head, char* name, int len) {
-  for (Var* var = head; var; var = var->next) {
+Node* find_var_from(Node* head, char* name, int len) {
+  for (Node* var = head; var; var = var->next) {
     if (var->len == len && memcmp(var->name, name, len) == 0) {
       return var;
     }
@@ -100,8 +100,8 @@ Var* find_var_from(Var* head, char* name, int len) {
   return NULL;
 }
 
-Var* new_global_var(Type* type, char* name, int len) {
-  Var* var = calloc(1, sizeof(Var));
+Node* new_global_var(Type* type, char* name, int len) {
+  Node* var = calloc(1, sizeof(Node));
   var->next = global_vars;
   var->type = type;
   var->name = name;
@@ -110,8 +110,8 @@ Var* new_global_var(Type* type, char* name, int len) {
   return var;
 }
 
-Var* new_local_var(Type* type, char* name, int len) {
-  Var* var = calloc(1, sizeof(Var));
+Node* new_local_var(Type* type, char* name, int len) {
+  Node* var = calloc(1, sizeof(Node));
   var->next = local_vars;
   var->type = type;
   var->name = name;
@@ -121,8 +121,8 @@ Var* new_local_var(Type* type, char* name, int len) {
   return var;
 }
 
-Var* find_or_new_local_var(Type* type, char* name, int len) {
-  Var* var = find_var_from(local_vars, name, len);
+Node* find_or_new_local_var(Type* type, char* name, int len) {
+  Node* var = find_var_from(local_vars, name, len);
   if (var) {
     return var;
   }
@@ -185,7 +185,7 @@ Node* primary() {
       return node;
     }
 
-    Var* var = find_var_from(local_vars, token->str, token->len);
+    Node* var = find_var_from(local_vars, token->str, token->len);
     if (var) {
       Node* node = new_local_var_node(var->type, var->offset);
       token = token->next;
@@ -374,7 +374,7 @@ Node* local_var_decl() {
     ty = type_tail(ty);
   }
 
-  Var* var = find_or_new_local_var(ty, ident->str, ident->len);
+  Node* var = find_or_new_local_var(ty, ident->str, ident->len);
   return new_local_var_node(var->type, var->offset);
 }
 
@@ -470,7 +470,7 @@ Node* global_var_decl() {
     ty = type_tail(ty);
   }
 
-  Var* var = new_global_var(ty, ident->str, ident->len);
+  Node* var = new_global_var(ty, ident->str, ident->len);
   return new_global_var_decl_node(var->type, var->name, var->len);
 }
 
