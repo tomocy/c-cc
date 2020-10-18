@@ -138,6 +138,8 @@ void gen(Node* node) {
       for (int i = arg_count - 1; i >= 0; i--) {
         pop(arg_regs64[i]);
       }
+
+      genln("  mov rax, 0");
       genln("  call %.*s", node->len, node->name);
       return;
     }

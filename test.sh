@@ -3,6 +3,7 @@
 set -u
 
 cat << EOF | cc -xc -c -o tmp.o -
+#include <stdio.h>
 #include <stdlib.h>
 
 int test() { return 5; }
@@ -147,5 +148,7 @@ assert 98 'int main() { return "abc"[1]; }'
 assert 99 'int main() { return "abc"[2]; }'
 assert 0 'int main() { return "abc"[3]; }'
 assert 4 'int main() { return sizeof("abc"); }'
+assert 4 'int main() { return sizeof("abc"); }'
+assert 12 'int main() { return printf("Hello, world"); }'
 
 echo "OK"
