@@ -127,6 +127,14 @@ Node* find_var_from(Node* head, char* name, int len) {
   return NULL;
 }
 
+Node* find_var(char* name, int len) {
+  Node* var = find_var_from(local_vars, name, len);
+  if (var) {
+    return var;
+  }
+  return find_var_from(global_vars, name, len);
+}
+
 Node* new_global_var(Type* type, char* name, int len) {
   Node* var = new_node(ND_GLOBAL_VAR);
   var->type = type;
@@ -177,6 +185,12 @@ Node* new_local_var_node(Type* ty, int offset) {
   return node;
 }
 
+Node* copy_var_node(Node* node) {
+  return (node->kind == ND_GLOBAL_VAR)
+             ? new_global_var_node(node->type, node->name, node->len)
+             : new_local_var_node(node->type, node->offset);
+}
+
 Node* expr();
 
 Node* func_args() {
@@ -210,19 +224,10 @@ Node* primary() {
       return node;
     }
 
-    Node* var = find_var_from(local_vars, token->str, token->len);
-    if (var) {
-      Node* node = new_local_var_node(var->type, var->offset);
-      token = token->next;
-      return node;
-    }
-    var = find_var_from(global_vars, token->str, token->len);
-    if (!var) {
-      error_at(token->str, "undefined ident");
-    }
-    Node* node = new_global_var_node(var->type, var->name, var->len);
+    Node* var = find_var(token->str, token->len);
+    var = copy_var_node(var);
     token = token->next;
-    return node;
+    return var;
   }
 
   return new_num_node(expect_num());
@@ -400,7 +405,7 @@ Node* local_var_decl() {
   }
 
   Node* var = find_or_new_local_var(ty, ident->str, ident->len);
-  return new_local_var_node(var->type, var->offset);
+  return copy_var_node(var);
 }
 
 bool equal_typename(Token* tok) {
