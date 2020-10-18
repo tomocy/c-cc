@@ -3,7 +3,8 @@
 int depth = 0;
 int label_count = 0;
 int func_count = 0;
-char* arg_regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
+char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
 void genln(char* fmt, ...) {
   va_list args;
@@ -67,7 +68,11 @@ void gen(Node* node) {
       int i = 0;
       for (Node* param = node->params; param; param = param->next) {
         gen_lval(param);
-        genln("  mov [rax], %s", arg_regs[i++]);
+        if (param->type->kind == TY_CHAR) {
+          genln("  mov [rax], %s", arg_regs8[i++]);
+        } else {
+          genln("  mov [rax], %s", arg_regs64[i++]);
+        }
       }
 
       gen(node->body);
@@ -135,10 +140,12 @@ void gen(Node* node) {
       gen_lval(node->lhs);
       push_reg("rax");
       gen(node->rhs);
-      genln("  mov rdi, rax");
-      pop("rax");
-      genln("  mov [rax], rdi");
-      genln("  mov rax, rdi");
+      pop("rdi");
+      if (node->type->kind == TY_CHAR) {
+        genln("  mov [rdi], al");
+      } else {
+        genln("  mov [rdi], rax");
+      }
       return;
     case ND_ADDR:
       gen_lval(node->lhs);
@@ -154,7 +161,10 @@ void gen(Node* node) {
     case ND_GLOBAL_VAR:
     case ND_LOCAL_VAR:
       gen_lval(node);
-      if (node->type->kind != TY_ARRAY) {
+      if (node->type->kind == TY_ARRAY) {
+      } else if (node->type->kind == TY_CHAR) {
+        genln("  movsx rax, BYTE PTR [rax]");
+      } else {
         genln("  mov rax, [rax]");
       }
       return;
@@ -166,7 +176,7 @@ void gen(Node* node) {
         arg_count++;
       }
       for (int i = arg_count - 1; i >= 0; i--) {
-        pop(arg_regs[i]);
+        pop(arg_regs64[i]);
       }
       genln("  call %.*s", node->len, node->name);
       return;

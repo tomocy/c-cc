@@ -13,6 +13,9 @@ Type* new_type(TypeKind kind) {
 
 Type* add_size(Type* type) {
   switch (type->kind) {
+    case TY_CHAR:
+      type->size = 1;
+      break;
     case TY_INT:
     case TY_PTR:
       type->size = 8;
@@ -200,6 +203,10 @@ Node* primary() {
   return new_num_node(expect_num());
 }
 
+bool is_num(Node* node) {
+  return node->type->kind == TY_INT || node->type->kind == TY_CHAR;
+}
+
 bool is_pointable(Node* node) {
   return node->type->kind == TY_PTR || node->type->kind == TY_ARRAY;
 }
@@ -212,9 +219,9 @@ Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
   if (is_pointable(lhs) && is_pointable(rhs)) {
     error_at(token->str, "invalid operands");
   }
-  if (lhs->type->kind == TY_INT && rhs->type->kind == TY_INT) {
+  if (is_num(lhs) && is_num(rhs)) {
     return new_binary_node(kind, lhs, rhs);
-  } else if (is_pointable(lhs) && rhs->type->kind == TY_INT) {
+  } else if (is_pointable(lhs) && is_num(rhs)) {
     rhs = new_binary_node(ND_MUL, rhs, new_num_node(rhs->type->size));
     return new_binary_node(kind, lhs, rhs);
   } else {
@@ -327,8 +334,13 @@ Node* assign() {
 Node* expr() { return assign(); }
 
 Type* type_head() {
-  expect("int");
-  Type* cur = add_size(new_type(TY_INT));
+  Type* cur;
+  if (consume("char")) {
+    cur = add_size(new_type(TY_CHAR));
+  } else {
+    expect("int");
+    cur = add_size(new_type(TY_INT));
+  }
 
   while (consume("*")) {
     Type* head = add_size(new_type(TY_PTR));
@@ -364,6 +376,17 @@ Node* local_var_decl() {
 
   Var* var = find_or_new_local_var(ty, ident->str, ident->len);
   return new_local_var_node(var->type, var->offset);
+}
+
+bool equal_typename(Token* tok) {
+  static char* tnames[] = {"int", "char"};
+  int len = sizeof(tnames) / sizeof(char*);
+  for (int i = 0; i < len; i++) {
+    if (equal(tok, tnames[i])) {
+      return true;
+    }
+  }
+  return false;
 }
 
 Node* bloc_stmt();
@@ -409,7 +432,7 @@ Node* stmt() {
     Node* node = new_unary_node(ND_RETURN, expr());
     expect(";");
     return node;
-  } else if (equal(token, "int")) {
+  } else if (equal_typename(token)) {
     Node* node = local_var_decl();
     expect(";");
     return node;

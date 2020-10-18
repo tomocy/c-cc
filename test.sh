@@ -133,5 +133,12 @@ assert 2 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[2]; }'
 assert 3 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[3]; }'
 assert 8 'int x; int main() { return sizeof(x); }'
 assert 32 'int x[4]; int main() { return sizeof(x); }'
+assert 1 'int main() { char x; x=1; return x; }'
+assert 3 'int main() { char x; x=1; char y; y=2; return x+y; }'
+assert 1 'int main() { char x; x=1; return sizeof(x); }'
+assert 8 'int main() { char x; x=1; return sizeof(&x); }'
+assert 10 'int main() { char x[10]; return sizeof(x); }'
+assert 2 'int main() { char x[3]; x[0] = -2; x[1] = 2; int y; y = 4; return x[0] + y; }'
+assert 1 'int sub(char a, char b, char c) { return a - b - c; } int main() { return sub(7, 3, 3); }'
 
 echo "OK"
