@@ -156,6 +156,22 @@ void tokenize() {
       continue;
     }
 
+    if (startswith(p, "//")) {
+      while (*p != '\n') {
+        p++;
+      }
+      continue;
+    }
+
+    if (startswith(p, "/*")) {
+      char* close = strstr(p + 2, "*/");
+      if (!close) {
+        error_at(p, "unclosed block comment");
+      }
+      p = close + 2;
+      continue;
+    }
+
     if (consume_keyword(&cur->next, &p)) {
       cur = cur->next;
       continue;

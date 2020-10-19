@@ -153,5 +153,16 @@ assert 0 'int main() { return "abc"[3]; }'
 assert 4 'int main() { return sizeof("abc"); }'
 assert 4 'int main() { return sizeof("abc"); }'
 assert 12 'int main() { return printf("Hello, world"); }'
+assert 5 '// int main() { return 3; }
+int main() { return 5; }'
+assert 3 'int main() {
+  /* int main() {
+      return 5;
+  } */
+  return 3;
+}'
+assert 6 'int main() { return 6//*
+// */ 2
+; }'
 
 echo "OK"
