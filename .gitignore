@@ -2,5 +2,5 @@
 .vscode
 *.o
 tmp*
-a.out
 cc
+cc_test
