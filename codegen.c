@@ -28,7 +28,7 @@ void pop(char* reg) {
   depth--;
 }
 
-void gen(Node* node);
+void gen_expr(Node* node);
 
 void gen_lval(Node* node) {
   switch (node->kind) {
@@ -40,66 +40,19 @@ void gen_lval(Node* node) {
       genln("  sub rax, %d", node->offset);
       break;
     case ND_DEREF:
-      gen(node->lhs);
+      gen_expr(node->lhs);
       break;
     default:
       error("non left value");
   }
 }
 
-void gen(Node* node) {
+void gen_expr(Node* node) {
   switch (node->kind) {
-    case ND_BLOCK:
-      for (Node* body = node->body; body; body = body->next) {
-        gen(body);
-      }
-      return;
-    case ND_IF: {
-      gen(node->cond);
-      int lelse = label_count++;
-      int lend = label_count++;
-      genln("  cmp rax, 0");
-      genln("  je .Lelse%d", lelse);
-      gen(node->then);
-      genln(".Lelse%d:", lelse);
-      if (node->els) {
-        gen(node->els);
-      }
-      genln(".Lend%d:", lend);
-      return;
-    }
-    case ND_FOR: {
-      if (node->init) {
-        gen(node->init);
-      }
-      int lbegin = label_count++;
-      int lend = label_count++;
-      genln(".Lbegin%d:", lbegin);
-      if (node->cond) {
-        push_reg("rax");
-        gen(node->cond);
-        genln("  cmp rax, 0");
-        pop("rax");
-        genln("  je .Lend%d", lend);
-      }
-      gen(node->then);
-      if (node->inc) {
-        push_reg("rax");
-        gen(node->inc);
-        pop("rax");
-      }
-      genln("  jmp .Lbegin%d", lbegin);
-      genln(".Lend%d:", lend);
-      return;
-    }
-    case ND_RETURN:
-      gen(node->lhs);
-      genln("  jmp .Lreturn%d", func_count);
-      return;
     case ND_ASSIGN:
       gen_lval(node->lhs);
       push_reg("rax");
-      gen(node->rhs);
+      gen_expr(node->rhs);
       pop("rdi");
       if (node->type->kind == TY_CHAR) {
         genln("  mov [rdi], al");
@@ -111,27 +64,13 @@ void gen(Node* node) {
       gen_lval(node->lhs);
       return;
     case ND_DEREF:
-      gen(node->lhs);
+      gen_expr(node->lhs);
       genln("  mov rax, [rax]");
-      return;
-    case ND_NUM:
-      push_val(node->val);
-      pop("rax");
-      return;
-    case ND_GVAR:
-    case ND_LVAR:
-      gen_lval(node);
-      if (node->type->kind == TY_ARRAY) {
-      } else if (node->type->kind == TY_CHAR) {
-        genln("  movsx rax, BYTE PTR [rax]");
-      } else {
-        genln("  mov rax, [rax]");
-      }
       return;
     case ND_FUNCCALL: {
       int arg_count = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
-        gen(arg);
+        gen_expr(arg);
         push_reg("rax");
         arg_count++;
       }
@@ -143,13 +82,27 @@ void gen(Node* node) {
       genln("  call %.*s", node->len, node->name);
       return;
     }
+    case ND_GVAR:
+    case ND_LVAR:
+      gen_lval(node);
+      if (node->type->kind == TY_ARRAY) {
+      } else if (node->type->kind == TY_CHAR) {
+        genln("  movsx rax, BYTE PTR [rax]");
+      } else {
+        genln("  mov rax, [rax]");
+      }
+      return;
+    case ND_NUM:
+      push_val(node->val);
+      pop("rax");
+      return;
     default:
       break;
   }
 
-  gen(node->lhs);
+  gen_expr(node->lhs);
   push_reg("rax");
-  gen(node->rhs);
+  gen_expr(node->rhs);
   genln("  mov rdi, rax");
   pop("rax");
 
@@ -158,37 +111,91 @@ void gen(Node* node) {
       genln("  cmp rax, rdi");
       genln("  sete al");
       genln("  movzb rax, al");
-      break;
+      return;
     case ND_NE:
       genln("  cmp rax, rdi");
       genln("  setne al");
       genln("  movzb rax, al");
-      break;
+      return;
     case ND_LT:
       genln("  cmp rax, rdi");
       genln("  setl al");
       genln("  movzb rax, al");
-      break;
+      return;
     case ND_LE:
       genln("  cmp rax, rdi");
       genln("  setle al");
       genln("  movzb rax, al");
-      break;
+      return;
     case ND_ADD:
       genln("  add rax, rdi");
-      break;
+      return;
     case ND_SUB:
       genln("  sub rax, rdi");
-      break;
+      return;
     case ND_MUL:
       genln("  imul rax, rdi");
-      break;
+      return;
     case ND_DIV:
       genln("  cqo");
       genln("  idiv rdi");
-      break;
+      return;
     default:
-      break;
+      error("expected an expression");
+  }
+}
+
+void gen_stmt(Node* node) {
+  switch (node->kind) {
+    case ND_BLOCK:
+      for (Node* body = node->body; body; body = body->next) {
+        gen_stmt(body);
+      }
+      return;
+    case ND_IF: {
+      gen_expr(node->cond);
+      int lelse = label_count++;
+      int lend = label_count++;
+      genln("  cmp rax, 0");
+      genln("  je .Lelse%d", lelse);
+      gen_stmt(node->then);
+      genln(".Lelse%d:", lelse);
+      if (node->els) {
+        gen_stmt(node->els);
+      }
+      genln(".Lend%d:", lend);
+      return;
+    }
+    case ND_FOR: {
+      if (node->init) {
+        gen_expr(node->init);
+      }
+      int lbegin = label_count++;
+      int lend = label_count++;
+      genln(".Lbegin%d:", lbegin);
+      if (node->cond) {
+        push_reg("rax");
+        gen_expr(node->cond);
+        genln("  cmp rax, 0");
+        pop("rax");
+        genln("  je .Lend%d", lend);
+      }
+      gen_stmt(node->then);
+      if (node->inc) {
+        push_reg("rax");
+        gen_expr(node->inc);
+        pop("rax");
+      }
+      genln("  jmp .Lbegin%d", lbegin);
+      genln(".Lend%d:", lend);
+      return;
+    }
+    case ND_RETURN:
+      gen_expr(node->lhs);
+      genln("  jmp .Lreturn%d", func_count);
+      return;
+    default:
+      gen_expr(node);
   }
 }
 
@@ -243,7 +250,7 @@ void gen_text() {
       }
     }
 
-    gen(func->body);
+    gen_stmt(func->body);
 
     genln(".Lreturn%d:", func_count++);
     genln("  mov rsp, rbp");
