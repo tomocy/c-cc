@@ -29,6 +29,7 @@ void pop(char* reg) {
 }
 
 void gen_expr(Node* node);
+void gen_stmt(Node* node);
 
 void gen_lval(Node* node) {
   switch (node->kind) {
@@ -96,8 +97,20 @@ void gen_expr(Node* node) {
       push_val(node->val);
       pop("rax");
       return;
-    default:
+    case ND_STMT_EXPR:
+      gen_stmt(node->body);
+      return;
+    case ND_EQ:
+    case ND_NE:
+    case ND_LT:
+    case ND_LE:
+    case ND_ADD:
+    case ND_SUB:
+    case ND_MUL:
+    case ND_DIV:
       break;
+    default:
+      error("expected an expression: %d", node->kind);
   }
 
   gen_expr(node->lhs);
@@ -141,7 +154,7 @@ void gen_expr(Node* node) {
       genln("  idiv rdi");
       return;
     default:
-      error("expected an expression");
+      error("expected an expression: %d", node->kind);
   }
 }
 

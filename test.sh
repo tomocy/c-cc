@@ -164,5 +164,7 @@ assert 3 'int main() {
 assert 6 'int main() { return 6//*
 // */ 2
 ; }'
+assert 5 'int main() { return ({ int a; a = 3; a + 2; }); } '
+assert 27 'int a(int b) { return b; } int main() { return a(({ int a; a = 3; a * a * a; })); } '
 
 echo "OK"

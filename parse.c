@@ -225,8 +225,17 @@ Node* func_args() {
   return head.next;
 }
 
+Node* block_stmt();
+
 Node* primary() {
   if (consume("(")) {
+    if (equal(token, "{")) {
+      Node* node = new_node(ND_STMT_EXPR);
+      node->body = block_stmt();
+      expect(")");
+      return node;
+    }
+
     Node* node = expr();
     expect(")");
     return node;
@@ -448,11 +457,11 @@ bool equal_type_name(Token* tok) {
   return false;
 }
 
-Node* bloc_stmt();
+Node* block_stmt();
 
 Node* stmt() {
   if (equal(token, "{")) {
-    return bloc_stmt();
+    return block_stmt();
   } else if (consume("if")) {
     expect("(");
     Node* node = new_node(ND_IF);
@@ -502,7 +511,7 @@ Node* stmt() {
   }
 }
 
-Node* bloc_stmt() {
+Node* block_stmt() {
   expect("{");
   Node head = {};
   Node* curr = &head;
@@ -559,7 +568,7 @@ void func() {
   }
   func->params = head.next;
 
-  func->body = bloc_stmt();
+  func->body = block_stmt();
 
   func->lvars = lvars;
   lvars = NULL;
