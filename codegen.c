@@ -48,6 +48,15 @@ void gen_lval(Node* node) {
   }
 }
 
+void load(Node* node, char* dst, char* src) {
+  if (node->type->kind == TY_ARRAY) {
+  } else if (node->type->kind == TY_CHAR) {
+    genln("  movsx %s, BYTE PTR [%s]", dst, src);
+  } else {
+    genln("  mov %s, [%s]", dst, src);
+  }
+}
+
 void gen_expr(Node* node) {
   switch (node->kind) {
     case ND_ASSIGN:
@@ -66,7 +75,7 @@ void gen_expr(Node* node) {
       return;
     case ND_DEREF:
       gen_expr(node->lhs);
-      genln("  mov rax, [rax]");
+      load(node, "rax", "rax");
       return;
     case ND_FUNCCALL: {
       int arg_count = 0;
@@ -86,12 +95,7 @@ void gen_expr(Node* node) {
     case ND_GVAR:
     case ND_LVAR:
       gen_lval(node);
-      if (node->type->kind == TY_ARRAY) {
-      } else if (node->type->kind == TY_CHAR) {
-        genln("  movsx rax, BYTE PTR [rax]");
-      } else {
-        genln("  mov rax, [rax]");
-      }
+      load(node, "rax", "rax");
       return;
     case ND_NUM:
       push_val(node->val);
