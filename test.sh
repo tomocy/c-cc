@@ -2,6 +2,8 @@
 
 set -u
 
+TMP_TEST_FILE='/tmp/cc_test.c'
+
 cat << EOF | cc -xc -c -o tmp.o -
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +26,8 @@ assert() {
   expected="$1"
   input="$2"
 
-  if ! ./cc "$input" > tmp.s; then
+  echo "$input" > $TMP_TEST_FILE
+  if ! ./cc "$TMP_TEST_FILE" > tmp.s; then
     echo "$input"
     exit 1
   fi

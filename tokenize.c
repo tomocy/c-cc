@@ -1,5 +1,6 @@
 #include "cc.h"
 
+char* filename;
 char* user_input;
 
 Token* token;
@@ -13,15 +14,34 @@ void error(char* fmt, ...) {
 }
 
 void error_at(char* loc, char* fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
+  char* start = loc;
+  while (user_input < start && start[-1] != '\n') {
+    start--;
+  }
+  char* end = loc;
+  while (*end != '\n') {
+    end++;
+  }
 
-  int pos = loc - user_input;
-  fprintf(stderr, "%s\n", user_input);
+  int line_num = 1;
+  for (char* p = user_input; p < start; p++) {
+    if (*p == '\n') {
+      line_num++;
+    }
+  }
+
+  int indent = fprintf(stderr, "%s:%d ", filename, line_num);
+  fprintf(stderr, "%.*s\n", (int)(end - start), start);
+
+  va_list msg;
+  va_start(msg, fmt);
+
+  int pos = loc - start + indent;
   fprintf(stderr, "%*s", pos, "");
   fprintf(stderr, "^ ");
-  vfprintf(stderr, fmt, ap);
+  vfprintf(stderr, fmt, msg);
   fprintf(stderr, "\n");
+
   exit(1);
 }
 
@@ -100,7 +120,32 @@ bool consume_keyword(Token** tok, char** p) {
   return false;
 }
 
+void read_file() {
+  FILE* fp = fopen(filename, "r");
+  if (!fp) {
+    error("cannot open %s: %s", filename, strerror(errno));
+  }
+
+  if (fseek(fp, 0, SEEK_END) != 0) {
+    error("cannot seek %s: %s", filename, strerror(errno));
+  }
+  size_t size = ftell(fp);
+  if (fseek(fp, 0, SEEK_SET) != 0) {
+    error("cannot seek %s: %s", filename, strerror(errno));
+  }
+
+  user_input = calloc(1, size + 2);
+  fread(user_input, size, 1, fp);
+  if (size == 0 || user_input[size - 1] != '\n') {
+    user_input[size++] = '\n';
+  }
+  user_input[size] = '\0';
+
+  fclose(fp);
+}
+
 void tokenize() {
+  read_file();
   char* p = user_input;
 
   Token head = {};

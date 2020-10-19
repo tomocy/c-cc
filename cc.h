@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -104,7 +105,7 @@ struct Obj {
   char* data;
 };
 
-extern char* user_input;
+extern char* filename;
 
 extern Token* token;
 
