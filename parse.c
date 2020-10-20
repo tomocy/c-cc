@@ -571,6 +571,9 @@ void gvar() {
   }
 
   Obj* var = new_gvar(ty, ident->str, ident->len);
+  if (consume("=")) {
+    var->val = expect_num();
+  }
   add_code(var);
 }
 

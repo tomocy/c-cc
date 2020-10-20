@@ -4,7 +4,7 @@
 ```
 program = (func | gvar)*
 func = type_head ident "(" (type_head ident (, type_head ident)*)? ")" bloc_stmt
-gvar = var ";"
+gvar = var ("=" num)? ";"
 var = type_head ident type_tail?
 type_head = type_name "*"*
 type_name = "int" | "char"

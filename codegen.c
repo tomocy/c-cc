@@ -229,6 +229,8 @@ void gen_data() {
       for (int i = 0; i < var->type->len; i++) {
         printf("  .byte %d\n", var->data[i]);
       }
+    } else if (var->val != 0) {
+      printf("  .long %d\n", var->val);
     } else {
       printf("  .zero %d\n", var->type->size);
     }

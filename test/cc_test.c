@@ -3,6 +3,7 @@
 int gx;
 int gy;
 int gxs[4];
+int gz = 42;
 
 int ret(int x) {
   return x;
@@ -433,6 +434,7 @@ int main() {
            int y = x = 5;
            x + y;
          }));
+  ASSERT(42, ({ gz; }));
 
   ok();
 }

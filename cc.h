@@ -106,6 +106,7 @@ struct Obj {
   Node* body;
   int offset;
   char* data;
+  int val;
 };
 
 typedef struct ScopedVar ScopedVar;
