@@ -1,10 +1,10 @@
 CFLAGS=-std=c11 -g -static -Wall
 SRCS=$(wildcard *.c)
 OBJS=$(SRCS:.c=.o)
-TEST_SRCS=$(wildcard test/*_test.c)
+TEST_SRCS=$(filter-out $(wildcard test/tmp_*.c), $(wildcard test/*_test.c))
 TMP_TEST_SRCS=$(addprefix test/, $(addprefix tmp_, $(notdir $(TEST_SRCS))))
 TEST_ASMS=$(TMP_TEST_SRCS:.c=.s)
-TEST_ADAPTER_SRCS=$(filter-out $(TEST_SRCS), $(wildcard test/*.c))
+TEST_ADAPTER_SRCS=$(filter-out $(TMP_TEST_SRCS), $(filter-out $(TEST_SRCS), $(wildcard test/*.c)))
 TEST_ADAPTER_OBJS=$(TEST_ADAPTER_SRCS:.c=.o)
 
 cc: $(OBJS)
