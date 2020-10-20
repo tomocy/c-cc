@@ -256,6 +256,9 @@ Node* primary() {
     }
 
     Obj* var = find_var(token->str, token->len);
+    if (!var) {
+      error_at(token->str, "undefined ident");
+    }
     Node* node = new_var_node(var);
     token = token->next;
     return node;
