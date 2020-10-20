@@ -1,10 +1,14 @@
 CFLAGS=-std=c11 -g -static -Wall
+
 SRCS=$(wildcard *.c)
 OBJS=$(SRCS:.c=.o)
-TEST_SRCS=$(filter-out $(wildcard test/tmp_*.c), $(wildcard test/*_test.c))
-TMP_TEST_SRCS=$(addprefix test/, $(addprefix tmp_, $(notdir $(TEST_SRCS))))
+
+TEST_DIR=test
+TMP_TEST_PREFIX=tmp_
+TEST_SRCS=$(filter-out $(wildcard $(TEST_DIR)/$(TMP_TEST_PREFIX)*.c), $(wildcard $(TEST_DIR)/*_test.c))
+TMP_TEST_SRCS=$(subst $(TEST_DIR)/,$(TEST_DIR)/$(TMP_TEST_PREFIX),$(TEST_SRCS))
 TEST_ASMS=$(TMP_TEST_SRCS:.c=.s)
-TEST_ADAPTER_SRCS=$(filter-out $(TMP_TEST_SRCS), $(filter-out $(TEST_SRCS), $(wildcard test/*.c)))
+TEST_ADAPTER_SRCS=$(filter-out $(TMP_TEST_SRCS), $(filter-out $(TEST_SRCS), $(wildcard $(TEST_DIR)/*.c)))
 TEST_ADAPTER_OBJS=$(TEST_ADAPTER_SRCS:.c=.o)
 
 cc: $(OBJS)
@@ -16,10 +20,10 @@ cc_test: $(TEST_ASMS) $(TEST_ADAPTER_OBJS)
 	$(CC) -o cc_test $^
 
 $(TEST_ASMS): cc $(TMP_TEST_SRCS)
-	./cc $(filter-out cc, $?) > $@ || rm -f $? && false
+	./cc $(@:.s=.c) > $@
 
 $(TMP_TEST_SRCS): $(TEST_SRCS)
-	$(CC) -o $@ -P -E $?
+	$(CC) -o $@ -P -E $(subst $(TMP_TEST_PREFIX),,$@)
 
 $(TEST_ADAPTER_OBJS): $(TEST_ADAPTER_SRCS)
 
