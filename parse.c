@@ -65,7 +65,7 @@ Obj* find_var_from(Obj* head, char* name, int len) {
     if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
       continue;
     }
-    if (var->len == len && memcmp(var->name, name, len) == 0) {
+    if (strlen(var->name) == len && strncmp(var->name, name, len) == 0) {
       return var;
     }
   }
@@ -83,20 +83,18 @@ Obj* find_var(char* name, int len) {
 Obj* new_gvar(Type* type, char* name, int len) {
   Obj* var = new_obj(OJ_GVAR);
   var->type = type;
-  var->name = name;
-  var->len = len;
+  var->name = strndup(name, len);
   add_gvar(var);
   return var;
 }
 
-Obj* new_str(char* name, int len, char* data, int data_len) {
+Obj* new_str(char* name, int name_len, char* data, int data_len) {
   Type* ty = new_type(TY_ARRAY);
   ty->base = add_size(new_type(TY_CHAR));
   ty->len = data_len + 1;
   ty = add_size(ty);
-  Obj* str = new_gvar(ty, name, len);
-  str->data = malloc(ty->size);
-  sprintf(str->data, "%.*s", data_len, data);
+  Obj* str = new_gvar(ty, name, name_len);
+  str->data = strndup(data, data_len);
   add_code(str);
   return str;
 }
@@ -104,8 +102,7 @@ Obj* new_str(char* name, int len, char* data, int data_len) {
 Obj* new_lvar(Type* type, char* name, int len) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
-  var->name = name;
-  var->len = len;
+  var->name = strndup(name, len);
   var->offset = (lvars) ? lvars->offset + type->size : type->size;
   add_lvar(var);
   return var;
@@ -185,8 +182,7 @@ Node* new_num_node(int val) {
 Node* new_gvar_node(Type* type, char* name, int len) {
   Node* node = new_node(ND_GVAR);
   node->type = type;
-  node->name = name;
-  node->len = len;
+  node->name = strndup(name, len);
   return node;
 }
 
@@ -200,7 +196,7 @@ Node* new_lvar_node(Type* type, int offset) {
 Node* new_var_node(Obj* obj) {
   switch (obj->kind) {
     case OJ_GVAR:
-      return new_gvar_node(obj->type, obj->name, obj->len);
+      return new_gvar_node(obj->type, obj->name, strlen(obj->name));
     case OJ_LVAR:
       return new_lvar_node(obj->type, obj->offset);
     default:
@@ -244,8 +240,7 @@ Node* primary() {
   if (token->kind == TK_IDENT) {
     if (equal(token->next, "(")) {
       Node* node = new_node(ND_FUNCCALL);
-      node->name = token->str;
-      node->len = token->len;
+      node->name = strndup(token->str, token->len);
       token = token->next;
       node->args = func_args();
       return node;
@@ -550,8 +545,7 @@ void func() {
   }
   Obj* func = new_obj(OJ_FUNC);
   func->type = ty;
-  func->name = token->str;
-  func->len = token->len;
+  func->name = strndup(token->str, token->len);
   token = token->next;
 
   expect("(");

@@ -34,7 +34,7 @@ void gen_stmt(Node* node);
 void gen_lval(Node* node) {
   switch (node->kind) {
     case ND_GVAR:
-      genln("  lea rax, %.*s[rip]", node->len, node->name);
+      genln("  lea rax, %s[rip]", node->name);
       break;
     case ND_LVAR:
       genln("  mov rax, rbp");
@@ -89,7 +89,7 @@ void gen_expr(Node* node) {
       }
 
       genln("  mov rax, 0");
-      genln("  call %.*s", node->len, node->name);
+      genln("  call %s", node->name);
       return;
     }
     case ND_GVAR:
@@ -223,8 +223,8 @@ void gen_data() {
     }
 
     printf(".data\n");
-    printf(".global %.*s\n", var->len, var->name);
-    printf("%.*s:\n", var->len, var->name);
+    printf(".global %s\n", var->name);
+    printf("%s:\n", var->name);
     if (var->data) {
       for (int i = 0; i < var->type->len; i++) {
         printf("  .byte %d\n", var->data[i]);
@@ -252,8 +252,8 @@ void gen_text() {
     }
 
     genln(".text");
-    genln(".global %.*s", func->len, func->name);
-    genln("%.*s:", func->len, func->name);
+    genln(".global %s", func->name);
+    genln("%s:", func->name);
     push_reg("rbp");
     genln("  mov rbp, rsp");
     genln("  sub rsp, %d", align(sum_vars_size(func->lvars), 16));

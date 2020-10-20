@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -20,9 +21,9 @@ typedef struct Token Token;
 struct Token {
   TokenKind kind;
   Token* next;
-  int val;
   char* str;
   int len;
+  int val;
 };
 
 typedef enum {
@@ -82,7 +83,6 @@ struct Node {
   Node* body;
   Node* args;
   char* name;
-  int len;
   int offset;
   int val;
 };
@@ -98,7 +98,6 @@ struct Obj {
   ObjKind kind;
   Type* type;
   char* name;
-  int len;
   Obj* lvars;
   Node* params;
   Node* body;
