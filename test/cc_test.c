@@ -400,5 +400,30 @@ int main() {
               //*2
                ;
          }));
+  ASSERT(2, ({
+           int x;
+           x = 2;
+           {
+             int x;
+             x = 3;
+           }
+           x;
+         }));
+  ASSERT(3, ({
+           int x;
+           x = 3;
+           {
+             int x;
+             x = 4;
+           }
+           {
+             int y;
+             y = 5;
+           }
+           int y;
+           y = x;
+           y;
+         }));
+
   ok();
 }

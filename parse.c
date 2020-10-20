@@ -2,7 +2,8 @@
 
 Obj* codes;
 
-Obj* gvars;
+Scope* scope;
+Scope* gscope;
 Obj* lvars;
 
 Type* ty_char = &(Type){
@@ -53,40 +54,66 @@ void add_code(Obj* code) {
   codes = code;
 }
 
+void enter_scope() {
+  Scope* next = calloc(1, sizeof(Scope));
+  next->next = scope;
+  scope = next;
+}
+
+void leave_scope() {
+  if (!scope) {
+    error("no scope to leave");
+  }
+  scope = scope->next;
+}
+
+void add_scoped_var_to(Scope* scope, Obj* var) {
+  if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
+    error("expected a variable");
+  }
+  ScopedVar* scoped = calloc(1, sizeof(ScopedVar));
+  scoped->var = var;
+  scoped->next = scope->vars;
+  scope->vars = scoped;
+}
+
+bool is_gscope(Scope* scope) { return !scope->next; }
+
 void add_gvar(Obj* var) {
   if (var->kind != OJ_GVAR) {
     error("expected a global var");
   }
-  var->next = gvars;
-  gvars = var;
+  if (!is_gscope(gscope)) {
+    error("expected a global scope");
+  }
+  add_scoped_var_to(gscope, var);
 }
 
 void add_lvar(Obj* var) {
   if (var->kind != OJ_LVAR) {
     error("expected a local var");
   }
+  if (is_gscope(scope)) {
+    error("expected a local scope");
+  }
   var->next = lvars;
   lvars = var;
-}
-
-Obj* find_var_from(Obj* head, char* name, int len) {
-  for (Obj* var = head; var; var = var->next) {
-    if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
-      continue;
-    }
-    if (strlen(var->name) == len && strncmp(var->name, name, len) == 0) {
-      return var;
-    }
-  }
-  return NULL;
+  add_scoped_var_to(scope, var);
 }
 
 Obj* find_var(char* name, int len) {
-  Obj* var = find_var_from(lvars, name, len);
-  if (var) {
-    return var;
+  for (Scope* s = scope; s; s = s->next) {
+    for (ScopedVar* var = s->vars; var; var = var->next) {
+      if (var->var->kind != OJ_GVAR && var->var->kind != OJ_LVAR) {
+        continue;
+      }
+      if (strlen(var->var->name) == len &&
+          strncmp(var->var->name, name, len) == 0) {
+        return var->var;
+      }
+    }
   }
-  return find_var_from(gvars, name, len);
+  return NULL;
 }
 
 Obj* new_gvar(Type* type, char* name, int len) {
@@ -115,14 +142,6 @@ Obj* new_lvar(Type* type, char* name, int len) {
   var->offset = (lvars) ? lvars->offset + type->size : type->size;
   add_lvar(var);
   return var;
-}
-
-Obj* find_or_new_lvar(Type* type, char* name, int len) {
-  Obj* var = find_var_from(lvars, name, len);
-  if (var) {
-    return var;
-  }
-  return new_lvar(type, name, len);
 }
 
 Node* add_type(Node* node) {
@@ -449,7 +468,7 @@ Node* lvar() {
     ty = type_tail(ty);
   }
 
-  Obj* var = find_or_new_lvar(ty, ident->str, ident->len);
+  Obj* var = new_lvar(ty, ident->str, ident->len);
   return new_var_node(var);
 }
 
@@ -520,12 +539,14 @@ Node* stmt() {
 
 Node* block_stmt() {
   expect("{");
+  enter_scope();
   Node head = {};
   Node* curr = &head;
   while (!consume("}")) {
     curr->next = stmt();
     curr = curr->next;
   }
+  leave_scope();
 
   Node* node = new_node(ND_BLOCK);
   node->body = head.next;
@@ -561,6 +582,7 @@ void func() {
   token = token->next;
 
   expect("(");
+  enter_scope();
   Node head = {};
   Node* cur = &head;
   while (!consume(")")) {
@@ -576,6 +598,7 @@ void func() {
 
   func->body = block_stmt();
 
+  leave_scope();
   func->lvars = lvars;
   lvars = NULL;
 
@@ -584,8 +607,12 @@ void func() {
 
 void program() {
   codes = NULL;
-  gvars = NULL;
+  scope = NULL;
+  gscope = NULL;
   lvars = NULL;
+
+  enter_scope();
+  gscope = scope;
 
   while (!at_eof()) {
     Token* start = token;
@@ -605,4 +632,6 @@ void program() {
       expect(";");
     }
   }
+
+  leave_scope();
 }

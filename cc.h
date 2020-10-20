@@ -108,6 +108,20 @@ struct Obj {
   char* data;
 };
 
+typedef struct ScopedVar ScopedVar;
+
+struct ScopedVar {
+  ScopedVar* next;
+  Obj* var;
+};
+
+typedef struct Scope Scope;
+
+struct Scope {
+  Scope* next;
+  ScopedVar* vars;
+};
+
 extern char* filename;
 
 extern Token* token;
