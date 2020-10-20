@@ -424,6 +424,15 @@ int main() {
            y = x;
            y;
          }));
+  ASSERT(7, ({
+           int x = 7;
+           x;
+         }));
+  ASSERT(10, ({
+           int x;
+           int y = x = 5;
+           x + y;
+         }));
 
   ok();
 }

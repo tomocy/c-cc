@@ -469,7 +469,11 @@ Node* lvar() {
   }
 
   Obj* var = new_lvar(ty, ident->str, ident->len);
-  return new_var_node(var);
+  Node* node = new_var_node(var);
+  if (!consume("=")) {
+    return node;
+  }
+  return new_binary_node(ND_ASSIGN, node, expr());
 }
 
 bool equal_type_name(Token* tok) {

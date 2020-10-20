@@ -15,7 +15,7 @@ stmt = expr ";" |
     "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt | 
     "return" expr ";" |
-    var ";"
+    var ("=" expr)? ";"
 expr = assign
 assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*
