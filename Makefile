@@ -16,7 +16,7 @@ cc_test: $(TEST_ASMS) $(TEST_ADAPTER_OBJS)
 	$(CC) -o cc_test $^
 
 $(TEST_ASMS): cc $(TMP_TEST_SRCS)
-	./cc $(filter-out cc, $?) > $@
+	./cc $(filter-out cc, $?) > $@ || rm -f $? && false
 
 $(TMP_TEST_SRCS): $(TEST_SRCS)
 	$(CC) -o $@ -P -E $?
