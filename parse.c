@@ -5,6 +5,15 @@ Obj* codes;
 Obj* gvars;
 Obj* lvars;
 
+Type* ty_char = &(Type){
+    TY_CHAR,
+    1,
+};
+Type* ty_int = &(Type){
+    TY_INT,
+    8,
+};
+
 int str_count = 0;
 
 Type* new_type(TypeKind kind) {
@@ -90,7 +99,7 @@ Obj* new_gvar(Type* type, char* name, int len) {
 
 Obj* new_str(char* name, int name_len, char* data, int data_len) {
   Type* ty = new_type(TY_ARRAY);
-  ty->base = add_size(new_type(TY_CHAR));
+  ty->base = ty_char;
   ty->len = data_len + 1;
   ty = add_size(ty);
   Obj* str = new_gvar(ty, name, name_len);
@@ -127,7 +136,7 @@ Node* add_type(Node* node) {
     case ND_LT:
     case ND_LE:
     case ND_NUM:
-      node->type = add_size(new_type(TY_INT));
+      node->type = ty_int;
       break;
     case ND_ASSIGN:
     case ND_ADD:
@@ -399,10 +408,10 @@ Node* expr() { return assign(); }
 Type* type_head() {
   Type* cur;
   if (consume("char")) {
-    cur = add_size(new_type(TY_CHAR));
+    cur = ty_char;
   } else {
     expect("int");
-    cur = add_size(new_type(TY_INT));
+    cur = ty_int;
   }
 
   while (consume("*")) {

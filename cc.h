@@ -27,8 +27,8 @@ struct Token {
 };
 
 typedef enum {
-  TY_INT,
   TY_CHAR,
+  TY_INT,
   TY_PTR,
   TY_ARRAY,
 } TypeKind;
@@ -41,6 +41,9 @@ struct Type {
   Type* base;
   int len;
 };
+
+extern Type* ty_char;
+extern Type* ty_int;
 
 typedef enum {
   ND_BLOCK,
