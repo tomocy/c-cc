@@ -36,6 +36,13 @@ int sum_vals(int n, int* vs) {
   return sum;
 }
 
+int fibo(int n) {
+  if (n < 2) {
+    return 1;
+  }
+  return fibo(n - 1) + fibo(n - 2);
+}
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -435,6 +442,7 @@ int main() {
            x + y;
          }));
   ASSERT(42, ({ gz; }));
+  ASSERT(55, fibo(9));
 
   ok();
 }

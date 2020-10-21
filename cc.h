@@ -27,6 +27,7 @@ struct Token {
 };
 
 typedef enum {
+  TY_UNAVAILABLE,
   TY_CHAR,
   TY_INT,
   TY_PTR,

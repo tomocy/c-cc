@@ -25,6 +25,9 @@ Type* new_type(TypeKind kind) {
 
 Type* add_size(Type* type) {
   switch (type->kind) {
+    case TY_UNAVAILABLE:
+      type->size = 0;
+      break;
     case TY_CHAR:
       type->size = 1;
       break;
@@ -101,6 +104,18 @@ void add_lvar(Obj* var) {
   add_scoped_var_to(scope, var);
 }
 
+Obj* find_func(char* name, int len) {
+  for (Obj* func = codes; func; func = func->next) {
+    if (func->kind != OJ_FUNC) {
+      continue;
+    }
+    if (strlen(func->name) == len && strncmp(func->name, name, len) == 0) {
+      return func;
+    }
+  }
+  return NULL;
+}
+
 Obj* find_var(char* name, int len) {
   for (Scope* s = scope; s; s = s->next) {
     for (ScopedVar* var = s->vars; var; var = var->next) {
@@ -157,6 +172,11 @@ Node* add_type(Node* node) {
     case ND_NUM:
       node->type = ty_int;
       break;
+    case ND_FUNCCALL: {
+      Obj* func = find_func(node->name, strlen(node->name));
+      node->type = (func) ? func->type : TY_UNAVAILABLE;
+      break;
+    }
     case ND_ASSIGN:
     case ND_ADD:
     case ND_SUB:
@@ -198,6 +218,13 @@ Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   Node* node = new_node(kind);
   node->lhs = lhs;
   node->rhs = rhs;
+  return add_type(node);
+}
+
+Node* new_funccall_node(char* name, int len, Node* args) {
+  Node* node = new_node(ND_FUNCCALL);
+  node->name = strndup(name, len);
+  node->args = args;
   return add_type(node);
 }
 
@@ -267,11 +294,9 @@ Node* primary() {
 
   if (token->kind == TK_IDENT) {
     if (equal(token->next, "(")) {
-      Node* node = new_node(ND_FUNCCALL);
-      node->name = strndup(token->str, token->len);
+      Token* ident = token;
       token = token->next;
-      node->args = func_args();
-      return node;
+      return new_funccall_node(ident->str, ident->len, func_args());
     }
 
     Obj* var = find_var(token->str, token->len);
@@ -571,10 +596,10 @@ void gvar() {
   }
 
   Obj* var = new_gvar(ty, ident->str, ident->len);
+  add_code(var);
   if (consume("=")) {
     var->val = expect_num();
   }
-  add_code(var);
 }
 
 void func() {
@@ -584,6 +609,7 @@ void func() {
     error_at(token->str, "expected an ident");
   }
   Obj* func = new_obj(OJ_FUNC);
+  add_code(func);
   func->type = ty;
   func->name = strndup(token->str, token->len);
   token = token->next;
@@ -608,8 +634,6 @@ void func() {
   leave_scope();
   func->lvars = lvars;
   lvars = NULL;
-
-  add_code(func);
 }
 
 void program() {
