@@ -35,3 +35,11 @@ test: cc_test
 .PHONY: clean
 clean: cc
 	rm -f cc cc_test *~ *.o test/*.o tmp* test/tmp*
+
+.PHONY: build-docker-container
+build-docker-container: Dockerfile
+	docker build -t c-cc .
+
+.PHONY: run-docker-container
+run-docker-container:
+	docker run -it --rm -v $(PWD):/home/cc/cc --name c-cc c-cc /bin/bash
