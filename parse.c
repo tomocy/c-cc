@@ -184,6 +184,9 @@ static Node* add_type(Node* node) {
     case ND_DIV:
       node->type = node->lhs->type;
       break;
+    case ND_COMMA:
+      node->type = node->rhs->type;
+      break;
     case ND_ADDR:
       node->type = add_size(new_type(TY_PTR));
       node->type->base = node->lhs->type;
@@ -260,7 +263,7 @@ static Node* new_var_node(Obj* obj) {
   }
 }
 
-static Node* expr();
+static Node* assign();
 
 static Node* func_args() {
   expect("(");
@@ -270,13 +273,14 @@ static Node* func_args() {
     if (cur != &head) {
       expect(",");
     }
-    cur->next = expr();
+    cur->next = assign();
     cur = cur->next;
   }
   return head.next;
 }
 
 static Node* block_stmt();
+static Node* expr();
 
 static Node* primary() {
   if (consume("(")) {
@@ -450,7 +454,13 @@ static Node* assign() {
   }
 }
 
-static Node* expr() { return assign(); }
+static Node* expr() {
+  Node* node = assign();
+  if (consume(",")) {
+    return new_binary_node(ND_COMMA, node, expr());
+  }
+  return node;
+}
 
 static Type* type_head() {
   Type* cur;

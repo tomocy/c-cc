@@ -70,6 +70,10 @@ static void gen_expr(Node* node) {
         genln("  mov [rdi], rax");
       }
       return;
+    case ND_COMMA:
+      gen_expr(node->lhs);
+      gen_expr(node->rhs);
+      return;
     case ND_ADDR:
       gen_lval(node->lhs);
       return;

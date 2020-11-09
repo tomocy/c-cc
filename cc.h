@@ -52,6 +52,7 @@ typedef enum {
   ND_FOR,
   ND_RETURN,
   ND_ASSIGN,
+  ND_COMMA,
   ND_EQ,
   ND_NE,
   ND_LT,
