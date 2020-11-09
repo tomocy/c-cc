@@ -77,7 +77,7 @@ int expect_num() {
 
 bool at_eof() { return token->kind == TK_EOF; }
 
-Token* new_token(TokenKind kind, char* str, int len) {
+static Token* new_token(TokenKind kind, char* str, int len) {
   Token* tok = calloc(1, sizeof(Token));
   tok->kind = kind;
   tok->str = str;
@@ -85,26 +85,23 @@ Token* new_token(TokenKind kind, char* str, int len) {
   return tok;
 }
 
-bool startswith(char* p, char* q) { return memcmp(p, q, strlen(q)) == 0; }
-
-bool is_alnum(char c) {
-  return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') ||
-         ('0' <= c && c <= '9');
+static bool startswith(char* p, char* q) {
+  return memcmp(p, q, strlen(q)) == 0;
 }
 
-bool is_identable1(char c) {
+static bool is_identable1(char c) {
   return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
 }
 
-bool is_identable2(char c) {
+static bool is_identable2(char c) {
   return is_identable1(c) || ('0' <= c && c <= '9');
 }
 
-bool equal_str(char* p, char* keyword) {
+static bool equal_str(char* p, char* keyword) {
   return startswith(p, keyword) && !is_identable2(p[strlen(keyword)]);
 }
 
-bool consume_keyword(Token** tok, char** p) {
+static bool consume_keyword(Token** tok, char** p) {
   static char* ks[] = {
       "if", "else", "for", "while", "return", "sizeof", "int", "char",
   };
@@ -120,7 +117,7 @@ bool consume_keyword(Token** tok, char** p) {
   return false;
 }
 
-void read_file() {
+static void read_file() {
   FILE* fp = fopen(filename, "r");
   if (!fp) {
     error("cannot open %s: %s", filename, strerror(errno));

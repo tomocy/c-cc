@@ -6,32 +6,32 @@ int func_count = 0;
 char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
 char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
-void genln(char* fmt, ...) {
+static void genln(char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
   vprintf(fmt, args);
   printf("\n");
 }
 
-void push_reg(char* reg) {
+static void push_reg(char* reg) {
   genln("  push %s", reg);
   depth++;
 }
 
-void push_val(int v) {
+static void push_val(int v) {
   genln("  push %d", v);
   depth++;
 }
 
-void pop(char* reg) {
+static void pop(char* reg) {
   genln("  pop %s", reg);
   depth--;
 }
 
-void gen_expr(Node* node);
-void gen_stmt(Node* node);
+static void gen_expr(Node* node);
+static void gen_stmt(Node* node);
 
-void gen_lval(Node* node) {
+static void gen_lval(Node* node) {
   switch (node->kind) {
     case ND_GVAR:
       genln("  lea rax, %s[rip]", node->name);
@@ -44,11 +44,11 @@ void gen_lval(Node* node) {
       gen_expr(node->lhs);
       break;
     default:
-      error("non left value");
+      error("expected a left value: %d", node->kind);
   }
 }
 
-void load(Node* node, char* dst, char* src) {
+static void load(Node* node, char* dst, char* src) {
   if (node->type->kind == TY_ARRAY) {
   } else if (node->type->kind == TY_CHAR) {
     genln("  movsx %s, BYTE PTR [%s]", dst, src);
@@ -57,7 +57,7 @@ void load(Node* node, char* dst, char* src) {
   }
 }
 
-void gen_expr(Node* node) {
+static void gen_expr(Node* node) {
   switch (node->kind) {
     case ND_ASSIGN:
       gen_lval(node->lhs);
@@ -162,7 +162,7 @@ void gen_expr(Node* node) {
   }
 }
 
-void gen_stmt(Node* node) {
+static void gen_stmt(Node* node) {
   switch (node->kind) {
     case ND_BLOCK:
       for (Node* body = node->body; body; body = body->next) {
@@ -216,7 +216,7 @@ void gen_stmt(Node* node) {
   }
 }
 
-void gen_data() {
+static void gen_data() {
   for (Obj* var = codes; var; var = var->next) {
     if (var->kind != OJ_GVAR) {
       continue;
@@ -237,7 +237,7 @@ void gen_data() {
   }
 }
 
-int sum_vars_size(Obj* vars) {
+static int sum_vars_size(Obj* vars) {
   int sum = 0;
   for (Obj* var = vars; var; var = var->next) {
     sum += var->type->size;
@@ -245,9 +245,9 @@ int sum_vars_size(Obj* vars) {
   return sum;
 }
 
-int align(int n, int align) { return (n + align - 1) / align * align; }
+static int align(int n, int align) { return (n + align - 1) / align * align; }
 
-void gen_text() {
+static void gen_text() {
   for (Obj* func = codes; func; func = func->next) {
     if (func->kind != OJ_FUNC) {
       continue;

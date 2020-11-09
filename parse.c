@@ -17,13 +17,13 @@ Type* ty_int = &(Type){
 
 int str_count = 0;
 
-Type* new_type(TypeKind kind) {
+static Type* new_type(TypeKind kind) {
   Type* type = calloc(1, sizeof(Type));
   type->kind = kind;
   return type;
 }
 
-Type* add_size(Type* type) {
+static Type* add_size(Type* type) {
   switch (type->kind) {
     case TY_UNAVAILABLE:
       type->size = 0;
@@ -43,13 +43,13 @@ Type* add_size(Type* type) {
   return type;
 }
 
-Obj* new_obj(ObjKind kind) {
+static Obj* new_obj(ObjKind kind) {
   Obj* obj = calloc(1, sizeof(Obj));
   obj->kind = kind;
   return obj;
 }
 
-void add_code(Obj* code) {
+static void add_code(Obj* code) {
   if (code->kind != OJ_FUNC && code->kind != OJ_GVAR) {
     error("expected a top level object");
   }
@@ -57,20 +57,20 @@ void add_code(Obj* code) {
   codes = code;
 }
 
-void enter_scope() {
+static void enter_scope() {
   Scope* next = calloc(1, sizeof(Scope));
   next->next = scope;
   scope = next;
 }
 
-void leave_scope() {
+static void leave_scope() {
   if (!scope) {
     error("no scope to leave");
   }
   scope = scope->next;
 }
 
-void add_scoped_var_to(Scope* scope, Obj* var) {
+static void add_scoped_var_to(Scope* scope, Obj* var) {
   if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
     error("expected a variable");
   }
@@ -80,9 +80,9 @@ void add_scoped_var_to(Scope* scope, Obj* var) {
   scope->vars = scoped;
 }
 
-bool is_gscope(Scope* scope) { return !scope->next; }
+static bool is_gscope(Scope* scope) { return !scope->next; }
 
-void add_gvar(Obj* var) {
+static void add_gvar(Obj* var) {
   if (var->kind != OJ_GVAR) {
     error("expected a global var");
   }
@@ -92,7 +92,7 @@ void add_gvar(Obj* var) {
   add_scoped_var_to(gscope, var);
 }
 
-void add_lvar(Obj* var) {
+static void add_lvar(Obj* var) {
   if (var->kind != OJ_LVAR) {
     error("expected a local var");
   }
@@ -104,7 +104,7 @@ void add_lvar(Obj* var) {
   add_scoped_var_to(scope, var);
 }
 
-Obj* find_func(char* name, int len) {
+static Obj* find_func(char* name, int len) {
   for (Obj* func = codes; func; func = func->next) {
     if (func->kind != OJ_FUNC) {
       continue;
@@ -116,7 +116,7 @@ Obj* find_func(char* name, int len) {
   return NULL;
 }
 
-Obj* find_var(char* name, int len) {
+static Obj* find_var(char* name, int len) {
   for (Scope* s = scope; s; s = s->next) {
     for (ScopedVar* var = s->vars; var; var = var->next) {
       if (var->var->kind != OJ_GVAR && var->var->kind != OJ_LVAR) {
@@ -131,7 +131,7 @@ Obj* find_var(char* name, int len) {
   return NULL;
 }
 
-Obj* new_gvar(Type* type, char* name, int len) {
+static Obj* new_gvar(Type* type, char* name, int len) {
   Obj* var = new_obj(OJ_GVAR);
   var->type = type;
   var->name = strndup(name, len);
@@ -139,7 +139,7 @@ Obj* new_gvar(Type* type, char* name, int len) {
   return var;
 }
 
-Obj* new_str(char* name, int name_len, char* data, int data_len) {
+static Obj* new_str(char* name, int name_len, char* data, int data_len) {
   Type* ty = new_type(TY_ARRAY);
   ty->base = ty_char;
   ty->len = data_len + 1;
@@ -150,7 +150,7 @@ Obj* new_str(char* name, int name_len, char* data, int data_len) {
   return str;
 }
 
-Obj* new_lvar(Type* type, char* name, int len) {
+static Obj* new_lvar(Type* type, char* name, int len) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = strndup(name, len);
@@ -159,7 +159,7 @@ Obj* new_lvar(Type* type, char* name, int len) {
   return var;
 }
 
-Node* add_type(Node* node) {
+static Node* add_type(Node* node) {
   if (node->type) {
     return node;
   }
@@ -202,53 +202,53 @@ Node* add_type(Node* node) {
   return node;
 }
 
-Node* new_node(NodeKind kind) {
+static Node* new_node(NodeKind kind) {
   Node* node = calloc(1, sizeof(Node));
   node->kind = kind;
   return node;
 }
 
-Node* new_unary_node(NodeKind kind, Node* lhs) {
+static Node* new_unary_node(NodeKind kind, Node* lhs) {
   Node* node = new_node(kind);
   node->lhs = lhs;
   return add_type(node);
 }
 
-Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
+static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   Node* node = new_node(kind);
   node->lhs = lhs;
   node->rhs = rhs;
   return add_type(node);
 }
 
-Node* new_funccall_node(char* name, int len, Node* args) {
+static Node* new_funccall_node(char* name, int len, Node* args) {
   Node* node = new_node(ND_FUNCCALL);
   node->name = strndup(name, len);
   node->args = args;
   return add_type(node);
 }
 
-Node* new_num_node(int val) {
+static Node* new_num_node(int val) {
   Node* node = new_node(ND_NUM);
   node->val = val;
   return add_type(node);
 }
 
-Node* new_gvar_node(Type* type, char* name, int len) {
+static Node* new_gvar_node(Type* type, char* name, int len) {
   Node* node = new_node(ND_GVAR);
   node->type = type;
   node->name = strndup(name, len);
   return node;
 }
 
-Node* new_lvar_node(Type* type, int offset) {
+static Node* new_lvar_node(Type* type, int offset) {
   Node* node = new_node(ND_LVAR);
   node->type = type;
   node->offset = offset;
   return node;
 }
 
-Node* new_var_node(Obj* obj) {
+static Node* new_var_node(Obj* obj) {
   switch (obj->kind) {
     case OJ_GVAR:
       return new_gvar_node(obj->type, obj->name, strlen(obj->name));
@@ -260,9 +260,9 @@ Node* new_var_node(Obj* obj) {
   }
 }
 
-Node* expr();
+static Node* expr();
 
-Node* func_args() {
+static Node* func_args() {
   expect("(");
   Node head = {};
   Node* cur = &head;
@@ -276,9 +276,9 @@ Node* func_args() {
   return head.next;
 }
 
-Node* block_stmt();
+static Node* block_stmt();
 
-Node* primary() {
+static Node* primary() {
   if (consume("(")) {
     if (equal(token, "{")) {
       Node* node = new_node(ND_STMT_EXPR);
@@ -330,7 +330,7 @@ bool is_pointable(Node* node) {
   return node->type->kind == TY_PTR || node->type->kind == TY_ARRAY;
 }
 
-Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
+static Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
   if (kind != ND_ADD && kind != ND_SUB) {
     error("expected an add");
   }
@@ -349,7 +349,7 @@ Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
   }
 }
 
-Node* postfix() {
+static Node* postfix() {
   Node* node = primary();
   if (!consume("[")) {
     return node;
@@ -359,7 +359,7 @@ Node* postfix() {
   return new_unary_node(ND_DEREF, new_add_node(ND_ADD, node, index));
 }
 
-Node* unary() {
+static Node* unary() {
   if (consume("+")) {
     return primary();
   } else if (consume("-")) {
@@ -376,7 +376,7 @@ Node* unary() {
   }
 }
 
-Node* mul() {
+static Node* mul() {
   Node* node = unary();
 
   for (;;) {
@@ -390,7 +390,7 @@ Node* mul() {
   }
 }
 
-Node* add() {
+static Node* add() {
   Node* node = mul();
 
   for (;;) {
@@ -406,7 +406,7 @@ Node* add() {
   }
 }
 
-Node* relational() {
+static Node* relational() {
   Node* node = add();
 
   for (;;) {
@@ -424,7 +424,7 @@ Node* relational() {
   }
 }
 
-Node* equality() {
+static Node* equality() {
   Node* node = relational();
 
   for (;;) {
@@ -438,7 +438,7 @@ Node* equality() {
   }
 }
 
-Node* assign() {
+static Node* assign() {
   Node* node = equality();
 
   for (;;) {
@@ -450,9 +450,9 @@ Node* assign() {
   }
 }
 
-Node* expr() { return assign(); }
+static Node* expr() { return assign(); }
 
-Type* type_head() {
+static Type* type_head() {
   Type* cur;
   if (consume("char")) {
     cur = ty_char;
@@ -469,7 +469,7 @@ Type* type_head() {
   return cur;
 }
 
-Type* type_tail(Type* head) {
+static Type* type_tail(Type* head) {
   expect("[");
   int len = expect_num();
   expect("]");
@@ -480,7 +480,7 @@ Type* type_tail(Type* head) {
   return add_size(array);
 }
 
-Node* lvar() {
+static Node* lvar() {
   Type* ty = type_head();
 
   if (token->kind != TK_IDENT) {
@@ -512,9 +512,9 @@ bool equal_type_name(Token* tok) {
   return false;
 }
 
-Node* block_stmt();
+static Node* block_stmt();
 
-Node* stmt() {
+static Node* stmt() {
   if (equal(token, "{")) {
     return block_stmt();
   } else if (consume("if")) {
@@ -566,7 +566,7 @@ Node* stmt() {
   }
 }
 
-Node* block_stmt() {
+static Node* block_stmt() {
   expect("{");
   enter_scope();
   Node head = {};
@@ -582,7 +582,7 @@ Node* block_stmt() {
   return node;
 }
 
-void gvar() {
+static void gvar() {
   Type* ty = type_head();
 
   if (token->kind != TK_IDENT) {
@@ -602,7 +602,7 @@ void gvar() {
   }
 }
 
-void func() {
+static void func() {
   Type* ty = type_head();
 
   if (token->kind != TK_IDENT) {
