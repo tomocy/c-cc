@@ -43,6 +43,10 @@ static void gen_lval(Node* node) {
     case ND_DEREF:
       gen_expr(node->lhs);
       break;
+    case ND_MEMBER:
+      gen_lval(node->lhs);
+      genln("  add rax, %d", node->offset);
+      break;
     default:
       error("expected a left value: %d", node->kind);
   }
@@ -98,6 +102,7 @@ static void gen_expr(Node* node) {
     }
     case ND_GVAR:
     case ND_LVAR:
+    case ND_MEMBER:
       gen_lval(node);
       load(node, "rax", "rax");
       return;

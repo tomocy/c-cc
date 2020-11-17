@@ -38,6 +38,8 @@ static Type* add_size(Type* type) {
     case TY_ARRAY:
       type->size = type->base->size * type->len;
       break;
+    default:
+      break;
   }
 
   return type;
@@ -353,14 +355,48 @@ static Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
   }
 }
 
-static Node* postfix() {
-  Node* node = primary();
-  if (!consume("[")) {
+static Node* struct_ref_node(Node* lhs) {
+  if (lhs->type->kind != TY_STRUCT) {
+    error_at(token->str, "expected a struct");
+  }
+  if (token->kind != TK_IDENT) {
+    error_at(token->str, "expected an ident");
+  }
+
+  for (Member* mem = lhs->type->members; mem; mem = mem->next) {
+    if (strlen(mem->name) != token->len ||
+        strncmp(mem->name, token->str, token->len) != 0) {
+      continue;
+    }
+
+    token = token->next;
+    Node* node = new_unary_node(ND_MEMBER, lhs);
+    node->type = mem->type;
+    node->name = mem->name;
+    node->offset = mem->offset;
     return node;
   }
-  Node* index = expr();
-  expect("]");
-  return new_unary_node(ND_DEREF, new_add_node(ND_ADD, node, index));
+
+  error_at(token->str, "no such member");
+  return NULL;
+}
+
+static Node* postfix() {
+  Node* node = primary();
+
+  for (;;) {
+    if (consume("[")) {
+      Node* index = expr();
+      expect("]");
+      node = new_unary_node(ND_DEREF, new_add_node(ND_ADD, node, index));
+      continue;
+    } else if (consume(".")) {
+      node = struct_ref_node(node);
+      continue;
+    } else {
+      return node;
+    }
+  }
 }
 
 static Node* unary() {
@@ -462,13 +498,54 @@ static Node* expr() {
   return node;
 }
 
+static Type* type_head();
+static Type* type_tail();
+
+static Type* struct_decl() {
+  expect("struct");
+  expect("{");
+
+  Type* ty = new_type(TY_STRUCT);
+  Member head = {};
+  Member* cur = &head;
+  int offset = 0;
+  while (!consume("}")) {
+    Type* mem_ty = type_head();
+
+    if (token->kind != TK_IDENT) {
+      error_at(token->str, "expected an ident");
+    }
+    Token* ident = token;
+    token = token->next;
+
+    if (equal(token, "[")) {
+      mem_ty = type_tail(mem_ty);
+    }
+
+    Member* mem = calloc(1, sizeof(Member));
+    mem->type = mem_ty;
+    mem->name = strndup(ident->str, ident->len);
+    mem->offset = offset;
+    offset += mem_ty->size;
+    cur->next = mem;
+    cur = cur->next;
+
+    expect(";");
+  }
+
+  ty->members = head.next;
+  ty->size = offset;
+  return ty;
+}
+
 static Type* type_head() {
   Type* cur;
   if (consume("char")) {
     cur = ty_char;
-  } else {
-    expect("int");
+  } else if (consume("int")) {
     cur = ty_int;
+  } else {
+    cur = struct_decl();
   }
 
   while (consume("*")) {
@@ -512,7 +589,7 @@ static Node* lvar() {
 }
 
 bool equal_type_name(Token* tok) {
-  static char* tnames[] = {"int", "char"};
+  static char* tnames[] = {"int", "char", "struct"};
   int len = sizeof(tnames) / sizeof(char*);
   for (int i = 0; i < len; i++) {
     if (equal(tok, tnames[i])) {

@@ -5,10 +5,12 @@
 program = (func | gvar)*
 func = type_head ident "(" (type_head ident (, type_head ident)*)? ")" bloc_stmt
 gvar = var ("=" num)? ";"
-var = type_head ident type_tail?
+var = type_head ident type_tail? ";"
 type_head = type_name "*"*
-type_name = "int" | "char"
+type_name = "int" | "char" | struct_decl
 type_tail = ("[" num "]")
+struct_decl = "struct" "{" (struct_member ";")* "}"
+struct_member = type_head ident type_tail?
 bloc_stmt = "{" stmt* "}"
 stmt = expr ";" | 
     "if" "(" expr ")" stmt ("else" stmt)? | 
@@ -23,7 +25,7 @@ relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
 mul = unary ("*" unary | "/" unary)*
 unary = ("+" | "-")? primary | ("&" | "*") unary | "sizeof" unary | postfix
-postfix = primary ("[" expr "]")?
+postfix = primary ("[" expr "]" | "." ident)*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 func_args = "(" (expr (, expr)*)? ")"
 ```

@@ -26,21 +26,32 @@ struct Token {
   int val;
 };
 
+typedef struct Type Type;
+
+typedef struct Member Member;
+
+struct Member {
+  Member* next;
+  Type* type;
+  char* name;
+  int offset;
+};
+
 typedef enum {
   TY_UNAVAILABLE,
   TY_CHAR,
   TY_INT,
+  TY_STRUCT,
   TY_PTR,
   TY_ARRAY,
 } TypeKind;
-
-typedef struct Type Type;
 
 struct Type {
   TypeKind kind;
   int size;
   Type* base;
   int len;
+  Member* members;
 };
 
 extern Type* ty_char;
@@ -67,6 +78,7 @@ typedef enum {
   ND_NUM,
   ND_GVAR,
   ND_LVAR,
+  ND_MEMBER,
   ND_FUNCCALL,
 } NodeKind;
 

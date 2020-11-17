@@ -103,7 +103,7 @@ static bool equal_str(char* p, char* keyword) {
 
 static bool consume_keyword(Token** tok, char** p) {
   static char* ks[] = {
-      "if", "else", "for", "while", "return", "sizeof", "int", "char",
+      "if", "else", "for", "while", "return", "sizeof", "int", "char", "struct",
   };
   int len = sizeof(ks) / sizeof(char*);
   for (int i = 0; i < len; i++) {
@@ -182,7 +182,7 @@ void tokenize() {
       continue;
     }
 
-    if (strchr("+-*/()<>=;{},&[]", *p)) {
+    if (strchr("+-*/()<>=;{},.&[]", *p)) {
       cur->next = new_token(TK_RESERVED, p++, 1);
       cur = cur->next;
       continue;
