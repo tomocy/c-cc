@@ -32,6 +32,19 @@ static Type* new_type(TypeKind kind, int size, int alignment) {
   return type;
 }
 
+static Type* new_ptr_type(Type* base) {
+  Type* ptr = new_type(TY_PTR, 8, 8);
+  ptr->base = base;
+  return ptr;
+}
+
+static Type* new_array_type(Type* base, int len) {
+  Type* arr = new_type(TY_ARRAY, base->size * len, base->alignment);
+  arr->base = base;
+  arr->len = len;
+  return arr;
+}
+
 static Obj* new_obj(ObjKind kind) {
   Obj* obj = calloc(1, sizeof(Obj));
   obj->kind = kind;
@@ -129,10 +142,7 @@ static Obj* new_gvar(Type* type, char* name) {
 }
 
 static Obj* new_str(char* name, char* data, int data_len) {
-  Type* ty =
-      new_type(TY_ARRAY, ty_char->size * (data_len + 1), ty_char->alignment);
-  ty->base = ty_char;
-  ty->len = data_len + 1;
+  Type* ty = new_array_type(ty_char, data_len + 1);
   Obj* str = new_gvar(ty, name);
   str->data = strndup(data, data_len);
   add_code(str);
@@ -148,52 +158,6 @@ static Obj* new_lvar(Type* type, char* name) {
   return var;
 }
 
-static Node* add_type(Node* node) {
-  if (node->type) {
-    return node;
-  }
-
-  switch (node->kind) {
-    case ND_EQ:
-    case ND_NE:
-    case ND_LT:
-    case ND_LE:
-    case ND_NUM:
-      node->type = ty_int;
-      break;
-    case ND_FUNCCALL: {
-      Obj* func = find_func(node->name, strlen(node->name));
-      node->type = (func) ? func->type : ty_unavailable;
-      break;
-    }
-    case ND_ASSIGN:
-    case ND_ADD:
-    case ND_SUB:
-    case ND_MUL:
-    case ND_DIV:
-      node->type = node->lhs->type;
-      break;
-    case ND_COMMA:
-      node->type = node->rhs->type;
-      break;
-    case ND_ADDR:
-      node->type = new_type(TY_PTR, 8, 8);
-      node->type->base = node->lhs->type;
-      break;
-    case ND_DEREF:
-      if (node->lhs->type->kind == TY_PTR ||
-          node->lhs->type->kind == TY_ARRAY) {
-        node->type = node->lhs->type->base;
-      } else {
-        node->type = node->lhs->type;
-      }
-      break;
-    default:
-      break;
-  }
-  return node;
-}
-
 static Node* new_node(NodeKind kind) {
   Node* node = calloc(1, sizeof(Node));
   node->kind = kind;
@@ -203,27 +167,14 @@ static Node* new_node(NodeKind kind) {
 static Node* new_unary_node(NodeKind kind, Node* lhs) {
   Node* node = new_node(kind);
   node->lhs = lhs;
-  return add_type(node);
+  return node;
 }
 
 static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   Node* node = new_node(kind);
   node->lhs = lhs;
   node->rhs = rhs;
-  return add_type(node);
-}
-
-static Node* new_funccall_node(char* name, Node* args) {
-  Node* node = new_node(ND_FUNCCALL);
-  node->name = name;
-  node->args = args;
-  return add_type(node);
-}
-
-static Node* new_num_node(int val) {
-  Node* node = new_node(ND_NUM);
-  node->val = val;
-  return add_type(node);
+  return node;
 }
 
 static Node* new_gvar_node(Type* type, char* name) {
@@ -250,6 +201,129 @@ static Node* new_var_node(Obj* obj) {
       error("expected a variable object");
       return NULL;
   }
+}
+
+static Node* new_funccall_node(char* name, Node* args) {
+  Node* node = new_node(ND_FUNCCALL);
+  node->name = name;
+  node->args = args;
+  Obj* func = find_func(name, strlen(node->name));
+  node->type = (func) ? func->type : ty_unavailable;
+  return node;
+}
+
+static Node* new_num_node(int val) {
+  Node* node = new_node(ND_NUM);
+  node->val = val;
+  node->type = ty_int;
+  return node;
+}
+
+static Node* new_mul_node(Node* lhs, Node* rhs) {
+  Node* mul = new_binary_node(ND_MUL, lhs, rhs);
+  mul->type = lhs->type;
+  return mul;
+}
+
+static Node* new_div_node(Node* lhs, Node* rhs) {
+  Node* div = new_binary_node(ND_DIV, lhs, rhs);
+  div->type = lhs->type;
+  return div;
+}
+
+bool is_numable(Node* node) {
+  return node->type->kind == TY_INT || node->type->kind == TY_CHAR;
+}
+
+bool is_pointable(Node* node) {
+  return node->type->kind == TY_PTR || node->type->kind == TY_ARRAY;
+}
+
+static Node* new_add_node(Node* lhs, Node* rhs) {
+  if (is_pointable(lhs) && is_pointable(rhs)) {
+    error_at(token->str, "invalid operands");
+  }
+
+  Node* add;
+  if (is_numable(lhs) && is_numable(rhs)) {
+    add = new_binary_node(ND_ADD, lhs, rhs);
+  } else if (is_pointable(lhs) && is_numable(rhs)) {
+    rhs = new_mul_node(rhs, new_num_node(lhs->type->base->size));
+    add = new_binary_node(ND_ADD, lhs, rhs);
+  } else {
+    lhs = new_mul_node(lhs, new_num_node(rhs->type->base->size));
+    add = new_binary_node(ND_ADD, lhs, rhs);
+  }
+  add->type = add->lhs->type;
+  return add;
+}
+
+static Node* new_sub_node(Node* lhs, Node* rhs) {
+  if (is_pointable(lhs) && is_pointable(rhs)) {
+    error_at(token->str, "invalid operands");
+  }
+
+  Node* sub;
+  if (is_numable(lhs) && is_numable(rhs)) {
+    sub = new_binary_node(ND_SUB, lhs, rhs);
+  } else if (is_pointable(lhs) && is_numable(rhs)) {
+    rhs = new_mul_node(rhs, new_num_node(lhs->type->base->size));
+    sub = new_binary_node(ND_SUB, lhs, rhs);
+  } else {
+    lhs = new_mul_node(lhs, new_num_node(rhs->type->base->size));
+    sub = new_binary_node(ND_SUB, lhs, rhs);
+  }
+  sub->type = sub->lhs->type;
+  return sub;
+}
+
+static Node* new_addr_node(Node* lhs) {
+  Node* addr = new_unary_node(ND_ADDR, lhs);
+  addr->type = new_ptr_type(addr->lhs->type);
+  return addr;
+}
+
+static Node* new_deref_node(Node* lhs) {
+  Node* deref = new_unary_node(ND_DEREF, lhs);
+  deref->type =
+      (deref->lhs->type->base) ? deref->lhs->type->base : deref->lhs->type;
+  return deref;
+}
+
+static Node* new_eq_node(Node* lhs, Node* rhs) {
+  Node* eq = new_binary_node(ND_EQ, lhs, rhs);
+  eq->type = ty_int;
+  return eq;
+}
+
+static Node* new_ne_node(Node* lhs, Node* rhs) {
+  Node* ne = new_binary_node(ND_NE, lhs, rhs);
+  ne->type = ty_int;
+  return ne;
+}
+
+static Node* new_lt_node(Node* lhs, Node* rhs) {
+  Node* lt = new_binary_node(ND_LT, lhs, rhs);
+  lt->type = ty_int;
+  return lt;
+}
+
+static Node* new_le_node(Node* lhs, Node* rhs) {
+  Node* le = new_binary_node(ND_LE, lhs, rhs);
+  le->type = ty_int;
+  return le;
+}
+
+static Node* new_assign_node(Node* lhs, Node* rhs) {
+  Node* assign = new_binary_node(ND_ASSIGN, lhs, rhs);
+  assign->type = lhs->type;
+  return assign;
+}
+
+static Node* new_comma_node(Node* lhs, Node* rhs) {
+  Node* comma = new_binary_node(ND_COMMA, lhs, rhs);
+  comma->type = comma->rhs->type;
+  return comma;
 }
 
 static Node* assign();
@@ -315,33 +389,6 @@ static Node* primary() {
   return new_var_node(str);
 }
 
-bool is_numable(Node* node) {
-  return node->type->kind == TY_INT || node->type->kind == TY_CHAR;
-}
-
-bool is_pointable(Node* node) {
-  return node->type->kind == TY_PTR || node->type->kind == TY_ARRAY;
-}
-
-static Node* new_add_node(NodeKind kind, Node* lhs, Node* rhs) {
-  if (kind != ND_ADD && kind != ND_SUB) {
-    error("expected an add");
-  }
-
-  if (is_pointable(lhs) && is_pointable(rhs)) {
-    error_at(token->str, "invalid operands");
-  }
-  if (is_numable(lhs) && is_numable(rhs)) {
-    return new_binary_node(kind, lhs, rhs);
-  } else if (is_pointable(lhs) && is_numable(rhs)) {
-    rhs = new_binary_node(ND_MUL, rhs, new_num_node(lhs->type->base->size));
-    return new_binary_node(kind, lhs, rhs);
-  } else {
-    lhs = new_binary_node(ND_MUL, lhs, new_num_node(rhs->type->base->size));
-    return new_binary_node(kind, lhs, rhs);
-  }
-}
-
 static Node* struct_ref_node(Node* lhs) {
   if (lhs->type->kind != TY_STRUCT) {
     error_at(token->str, "expected a struct");
@@ -375,7 +422,7 @@ static Node* postfix() {
     if (consume("[")) {
       Node* index = expr();
       expect("]");
-      node = new_unary_node(ND_DEREF, new_add_node(ND_ADD, node, index));
+      node = new_deref_node(new_add_node(node, index));
       continue;
     } else if (consume(".")) {
       node = struct_ref_node(node);
@@ -390,11 +437,11 @@ static Node* unary() {
   if (consume("+")) {
     return primary();
   } else if (consume("-")) {
-    return new_binary_node(ND_SUB, new_num_node(0), primary());
+    return new_sub_node(new_num_node(0), primary());
   } else if (consume("&")) {
-    return new_unary_node(ND_ADDR, unary());
+    return new_addr_node(unary());
   } else if (consume("*")) {
-    return new_unary_node(ND_DEREF, unary());
+    return new_deref_node(unary());
   } else if (consume("sizeof")) {
     Node* node = unary();
     return new_num_node(node->type->size);
@@ -408,9 +455,9 @@ static Node* mul() {
 
   for (;;) {
     if (consume("*")) {
-      node = new_binary_node(ND_MUL, node, unary());
+      node = new_mul_node(node, unary());
     } else if (consume("/")) {
-      node = new_binary_node(ND_DIV, node, unary());
+      node = new_div_node(node, unary());
     } else {
       return node;
     }
@@ -423,10 +470,10 @@ static Node* add() {
   for (;;) {
     if (consume("+")) {
       Node* rhs = mul();
-      node = new_add_node(ND_ADD, node, rhs);
+      node = new_add_node(node, rhs);
     } else if (consume("-")) {
       Node* rhs = mul();
-      node = new_add_node(ND_SUB, node, rhs);
+      node = new_sub_node(node, rhs);
     } else {
       return node;
     }
@@ -438,13 +485,13 @@ static Node* relational() {
 
   for (;;) {
     if (consume("<")) {
-      node = new_binary_node(ND_LT, node, add());
+      node = new_lt_node(node, add());
     } else if (consume("<=")) {
-      node = new_binary_node(ND_LE, node, add());
+      node = new_le_node(node, add());
     } else if (consume(">")) {
-      node = new_binary_node(ND_LT, add(), node);
+      node = new_lt_node(add(), node);
     } else if (consume(">=")) {
-      node = new_binary_node(ND_LE, add(), node);
+      node = new_le_node(add(), node);
     } else {
       return node;
     }
@@ -456,9 +503,9 @@ static Node* equality() {
 
   for (;;) {
     if (consume("==")) {
-      node = new_binary_node(ND_EQ, node, relational());
+      node = new_eq_node(node, relational());
     } else if (consume("!=")) {
-      node = new_binary_node(ND_NE, node, relational());
+      node = new_ne_node(node, relational());
     } else {
       return node;
     }
@@ -470,7 +517,7 @@ static Node* assign() {
 
   for (;;) {
     if (consume("=")) {
-      node = new_binary_node(ND_ASSIGN, node, equality());
+      node = new_assign_node(node, equality());
     } else {
       return node;
     }
@@ -480,7 +527,7 @@ static Node* assign() {
 static Node* expr() {
   Node* node = assign();
   if (consume(",")) {
-    return new_binary_node(ND_COMMA, node, expr());
+    return new_comma_node(node, expr());
   }
   return node;
 }
@@ -502,9 +549,7 @@ static Type* decl_specifier() {
 
 static Decl* declarator(Type* ty) {
   while (consume("*")) {
-    Type* ptr = new_type(TY_PTR, 8, 8);
-    ptr->base = ty;
-    ty = ptr;
+    ty = new_ptr_type(ty);
   }
 
   if (token->kind != TK_IDENT) {
@@ -516,10 +561,7 @@ static Decl* declarator(Type* ty) {
   if (consume("[")) {
     int len = expect_num();
     expect("]");
-    Type* arr = new_type(TY_ARRAY, ty->size * len, ty->alignment);
-    arr->base = ty;
-    arr->len = len;
-    ty = arr;
+    ty = new_array_type(ty, len);
   }
 
   Decl* decl = calloc(1, sizeof(Decl));
@@ -584,7 +626,7 @@ static Node* lvar() {
     Node* node = new_var_node(var);
 
     if (consume("=")) {
-      node = new_binary_node(ND_ASSIGN, node, assign());
+      node = new_assign_node(node, assign());
     }
 
     cur->next = node;
