@@ -4,6 +4,7 @@ int gx;
 int gy;
 int gxs[4];
 int gz = 42;
+int ggx = 1, ggy = 2, ggz = 3;
 
 int ret(int x) {
   return x;
@@ -624,6 +625,19 @@ int main() {
            } x;
            x.a.b = 6;
            x.a.b;
+         }));
+
+  ASSERT(4, ({
+           int a = 1, b = 3;
+           a + b;
+         }));
+  ASSERT(6, ({ ggx + ggy + ggz; }));
+  ASSERT(10, ({
+           struct {
+             int a, b;
+           } x;
+           x.a = 9, x.b = 1;
+           x.a + x.b;
          }));
 
   ok();

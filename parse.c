@@ -551,17 +551,24 @@ static Type* struct_decl() {
   int offset = 0;
   while (!consume("}")) {
     Type* spec = decl_specifier();
-    Decl* decl = declarator(spec);
 
-    Member* mem = calloc(1, sizeof(Member));
-    mem->type = decl->type;
-    mem->name = decl->name;
-    mem->offset = offset;
-    offset += decl->type->size;
-    cur->next = mem;
-    cur = cur->next;
+    bool is_first = true;
+    while (!consume(";")) {
+      if (!is_first) {
+        expect(",");
+      }
+      is_first = false;
 
-    expect(";");
+      Decl* decl = declarator(spec);
+
+      Member* mem = calloc(1, sizeof(Member));
+      mem->type = decl->type;
+      mem->name = decl->name;
+      mem->offset = offset;
+      offset += decl->type->size;
+      cur->next = mem;
+      cur = cur->next;
+    }
   }
 
   ty->members = head.next;
@@ -569,20 +576,31 @@ static Type* struct_decl() {
   return ty;
 }
 
-static Node* lvar_decl() {
-  Type* spec = decl_specifier();
-  Decl* decl = declarator(spec);
-
-  Obj* var = new_lvar(decl->type, decl->name);
-  return new_var_node(var);
-}
-
 static Node* lvar() {
-  Node* node = lvar_decl();
-  if (!consume("=")) {
-    return node;
+  Type* spec = decl_specifier();
+
+  Node head = {};
+  Node* cur = &head;
+  while (!consume(";")) {
+    if (cur != &head) {
+      expect(",");
+    }
+
+    Decl* decl = declarator(spec);
+    Obj* var = new_lvar(decl->type, decl->name);
+    Node* node = new_var_node(var);
+
+    if (consume("=")) {
+      node = new_binary_node(ND_ASSIGN, node, assign());
+    }
+
+    cur->next = node;
+    cur = cur->next;
   }
-  return new_binary_node(ND_ASSIGN, node, expr());
+
+  Node* node = new_node(ND_BLOCK);
+  node->body = head.next;
+  return node;
 }
 
 bool equal_type_name(Token* tok) {
@@ -641,7 +659,6 @@ static Node* stmt() {
     return node;
   } else if (equal_type_name(token)) {
     Node* node = lvar();
-    expect(";");
     return node;
   } else {
     Node* node = expr();
@@ -666,19 +683,23 @@ static Node* block_stmt() {
   return node;
 }
 
-static Obj* gvar_decl() {
-  Type* spec = decl_specifier();
-  Decl* decl = declarator(spec);
-
-  Obj* var = new_gvar(decl->type, decl->name);
-  add_code(var);
-  return var;
-}
-
 static void gvar() {
-  Obj* var = gvar_decl();
-  if (consume("=")) {
-    var->val = expect_num();
+  Type* spec = decl_specifier();
+
+  bool is_first = true;
+  while (!consume(";")) {
+    if (!is_first) {
+      expect(",");
+    }
+    is_first = false;
+
+    Decl* decl = declarator(spec);
+    Obj* var = new_gvar(decl->type, decl->name);
+    add_code(var);
+
+    if (consume("=")) {
+      var->val = expect_num();
+    }
   }
 }
 
@@ -704,7 +725,11 @@ static void func() {
       expect(",");
     }
 
-    Node* param = lvar_decl();
+    Type* spec = decl_specifier();
+    Decl* decl = declarator(spec);
+
+    Obj* var = new_lvar(decl->type, decl->name);
+    Node* param = new_var_node(var);
     cur->next = param;
     cur = cur->next;
   }
@@ -745,7 +770,6 @@ void program() {
       func();
     } else {
       gvar();
-      expect(";");
     }
   }
 

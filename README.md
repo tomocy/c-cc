@@ -4,9 +4,8 @@
 ```
 program = (func | gvar)*
 
-func = decl_specifier ident "(" (lvar_decl (, lvar_decl)*)? ")" bloc_stmt
-gvar = gvar_decl ("=" num)? ";"
-gvar_decl = decl_specifier declarator
+func = decl_specifier ident "(" (decl_specifier declarator (, decl_specifier declarator)*)? ")" bloc_stmt
+gvar = decl_specifier (declarator ("=" num)? ("," declarator ("=" num)?)*)? ";"
 
 bloc_stmt = "{" stmt* "}"
 stmt = "if" "(" expr ")" stmt ("else" stmt)? | 
@@ -25,14 +24,13 @@ unary = ("+" | "-")? primary | ("&" | "*") unary | "sizeof" unary | postfix
 postfix = primary ("[" expr "]" | "." ident)*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 
-lvar = lvar_decl ("=" expr)? ";"
-lvar_decl = decl_specifier declarator
+lvar = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
 
 decl_specifier = "int" | "char" | struct_decl
 declarator = "*"* ident ("[" num "]")?
 
-struct_decl = "struct" "{" (struct_member ";")* "}"
-struct_member = decl_specifier declarator
+struct_decl = "struct" "{" struct_member* "}"
+struct_member = decl_specifier (declarator ("," declarator)*)? ";"
 
 func_args = "(" (assign (, assign)*)? ")"
 ```
