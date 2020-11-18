@@ -133,29 +133,29 @@ static Obj* find_var(char* name, int len) {
   return NULL;
 }
 
-static Obj* new_gvar(Type* type, char* name, int len) {
+static Obj* new_gvar(Type* type, char* name) {
   Obj* var = new_obj(OJ_GVAR);
   var->type = type;
-  var->name = strndup(name, len);
+  var->name = name;
   add_gvar(var);
   return var;
 }
 
-static Obj* new_str(char* name, int name_len, char* data, int data_len) {
+static Obj* new_str(char* name, char* data, int data_len) {
   Type* ty = new_type(TY_ARRAY);
   ty->base = ty_char;
   ty->len = data_len + 1;
   ty = add_size(ty);
-  Obj* str = new_gvar(ty, name, name_len);
+  Obj* str = new_gvar(ty, name);
   str->data = strndup(data, data_len);
   add_code(str);
   return str;
 }
 
-static Obj* new_lvar(Type* type, char* name, int len) {
+static Obj* new_lvar(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
-  var->name = strndup(name, len);
+  var->name = name;
   var->offset = (lvars) ? lvars->offset + type->size : type->size;
   add_lvar(var);
   return var;
@@ -226,9 +226,9 @@ static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   return add_type(node);
 }
 
-static Node* new_funccall_node(char* name, int len, Node* args) {
+static Node* new_funccall_node(char* name, Node* args) {
   Node* node = new_node(ND_FUNCCALL);
-  node->name = strndup(name, len);
+  node->name = name;
   node->args = args;
   return add_type(node);
 }
@@ -239,10 +239,10 @@ static Node* new_num_node(int val) {
   return add_type(node);
 }
 
-static Node* new_gvar_node(Type* type, char* name, int len) {
+static Node* new_gvar_node(Type* type, char* name) {
   Node* node = new_node(ND_GVAR);
   node->type = type;
-  node->name = strndup(name, len);
+  node->name = name;
   return node;
 }
 
@@ -256,7 +256,7 @@ static Node* new_lvar_node(Type* type, int offset) {
 static Node* new_var_node(Obj* obj) {
   switch (obj->kind) {
     case OJ_GVAR:
-      return new_gvar_node(obj->type, obj->name, strlen(obj->name));
+      return new_gvar_node(obj->type, obj->name);
     case OJ_LVAR:
       return new_lvar_node(obj->type, obj->offset);
     default:
@@ -302,7 +302,7 @@ static Node* primary() {
     if (equal(token->next, "(")) {
       Token* ident = token;
       token = token->next;
-      return new_funccall_node(ident->str, ident->len, func_args());
+      return new_funccall_node(strndup(ident->str, ident->len), func_args());
     }
 
     Obj* var = find_var(token->str, token->len);
@@ -322,8 +322,8 @@ static Node* primary() {
     error_at(token->str, "expected a string literal");
   }
   char* name = calloc(20, sizeof(char));
-  int len = sprintf(name, ".Lstr%d", str_count++);
-  Obj* str = new_str(name, len, token->str, token->len);
+  sprintf(name, ".Lstr%d", str_count++);
+  Obj* str = new_str(name, token->str, token->len);
   token = token->next;
   return new_var_node(str);
 }
@@ -498,8 +498,48 @@ static Node* expr() {
   return node;
 }
 
-static Type* type_head();
-static Type* type_tail();
+static Type* struct_decl();
+
+static Type* decl_specifier() {
+  if (consume("char")) {
+    return ty_char;
+  } else if (consume("int")) {
+    return ty_int;
+  } else if (equal(token, "struct")) {
+    return struct_decl();
+  }
+
+  error_at(token->str, "expected a typename");
+  return NULL;
+}
+
+static Decl* declarator(Type* ty) {
+  while (consume("*")) {
+    Type* ptr = add_size(new_type(TY_PTR));
+    ptr->base = ty;
+    ty = ptr;
+  }
+
+  if (token->kind != TK_IDENT) {
+    error_at(token->str, "expected an ident");
+  }
+  Token* ident = token;
+  token = token->next;
+
+  if (consume("[")) {
+    int len = expect_num();
+    expect("]");
+    Type* arr = new_type(TY_ARRAY);
+    arr->base = ty;
+    arr->len = len;
+    ty = add_size(arr);
+  }
+
+  Decl* decl = calloc(1, sizeof(Decl));
+  decl->type = ty;
+  decl->name = strndup(ident->str, ident->len);
+  return decl;
+}
 
 static Type* struct_decl() {
   expect("struct");
@@ -510,23 +550,14 @@ static Type* struct_decl() {
   Member* cur = &head;
   int offset = 0;
   while (!consume("}")) {
-    Type* mem_ty = type_head();
-
-    if (token->kind != TK_IDENT) {
-      error_at(token->str, "expected an ident");
-    }
-    Token* ident = token;
-    token = token->next;
-
-    if (equal(token, "[")) {
-      mem_ty = type_tail(mem_ty);
-    }
+    Type* spec = decl_specifier();
+    Decl* decl = declarator(spec);
 
     Member* mem = calloc(1, sizeof(Member));
-    mem->type = mem_ty;
-    mem->name = strndup(ident->str, ident->len);
+    mem->type = decl->type;
+    mem->name = decl->name;
     mem->offset = offset;
-    offset += mem_ty->size;
+    offset += decl->type->size;
     cur->next = mem;
     cur = cur->next;
 
@@ -538,50 +569,16 @@ static Type* struct_decl() {
   return ty;
 }
 
-static Type* type_head() {
-  Type* cur;
-  if (consume("char")) {
-    cur = ty_char;
-  } else if (consume("int")) {
-    cur = ty_int;
-  } else {
-    cur = struct_decl();
-  }
+static Node* lvar_decl() {
+  Type* spec = decl_specifier();
+  Decl* decl = declarator(spec);
 
-  while (consume("*")) {
-    Type* head = add_size(new_type(TY_PTR));
-    head->base = cur;
-    cur = head;
-  }
-  return cur;
-}
-
-static Type* type_tail(Type* head) {
-  expect("[");
-  int len = expect_num();
-  expect("]");
-
-  Type* array = new_type(TY_ARRAY);
-  array->len = len;
-  array->base = head;
-  return add_size(array);
+  Obj* var = new_lvar(decl->type, decl->name);
+  return new_var_node(var);
 }
 
 static Node* lvar() {
-  Type* ty = type_head();
-
-  if (token->kind != TK_IDENT) {
-    error_at(token->str, "expected an ident");
-  }
-  Token* ident = token;
-  token = token->next;
-
-  if (equal(token, "[")) {
-    ty = type_tail(ty);
-  }
-
-  Obj* var = new_lvar(ty, ident->str, ident->len);
-  Node* node = new_var_node(var);
+  Node* node = lvar_decl();
   if (!consume("=")) {
     return node;
   }
@@ -669,32 +666,29 @@ static Node* block_stmt() {
   return node;
 }
 
-static void gvar() {
-  Type* ty = type_head();
+static Obj* gvar_decl() {
+  Type* spec = decl_specifier();
+  Decl* decl = declarator(spec);
 
-  if (token->kind != TK_IDENT) {
-    error_at(token->str, "expected an ident");
-  }
-  Token* ident = token;
-  token = token->next;
-
-  if (equal(token, "[")) {
-    ty = type_tail(ty);
-  }
-
-  Obj* var = new_gvar(ty, ident->str, ident->len);
+  Obj* var = new_gvar(decl->type, decl->name);
   add_code(var);
+  return var;
+}
+
+static void gvar() {
+  Obj* var = gvar_decl();
   if (consume("=")) {
     var->val = expect_num();
   }
 }
 
 static void func() {
-  Type* ty = type_head();
+  Type* ty = decl_specifier();
 
   if (token->kind != TK_IDENT) {
     error_at(token->str, "expected an ident");
   }
+
   Obj* func = new_obj(OJ_FUNC);
   add_code(func);
   func->type = ty;
@@ -710,7 +704,7 @@ static void func() {
       expect(",");
     }
 
-    Node* param = lvar();
+    Node* param = lvar_decl();
     cur->next = param;
     cur = cur->next;
   }
@@ -723,6 +717,20 @@ static void func() {
   lvars = NULL;
 }
 
+bool is_func() {
+  Token* start = token;
+
+  decl_specifier();
+  if (token->kind != TK_IDENT) {
+    error_at(token->str, "expected an ident");
+  }
+  token = token->next;
+  bool is_func = equal(token, "(");
+
+  token = start;
+  return is_func;
+}
+
 void program() {
   codes = NULL;
   scope = NULL;
@@ -733,17 +741,7 @@ void program() {
   gscope = scope;
 
   while (!at_eof()) {
-    Token* start = token;
-
-    type_head();
-    if (token->kind != TK_IDENT) {
-      error_at(token->str, "expected an ident");
-    }
-    token = token->next;
-    bool is_func = equal(token, "(");
-    token = start;
-
-    if (is_func) {
+    if (is_func()) {
       func();
     } else {
       gvar();

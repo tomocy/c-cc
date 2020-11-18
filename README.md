@@ -3,21 +3,18 @@
 ## Production rule
 ```
 program = (func | gvar)*
-func = type_head ident "(" (type_head ident (, type_head ident)*)? ")" bloc_stmt
-gvar = var ("=" num)? ";"
-var = type_head ident type_tail? ";"
-type_head = type_name "*"*
-type_name = "int" | "char" | struct_decl
-type_tail = ("[" num "]")
-struct_decl = "struct" "{" (struct_member ";")* "}"
-struct_member = type_head ident type_tail?
+
+func = decl_specifier ident "(" (lvar_decl (, lvar_decl)*)? ")" bloc_stmt
+gvar = gvar_decl ("=" num)? ";"
+gvar_decl = decl_specifier declarator
+
 bloc_stmt = "{" stmt* "}"
-stmt = expr ";" | 
-    "if" "(" expr ")" stmt ("else" stmt)? | 
+stmt = "if" "(" expr ")" stmt ("else" stmt)? | 
     "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt | 
     "return" expr ";" |
-    var ("=" expr)? ";"
+    lvar |
+    expr ";"
 expr = assign ("," expr)?
 assign = equality ("=" equality)*
 equality = realtional ("==" relational | "!=" relational)*
@@ -27,7 +24,17 @@ mul = unary ("*" unary | "/" unary)*
 unary = ("+" | "-")? primary | ("&" | "*") unary | "sizeof" unary | postfix
 postfix = primary ("[" expr "]" | "." ident)*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
-func_args = "(" (expr (, expr)*)? ")"
+
+lvar = lvar_decl ("=" expr)? ";"
+lvar_decl = decl_specifier declarator
+
+decl_specifier = "int" | "char" | struct_decl
+declarator = "*"* ident ("[" num "]")?
+
+struct_decl = "struct" "{" (struct_member ";")* "}"
+struct_member = decl_specifier declarator
+
+func_args = "(" (assign (, assign)*)? ")"
 ```
 
 ## Build and Run docker image

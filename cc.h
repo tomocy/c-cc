@@ -57,6 +57,11 @@ struct Type {
 extern Type* ty_char;
 extern Type* ty_int;
 
+typedef struct Decl {
+  Type* type;
+  char* name;
+} Decl;
+
 typedef enum {
   ND_BLOCK,
   ND_IF,
