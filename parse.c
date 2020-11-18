@@ -141,10 +141,10 @@ static Obj* new_gvar(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_str(char* name, char* data, int data_len) {
-  Type* ty = new_array_type(ty_char, data_len + 1);
+static Obj* new_str(char* name, char* val, int val_len) {
+  Type* ty = new_array_type(ty_char, val_len + 1);
   Obj* str = new_gvar(ty, name);
-  str->data = strndup(data, data_len);
+  str->str_val = strndup(val, val_len);
   add_code(str);
   return str;
 }
@@ -241,7 +241,7 @@ bool is_pointable(Node* node) {
 
 static Node* new_add_node(Node* lhs, Node* rhs) {
   if (is_pointable(lhs) && is_pointable(rhs)) {
-    error_at(token->str, "invalid operands");
+    error_tok(token, "invalid operands");
   }
 
   Node* add;
@@ -260,7 +260,7 @@ static Node* new_add_node(Node* lhs, Node* rhs) {
 
 static Node* new_sub_node(Node* lhs, Node* rhs) {
   if (is_pointable(lhs) && is_pointable(rhs)) {
-    error_at(token->str, "invalid operands");
+    error_tok(token, "invalid operands");
   }
 
   Node* sub;
@@ -363,12 +363,12 @@ static Node* primary() {
     if (equal(token->next, "(")) {
       Token* ident = token;
       token = token->next;
-      return new_funccall_node(strndup(ident->str, ident->len), func_args());
+      return new_funccall_node(strndup(ident->loc, ident->len), func_args());
     }
 
-    Obj* var = find_var(token->str, token->len);
+    Obj* var = find_var(token->loc, token->len);
     if (!var) {
-      error_at(token->str, "undefined ident");
+      error_tok(token, "undefined ident");
     }
     Node* node = new_var_node(var);
     token = token->next;
@@ -379,27 +379,29 @@ static Node* primary() {
     return new_num_node(expect_num());
   }
 
-  if (token->kind != TK_STR) {
-    error_at(token->str, "expected a string literal");
+  if (token->kind == TK_STR) {
+    char* name = calloc(20, sizeof(char));
+    sprintf(name, ".Lstr%d", str_count++);
+    Obj* str = new_str(name, token->loc, token->len);
+    token = token->next;
+    return new_var_node(str);
   }
-  char* name = calloc(20, sizeof(char));
-  sprintf(name, ".Lstr%d", str_count++);
-  Obj* str = new_str(name, token->str, token->len);
-  token = token->next;
-  return new_var_node(str);
+
+  error_tok(token, "expected a primary");
+  return NULL;
 }
 
 static Node* struct_ref_node(Node* lhs) {
   if (lhs->type->kind != TY_STRUCT) {
-    error_at(token->str, "expected a struct");
+    error_tok(token, "expected a struct");
   }
   if (token->kind != TK_IDENT) {
-    error_at(token->str, "expected an ident");
+    error_tok(token, "expected an ident");
   }
 
   for (Member* mem = lhs->type->members; mem; mem = mem->next) {
     if (strlen(mem->name) != token->len ||
-        strncmp(mem->name, token->str, token->len) != 0) {
+        strncmp(mem->name, token->loc, token->len) != 0) {
       continue;
     }
 
@@ -411,7 +413,7 @@ static Node* struct_ref_node(Node* lhs) {
     return node;
   }
 
-  error_at(token->str, "no such member");
+  error_tok(token, "no such member");
   return NULL;
 }
 
@@ -424,30 +426,40 @@ static Node* postfix() {
       expect("]");
       node = new_deref_node(new_add_node(node, index));
       continue;
-    } else if (consume(".")) {
+    }
+
+    if (consume(".")) {
       node = struct_ref_node(node);
       continue;
-    } else {
-      return node;
     }
+
+    return node;
   }
 }
 
 static Node* unary() {
   if (consume("+")) {
     return primary();
-  } else if (consume("-")) {
+  }
+
+  if (consume("-")) {
     return new_sub_node(new_num_node(0), primary());
-  } else if (consume("&")) {
+  }
+
+  if (consume("&")) {
     return new_addr_node(unary());
-  } else if (consume("*")) {
+  }
+
+  if (consume("*")) {
     return new_deref_node(unary());
-  } else if (consume("sizeof")) {
+  }
+
+  if (consume("sizeof")) {
     Node* node = unary();
     return new_num_node(node->type->size);
-  } else {
-    return postfix();
   }
+
+  return postfix();
 }
 
 static Node* mul() {
@@ -456,11 +468,15 @@ static Node* mul() {
   for (;;) {
     if (consume("*")) {
       node = new_mul_node(node, unary());
-    } else if (consume("/")) {
-      node = new_div_node(node, unary());
-    } else {
-      return node;
+      continue;
     }
+
+    if (consume("/")) {
+      node = new_div_node(node, unary());
+      continue;
+    }
+
+    return node;
   }
 }
 
@@ -469,14 +485,16 @@ static Node* add() {
 
   for (;;) {
     if (consume("+")) {
-      Node* rhs = mul();
-      node = new_add_node(node, rhs);
-    } else if (consume("-")) {
-      Node* rhs = mul();
-      node = new_sub_node(node, rhs);
-    } else {
-      return node;
+      node = new_add_node(node, mul());
+      continue;
     }
+
+    if (consume("-")) {
+      node = new_sub_node(node, mul());
+      continue;
+    }
+
+    return node;
   }
 }
 
@@ -486,15 +504,25 @@ static Node* relational() {
   for (;;) {
     if (consume("<")) {
       node = new_lt_node(node, add());
-    } else if (consume("<=")) {
-      node = new_le_node(node, add());
-    } else if (consume(">")) {
-      node = new_lt_node(add(), node);
-    } else if (consume(">=")) {
-      node = new_le_node(add(), node);
-    } else {
-      return node;
+      continue;
     }
+
+    if (consume("<=")) {
+      node = new_le_node(node, add());
+      continue;
+    }
+
+    if (consume(">")) {
+      node = new_lt_node(add(), node);
+      continue;
+    }
+
+    if (consume(">=")) {
+      node = new_le_node(add(), node);
+      continue;
+    }
+
+    return node;
   }
 }
 
@@ -504,11 +532,15 @@ static Node* equality() {
   for (;;) {
     if (consume("==")) {
       node = new_eq_node(node, relational());
-    } else if (consume("!=")) {
-      node = new_ne_node(node, relational());
-    } else {
-      return node;
+      continue;
     }
+
+    if (consume("!=")) {
+      node = new_ne_node(node, relational());
+      continue;
+    }
+
+    return node;
   }
 }
 
@@ -537,13 +569,17 @@ static Type* struct_decl();
 static Type* decl_specifier() {
   if (consume("char")) {
     return ty_char;
-  } else if (consume("int")) {
+  }
+
+  if (consume("int")) {
     return ty_int;
-  } else if (equal(token, "struct")) {
+  }
+
+  if (equal(token, "struct")) {
     return struct_decl();
   }
 
-  error_at(token->str, "expected a typename");
+  error_tok(token, "expected a typename");
   return NULL;
 }
 
@@ -553,7 +589,7 @@ static Decl* declarator(Type* ty) {
   }
 
   if (token->kind != TK_IDENT) {
-    error_at(token->str, "expected an ident");
+    error_tok(token, "expected an ident");
   }
   Token* ident = token;
   token = token->next;
@@ -566,7 +602,7 @@ static Decl* declarator(Type* ty) {
 
   Decl* decl = calloc(1, sizeof(Decl));
   decl->type = ty;
-  decl->name = strndup(ident->str, ident->len);
+  decl->name = strndup(ident->loc, ident->len);
   return decl;
 }
 
@@ -654,7 +690,9 @@ static Node* block_stmt();
 static Node* stmt() {
   if (equal(token, "{")) {
     return block_stmt();
-  } else if (consume("if")) {
+  }
+
+  if (consume("if")) {
     expect("(");
     Node* node = new_node(ND_IF);
     node->cond = expr();
@@ -664,14 +702,18 @@ static Node* stmt() {
       node->els = stmt();
     }
     return node;
-  } else if (consume("while")) {
+  }
+
+  if (consume("while")) {
     expect("(");
     Node* node = new_node(ND_FOR);
     node->cond = expr();
     expect(")");
     node->then = stmt();
     return node;
-  } else if (consume("for")) {
+  }
+
+  if (consume("for")) {
     expect("(");
     Node* node = new_node(ND_FOR);
     if (!consume(";")) {
@@ -688,29 +730,34 @@ static Node* stmt() {
     }
     node->then = stmt();
     return node;
-  } else if (consume("return")) {
+  }
+
+  if (consume("return")) {
     Node* node = new_unary_node(ND_RETURN, expr());
     expect(";");
     return node;
-  } else if (equal_type_name(token)) {
-    Node* node = lvar();
-    return node;
-  } else {
-    Node* node = expr();
-    expect(";");
-    return node;
   }
+
+  if (equal_type_name(token)) {
+    return lvar();
+  }
+
+  Node* node = expr();
+  expect(";");
+  return node;
 }
 
 static Node* block_stmt() {
   expect("{");
   enter_scope();
+
   Node head = {};
   Node* curr = &head;
   while (!consume("}")) {
     curr->next = stmt();
     curr = curr->next;
   }
+
   leave_scope();
 
   Node* node = new_node(ND_BLOCK);
@@ -733,7 +780,7 @@ static void gvar() {
     add_code(var);
 
     if (consume("=")) {
-      var->val = expect_num();
+      var->int_val = expect_num();
     }
   }
 }
@@ -742,17 +789,18 @@ static void func() {
   Type* ty = decl_specifier();
 
   if (token->kind != TK_IDENT) {
-    error_at(token->str, "expected an ident");
+    error_tok(token, "expected an ident");
   }
 
   Obj* func = new_obj(OJ_FUNC);
   add_code(func);
   func->type = ty;
-  func->name = strndup(token->str, token->len);
+  func->name = strndup(token->loc, token->len);
   token = token->next;
 
   expect("(");
   enter_scope();
+
   Node head = {};
   Node* cur = &head;
   while (!consume(")")) {
@@ -773,6 +821,7 @@ static void func() {
   func->body = block_stmt();
 
   leave_scope();
+
   func->lvars = lvars;
   lvars = NULL;
 }
@@ -781,8 +830,9 @@ bool is_func() {
   Token* start = token;
 
   decl_specifier();
+
   if (token->kind != TK_IDENT) {
-    error_at(token->str, "expected an ident");
+    error_tok(token, "expected an ident");
   }
   token = token->next;
   bool is_func = equal(token, "(");

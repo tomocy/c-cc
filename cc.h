@@ -21,7 +21,7 @@ typedef struct Token Token;
 struct Token {
   TokenKind kind;
   Token* next;
-  char* str;
+  char* loc;
   int len;
   int val;
 };
@@ -126,8 +126,8 @@ struct Obj {
   Node* params;
   Node* body;
   int offset;
-  char* data;
-  int val;
+  char* str_val;
+  int int_val;
 };
 
 typedef struct ScopedVar ScopedVar;
@@ -152,7 +152,7 @@ extern Obj* codes;
 
 void error(char* fmt, ...);
 
-void error_at(char* loc, char* fmt, ...);
+void error_tok(Token* tok, char* fmt, ...);
 
 bool equal(Token* tok, char* op);
 

@@ -13,7 +13,7 @@ void error(char* fmt, ...) {
   exit(1);
 }
 
-void error_at(char* loc, char* fmt, ...) {
+static void verror_at(char* loc, char* fmt, va_list args) {
   char* start = loc;
   while (user_input < start && start[-1] != '\n') {
     start--;
@@ -33,20 +33,29 @@ void error_at(char* loc, char* fmt, ...) {
   int indent = fprintf(stderr, "%s:%d ", filename, line_num);
   fprintf(stderr, "%.*s\n", (int)(end - start), start);
 
-  va_list msg;
-  va_start(msg, fmt);
-
   int pos = loc - start + indent;
   fprintf(stderr, "%*s", pos, "");
   fprintf(stderr, "^ ");
-  vfprintf(stderr, fmt, msg);
+  vfprintf(stderr, fmt, args);
   fprintf(stderr, "\n");
 
   exit(1);
 }
 
+static void error_at(char* loc, char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  verror_at(loc, fmt, args);
+}
+
+void error_tok(Token* tok, char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  verror_at(tok->loc, fmt, args);
+}
+
 bool equal(Token* tok, char* op) {
-  return tok->kind == TK_RESERVED && memcmp(tok->str, op, tok->len) == 0 &&
+  return tok->kind == TK_RESERVED && memcmp(tok->loc, op, tok->len) == 0 &&
          op[tok->len] == '\0';
 }
 
@@ -60,14 +69,14 @@ bool consume(char* op) {
 
 void expect(char* op) {
   if (!equal(token, op)) {
-    error_at(token->str, "expected '%s'", op);
+    error_at(token->loc, "expected '%s'", op);
   }
   token = token->next;
 }
 
 int expect_num() {
   if (token->kind != TK_NUM) {
-    error_at(token->str, "expected a number");
+    error_at(token->loc, "expected a number");
   }
 
   int val = token->val;
@@ -77,10 +86,10 @@ int expect_num() {
 
 bool at_eof() { return token->kind == TK_EOF; }
 
-static Token* new_token(TokenKind kind, char* str, int len) {
+static Token* new_token(TokenKind kind, char* loc, int len) {
   Token* tok = calloc(1, sizeof(Token));
   tok->kind = kind;
-  tok->str = str;
+  tok->loc = loc;
   tok->len = len;
   return tok;
 }

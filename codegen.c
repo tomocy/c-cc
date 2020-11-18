@@ -31,7 +31,7 @@ static void pop(char* reg) {
 static void gen_expr(Node* node);
 static void gen_stmt(Node* node);
 
-static void gen_lval(Node* node) {
+static void gen_addr(Node* node) {
   switch (node->kind) {
     case ND_GVAR:
       genln("  lea rax, %s[rip]", node->name);
@@ -44,7 +44,7 @@ static void gen_lval(Node* node) {
       gen_expr(node->lhs);
       break;
     case ND_MEMBER:
-      gen_lval(node->lhs);
+      gen_addr(node->lhs);
       genln("  add rax, %d", node->offset);
       break;
     default:
@@ -54,32 +54,34 @@ static void gen_lval(Node* node) {
 
 static void load(Node* node, char* dst, char* src) {
   if (node->type->kind == TY_ARRAY) {
-  } else if (node->type->kind == TY_CHAR) {
-    genln("  movsx %s, BYTE PTR [%s]", dst, src);
-  } else {
-    genln("  mov %s, [%s]", dst, src);
+    return;
   }
+  if (node->type->size == 1) {
+    genln("  movsx %s, BYTE PTR [%s]", dst, src);
+    return;
+  }
+  genln("  mov %s, [%s]", dst, src);
 }
 
 static void gen_expr(Node* node) {
   switch (node->kind) {
     case ND_ASSIGN:
-      gen_lval(node->lhs);
+      gen_addr(node->lhs);
       push_reg("rax");
       gen_expr(node->rhs);
       pop("rdi");
-      if (node->type->kind == TY_CHAR) {
+      if (node->type->size == 1) {
         genln("  mov [rdi], al");
-      } else {
-        genln("  mov [rdi], rax");
+        return;
       }
+      genln("  mov [rdi], rax");
       return;
     case ND_COMMA:
       gen_expr(node->lhs);
       gen_expr(node->rhs);
       return;
     case ND_ADDR:
-      gen_lval(node->lhs);
+      gen_addr(node->lhs);
       return;
     case ND_DEREF:
       gen_expr(node->lhs);
@@ -103,7 +105,7 @@ static void gen_expr(Node* node) {
     case ND_GVAR:
     case ND_LVAR:
     case ND_MEMBER:
-      gen_lval(node);
+      gen_addr(node);
       load(node, "rax", "rax");
       return;
     case ND_NUM:
@@ -234,15 +236,20 @@ static void gen_data() {
     printf(".data\n");
     printf(".global %s\n", var->name);
     printf("%s:\n", var->name);
-    if (var->data) {
+
+    if (var->str_val) {
       for (int i = 0; i < var->type->len; i++) {
-        printf("  .byte %d\n", var->data[i]);
+        printf("  .byte %d\n", var->str_val[i]);
       }
-    } else if (var->val != 0) {
-      printf("  .long %d\n", var->val);
-    } else {
-      printf("  .zero %d\n", var->type->size);
+      continue;
     }
+
+    if (var->int_val != 0) {
+      printf("  .long %d\n", var->int_val);
+      continue;
+    }
+
+    printf("  .zero %d\n", var->type->size);
   }
 }
 
@@ -268,14 +275,16 @@ static void gen_text() {
     push_reg("rbp");
     genln("  mov rbp, rsp");
     genln("  sub rsp, %d", align(sum_vars_size(func->lvars), 16));
+
     int i = 0;
     for (Node* param = func->params; param; param = param->next) {
-      gen_lval(param);
-      if (param->type->kind == TY_CHAR) {
+      gen_addr(param);
+
+      if (param->type->size == 1) {
         genln("  mov [rax], %s", arg_regs8[i++]);
-      } else {
-        genln("  mov [rax], %s", arg_regs64[i++]);
+        continue;
       }
+      genln("  mov [rax], %s", arg_regs64[i++]);
     }
 
     gen_stmt(func->body);
