@@ -49,11 +49,13 @@ typedef enum {
 struct Type {
   TypeKind kind;
   int size;
+  int alignment;
+  Member* members;
   Type* base;
   int len;
-  Member* members;
 };
 
+extern Type* ty_unavailable;
 extern Type* ty_char;
 extern Type* ty_int;
 
@@ -167,3 +169,5 @@ void tokenize();
 void program();
 
 void gen_program();
+
+int align(int n, int alignment);

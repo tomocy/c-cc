@@ -254,7 +254,7 @@ static int sum_vars_size(Obj* vars) {
   return sum;
 }
 
-static int align(int n, int align) { return (n + align - 1) / align * align; }
+int align(int n, int align) { return (n + align - 1) / align * align; }
 
 static void gen_text() {
   for (Obj* func = codes; func; func = func->next) {

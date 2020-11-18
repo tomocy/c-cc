@@ -6,42 +6,29 @@ Scope* scope;
 Scope* gscope;
 Obj* lvars;
 
+Type* ty_unavailable = &(Type){
+    TY_UNAVAILABLE,
+    0,
+    1,
+};
 Type* ty_char = &(Type){
     TY_CHAR,
+    1,
     1,
 };
 Type* ty_int = &(Type){
     TY_INT,
     8,
+    8,
 };
 
 int str_count = 0;
 
-static Type* new_type(TypeKind kind) {
+static Type* new_type(TypeKind kind, int size, int alignment) {
   Type* type = calloc(1, sizeof(Type));
   type->kind = kind;
-  return type;
-}
-
-static Type* add_size(Type* type) {
-  switch (type->kind) {
-    case TY_UNAVAILABLE:
-      type->size = 0;
-      break;
-    case TY_CHAR:
-      type->size = 1;
-      break;
-    case TY_INT:
-    case TY_PTR:
-      type->size = 8;
-      break;
-    case TY_ARRAY:
-      type->size = type->base->size * type->len;
-      break;
-    default:
-      break;
-  }
-
+  type->size = size;
+  type->alignment = alignment;
   return type;
 }
 
@@ -142,10 +129,10 @@ static Obj* new_gvar(Type* type, char* name) {
 }
 
 static Obj* new_str(char* name, char* data, int data_len) {
-  Type* ty = new_type(TY_ARRAY);
+  Type* ty =
+      new_type(TY_ARRAY, ty_char->size * (data_len + 1), ty_char->alignment);
   ty->base = ty_char;
   ty->len = data_len + 1;
-  ty = add_size(ty);
   Obj* str = new_gvar(ty, name);
   str->data = strndup(data, data_len);
   add_code(str);
@@ -176,7 +163,7 @@ static Node* add_type(Node* node) {
       break;
     case ND_FUNCCALL: {
       Obj* func = find_func(node->name, strlen(node->name));
-      node->type = (func) ? func->type : TY_UNAVAILABLE;
+      node->type = (func) ? func->type : ty_unavailable;
       break;
     }
     case ND_ASSIGN:
@@ -190,7 +177,7 @@ static Node* add_type(Node* node) {
       node->type = node->rhs->type;
       break;
     case ND_ADDR:
-      node->type = add_size(new_type(TY_PTR));
+      node->type = new_type(TY_PTR, 8, 8);
       node->type->base = node->lhs->type;
       break;
     case ND_DEREF:
@@ -515,7 +502,7 @@ static Type* decl_specifier() {
 
 static Decl* declarator(Type* ty) {
   while (consume("*")) {
-    Type* ptr = add_size(new_type(TY_PTR));
+    Type* ptr = new_type(TY_PTR, 8, 8);
     ptr->base = ty;
     ty = ptr;
   }
@@ -529,10 +516,10 @@ static Decl* declarator(Type* ty) {
   if (consume("[")) {
     int len = expect_num();
     expect("]");
-    Type* arr = new_type(TY_ARRAY);
+    Type* arr = new_type(TY_ARRAY, ty->size * len, ty->alignment);
     arr->base = ty;
     arr->len = len;
-    ty = add_size(arr);
+    ty = arr;
   }
 
   Decl* decl = calloc(1, sizeof(Decl));
@@ -545,10 +532,10 @@ static Type* struct_decl() {
   expect("struct");
   expect("{");
 
-  Type* ty = new_type(TY_STRUCT);
   Member head = {};
   Member* cur = &head;
   int offset = 0;
+  int alignment = 1;
   while (!consume("}")) {
     Type* spec = decl_specifier();
 
@@ -564,15 +551,21 @@ static Type* struct_decl() {
       Member* mem = calloc(1, sizeof(Member));
       mem->type = decl->type;
       mem->name = decl->name;
+      offset = align(offset, decl->type->alignment);
       mem->offset = offset;
       offset += decl->type->size;
+
+      if (alignment < mem->type->alignment) {
+        alignment = mem->type->alignment;
+      }
+
       cur->next = mem;
       cur = cur->next;
     }
   }
 
+  Type* ty = new_type(TY_STRUCT, align(offset, alignment), alignment);
   ty->members = head.next;
-  ty->size = offset;
   return ty;
 }
 
