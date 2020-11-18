@@ -259,11 +259,13 @@ static Node* new_add_node(Node* lhs, Node* rhs) {
 }
 
 static Node* new_sub_node(Node* lhs, Node* rhs) {
+  Node* sub;
   if (is_pointable(lhs) && is_pointable(rhs)) {
-    error_tok(token, "invalid operands");
+    sub = new_binary_node(ND_SUB, lhs, rhs);
+    sub->type = sub->lhs->type;
+    return new_div_node(sub, new_num_node(sub->lhs->type->base->size));
   }
 
-  Node* sub;
   if (is_numable(lhs) && is_numable(rhs)) {
     sub = new_binary_node(ND_SUB, lhs, rhs);
   } else if (is_pointable(lhs) && is_numable(rhs)) {

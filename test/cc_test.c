@@ -646,5 +646,27 @@ int main() {
            x.a + x.b;
          }));
 
+  ASSERT(1, ({
+           int x[3];
+           &x[1] - x;
+         }));
+  ASSERT(2, ({
+           int x[3];
+           &x[2] - x;
+         }));
+  ASSERT(1, ({
+           char x[3];
+           &x[1] - x;
+         }));
+  ASSERT(2, ({
+           char x[3];
+           &x[2] - x;
+         }));
+  ASSERT(1, ({
+           int x;
+           int y;
+           &x - &y;
+         }));
+
   ok();
 }
