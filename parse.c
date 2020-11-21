@@ -26,6 +26,10 @@ int str_count = 0;
 
 static int align(int n, int align) { return (n + align - 1) / align * align; }
 
+bool are_strs_equal(char* a, char* b, int b_len) {
+  return strlen(a) == b_len && strncmp(a, b, b_len) == 0;
+}
+
 static Type* new_type(TypeKind kind, int size, int alignment) {
   Type* type = calloc(1, sizeof(Type));
   type->kind = kind;
@@ -131,7 +135,7 @@ static Obj* find_func(char* name, int len) {
     if (func->kind != OJ_FUNC) {
       continue;
     }
-    if (strlen(func->name) == len && strncmp(func->name, name, len) == 0) {
+    if (are_strs_equal(func->name, name, len)) {
       return func;
     }
   }
@@ -144,8 +148,7 @@ static Obj* find_var(char* name, int len) {
       if (var->obj->kind != OJ_GVAR && var->obj->kind != OJ_LVAR) {
         continue;
       }
-      if (strlen(var->obj->name) == len &&
-          strncmp(var->obj->name, name, len) == 0) {
+      if (are_strs_equal(var->obj->name, name, len)) {
         return var->obj;
       }
     }
@@ -159,8 +162,7 @@ static Obj* find_tag(char* name, int len) {
       if (tag->obj->kind != OJ_TAG) {
         continue;
       }
-      if (strlen(tag->obj->name) == len &&
-          strncmp(tag->obj->name, name, len) == 0) {
+      if (are_strs_equal(tag->obj->name, name, len)) {
         return tag->obj;
       }
     }
@@ -219,6 +221,31 @@ static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   node->lhs = lhs;
   node->rhs = rhs;
   return node;
+}
+
+static Node* new_struct_ref_node(Node* lhs) {
+  if (lhs->type->kind != TY_STRUCT) {
+    error_tok(token, "expected a struct");
+  }
+  if (token->kind != TK_IDENT) {
+    error_tok(token, "expected an ident");
+  }
+
+  for (Member* mem = lhs->type->members; mem; mem = mem->next) {
+    if (!are_strs_equal(mem->name, token->loc, token->len)) {
+      continue;
+    }
+
+    token = token->next;
+    Node* node = new_unary_node(ND_MEMBER, lhs);
+    node->type = mem->type;
+    node->name = mem->name;
+    node->offset = mem->offset;
+    return node;
+  }
+
+  error_tok(token, "no such member");
+  return NULL;
 }
 
 static Node* new_gvar_node(Type* type, char* name) {
@@ -437,32 +464,6 @@ static Node* primary() {
   return NULL;
 }
 
-static Node* struct_ref_node(Node* lhs) {
-  if (lhs->type->kind != TY_STRUCT) {
-    error_tok(token, "expected a struct");
-  }
-  if (token->kind != TK_IDENT) {
-    error_tok(token, "expected an ident");
-  }
-
-  for (Member* mem = lhs->type->members; mem; mem = mem->next) {
-    if (strlen(mem->name) != token->len ||
-        strncmp(mem->name, token->loc, token->len) != 0) {
-      continue;
-    }
-
-    token = token->next;
-    Node* node = new_unary_node(ND_MEMBER, lhs);
-    node->type = mem->type;
-    node->name = mem->name;
-    node->offset = mem->offset;
-    return node;
-  }
-
-  error_tok(token, "no such member");
-  return NULL;
-}
-
 static Node* postfix() {
   Node* node = primary();
 
@@ -475,13 +476,13 @@ static Node* postfix() {
     }
 
     if (consume(".")) {
-      node = struct_ref_node(node);
+      node = new_struct_ref_node(node);
       continue;
     }
 
     if (consume("->")) {
       node = new_deref_node(node);
-      node = struct_ref_node(node);
+      node = new_struct_ref_node(node);
       continue;
     }
 
