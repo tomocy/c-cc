@@ -115,6 +115,7 @@ typedef enum {
   OJ_FUNC,
   OJ_GVAR,
   OJ_LVAR,
+  OJ_TAG,
 } ObjKind;
 
 struct Obj {

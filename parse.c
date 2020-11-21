@@ -75,9 +75,6 @@ static void leave_scope() {
 }
 
 static void add_scoped_var_to(Scope* scope, Obj* var) {
-  if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
-    error("expected a variable");
-  }
   ScopedVar* scoped = calloc(1, sizeof(ScopedVar));
   scoped->var = var;
   scoped->next = scope->vars;
@@ -108,6 +105,13 @@ static void add_lvar(Obj* var) {
   add_scoped_var_to(scope, var);
 }
 
+static void add_tag(Obj* tag) {
+  if (tag->kind != OJ_TAG) {
+    error("expected a tag");
+  }
+  add_scoped_var_to(scope, tag);
+}
+
 static Obj* find_func(char* name, int len) {
   for (Obj* func = codes; func; func = func->next) {
     if (func->kind != OJ_FUNC) {
@@ -124,6 +128,21 @@ static Obj* find_var(char* name, int len) {
   for (Scope* s = scope; s; s = s->next) {
     for (ScopedVar* var = s->vars; var; var = var->next) {
       if (var->var->kind != OJ_GVAR && var->var->kind != OJ_LVAR) {
+        continue;
+      }
+      if (strlen(var->var->name) == len &&
+          strncmp(var->var->name, name, len) == 0) {
+        return var->var;
+      }
+    }
+  }
+  return NULL;
+}
+
+static Obj* find_tag(char* name, int len) {
+  for (Scope* s = scope; s; s = s->next) {
+    for (ScopedVar* var = s->vars; var; var = var->next) {
+      if (var->var->kind != OJ_TAG) {
         continue;
       }
       if (strlen(var->var->name) == len &&
@@ -159,6 +178,14 @@ static Obj* new_lvar(Type* type, char* name) {
       align((lvars) ? lvars->offset + type->size : type->size, type->alignment);
   add_lvar(var);
   return var;
+}
+
+static Obj* new_tag(Type* type, char* name) {
+  Obj* tag = new_obj(OJ_TAG);
+  tag->type = type;
+  tag->name = name;
+  add_tag(tag);
+  return tag;
 }
 
 static Node* new_node(NodeKind kind) {
@@ -613,6 +640,21 @@ static Decl* declarator(Type* ty) {
 
 static Type* struct_decl() {
   expect("struct");
+
+  Token* tag = NULL;
+  if (token->kind == TK_IDENT) {
+    tag = token;
+    token = token->next;
+  }
+
+  if (tag && !equal(token, "{")) {
+    Obj* found_tag = find_tag(tag->loc, tag->len);
+    if (!found_tag) {
+      error_tok(tag, "undefined tag");
+    }
+    return found_tag->type;
+  }
+
   expect("{");
 
   Member head = {};
@@ -649,6 +691,11 @@ static Type* struct_decl() {
 
   Type* ty = new_type(TY_STRUCT, align(offset, alignment), alignment);
   ty->members = head.next;
+
+  if (tag) {
+    new_tag(ty, strndup(tag->loc, tag->len));
+  }
+
   return ty;
 }
 

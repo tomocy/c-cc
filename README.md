@@ -29,7 +29,7 @@ lvar = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)
 decl_specifier = "int" | "char" | struct_decl
 declarator = "*"* ident ("[" num "]")?
 
-struct_decl = "struct" "{" struct_member* "}"
+struct_decl = "struct" ident? "{" struct_member* "}"
 struct_member = decl_specifier (declarator ("," declarator)*)? ";"
 
 func_args = "(" (assign (, assign)*)? ")"
