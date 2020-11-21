@@ -668,5 +668,22 @@ int main() {
            &x - &y;
          }));
 
+  ASSERT(1, ({
+           int x = 0;
+           int y = 0;
+           char z = 0;
+           char* a = &y;
+           char* b = &z;
+           a - b;
+         }));
+  ASSERT(15, ({
+           int x = 0;
+           char y = 0;
+           int z = 0;
+           char* a = &y;
+           char* b = &z;
+           a - b;
+         }));
+
   ok();
 }

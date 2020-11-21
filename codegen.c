@@ -253,16 +253,6 @@ static void gen_data() {
   }
 }
 
-static int sum_vars_size(Obj* vars) {
-  int sum = 0;
-  for (Obj* var = vars; var; var = var->next) {
-    sum += var->type->size;
-  }
-  return sum;
-}
-
-int align(int n, int align) { return (n + align - 1) / align * align; }
-
 static void gen_text() {
   for (Obj* func = codes; func; func = func->next) {
     if (func->kind != OJ_FUNC) {
@@ -274,7 +264,7 @@ static void gen_text() {
     genln("%s:", func->name);
     push_reg("rbp");
     genln("  mov rbp, rsp");
-    genln("  sub rsp, %d", align(sum_vars_size(func->lvars), 16));
+    genln("  sub rsp, %d", func->stack_size);
 
     int i = 0;
     for (Node* param = func->params; param; param = param->next) {

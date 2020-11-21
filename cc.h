@@ -125,6 +125,7 @@ struct Obj {
   Obj* lvars;
   Node* params;
   Node* body;
+  int stack_size;
   int offset;
   char* str_val;
   int int_val;
@@ -169,5 +170,3 @@ void tokenize();
 void program();
 
 void gen_program();
-
-int align(int n, int alignment);

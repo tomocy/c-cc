@@ -24,6 +24,8 @@ Type* ty_int = &(Type){
 
 int str_count = 0;
 
+static int align(int n, int align) { return (n + align - 1) / align * align; }
+
 static Type* new_type(TypeKind kind, int size, int alignment) {
   Type* type = calloc(1, sizeof(Type));
   type->kind = kind;
@@ -153,7 +155,8 @@ static Obj* new_lvar(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
-  var->offset = (lvars) ? lvars->offset + type->size : type->size;
+  var->offset =
+      align((lvars) ? lvars->offset + type->size : type->size, type->alignment);
   add_lvar(var);
   return var;
 }
@@ -825,6 +828,7 @@ static void func() {
   leave_scope();
 
   func->lvars = lvars;
+  func->stack_size = align(func->lvars->offset, 16);
   lvars = NULL;
 }
 
