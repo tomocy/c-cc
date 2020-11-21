@@ -479,6 +479,12 @@ static Node* postfix() {
       continue;
     }
 
+    if (consume("->")) {
+      node = new_deref_node(node);
+      node = struct_ref_node(node);
+      continue;
+    }
+
     return node;
   }
 }

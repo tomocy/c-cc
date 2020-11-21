@@ -184,7 +184,7 @@ void tokenize() {
     }
 
     if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
-        startswith(p, ">=")) {
+        startswith(p, ">=") || startswith(p, "->")) {
       cur->next = new_token(TK_RESERVED, p, 2);
       cur = cur->next;
       p += 2;
