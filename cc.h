@@ -132,18 +132,18 @@ struct Obj {
   int int_val;
 };
 
-typedef struct ScopedVar ScopedVar;
+typedef struct ScopedObj ScopedObj;
 
-struct ScopedVar {
-  ScopedVar* next;
-  Obj* var;
+struct ScopedObj {
+  ScopedObj* next;
+  Obj* obj;
 };
 
 typedef struct Scope Scope;
 
 struct Scope {
   Scope* next;
-  ScopedVar* vars;
+  ScopedObj* objs;
 };
 
 extern char* filename;

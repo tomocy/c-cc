@@ -74,11 +74,25 @@ static void leave_scope() {
   scope = scope->next;
 }
 
-static void add_scoped_var_to(Scope* scope, Obj* var) {
-  ScopedVar* scoped = calloc(1, sizeof(ScopedVar));
-  scoped->var = var;
-  scoped->next = scope->vars;
-  scope->vars = scoped;
+static void add_obj_to_scope(Scope* scope, Obj* obj) {
+  ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
+  scoped->obj = obj;
+  scoped->next = scope->objs;
+  scope->objs = scoped;
+}
+
+static void add_var_to_scope(Scope* scope, Obj* obj) {
+  if (obj->kind != OJ_GVAR && obj->kind != OJ_LVAR) {
+    error("expected a variable");
+  }
+  add_obj_to_scope(scope, obj);
+}
+
+static void add_tag_to_scope(Scope* scope, Obj* obj) {
+  if (obj->kind != OJ_TAG) {
+    error("expected a tag");
+  }
+  add_obj_to_scope(scope, obj);
 }
 
 static bool is_gscope(Scope* scope) { return !scope->next; }
@@ -90,7 +104,7 @@ static void add_gvar(Obj* var) {
   if (!is_gscope(gscope)) {
     error("expected a global scope");
   }
-  add_scoped_var_to(gscope, var);
+  add_var_to_scope(gscope, var);
 }
 
 static void add_lvar(Obj* var) {
@@ -102,14 +116,14 @@ static void add_lvar(Obj* var) {
   }
   var->next = lvars;
   lvars = var;
-  add_scoped_var_to(scope, var);
+  add_var_to_scope(scope, var);
 }
 
 static void add_tag(Obj* tag) {
   if (tag->kind != OJ_TAG) {
     error("expected a tag");
   }
-  add_scoped_var_to(scope, tag);
+  add_tag_to_scope(scope, tag);
 }
 
 static Obj* find_func(char* name, int len) {
@@ -126,13 +140,13 @@ static Obj* find_func(char* name, int len) {
 
 static Obj* find_var(char* name, int len) {
   for (Scope* s = scope; s; s = s->next) {
-    for (ScopedVar* var = s->vars; var; var = var->next) {
-      if (var->var->kind != OJ_GVAR && var->var->kind != OJ_LVAR) {
+    for (ScopedObj* var = s->objs; var; var = var->next) {
+      if (var->obj->kind != OJ_GVAR && var->obj->kind != OJ_LVAR) {
         continue;
       }
-      if (strlen(var->var->name) == len &&
-          strncmp(var->var->name, name, len) == 0) {
-        return var->var;
+      if (strlen(var->obj->name) == len &&
+          strncmp(var->obj->name, name, len) == 0) {
+        return var->obj;
       }
     }
   }
@@ -141,13 +155,13 @@ static Obj* find_var(char* name, int len) {
 
 static Obj* find_tag(char* name, int len) {
   for (Scope* s = scope; s; s = s->next) {
-    for (ScopedVar* var = s->vars; var; var = var->next) {
-      if (var->var->kind != OJ_TAG) {
+    for (ScopedObj* tag = s->objs; tag; tag = tag->next) {
+      if (tag->obj->kind != OJ_TAG) {
         continue;
       }
-      if (strlen(var->var->name) == len &&
-          strncmp(var->var->name, name, len) == 0) {
-        return var->var;
+      if (strlen(tag->obj->name) == len &&
+          strncmp(tag->obj->name, name, len) == 0) {
+        return tag->obj;
       }
     }
   }
