@@ -26,11 +26,14 @@ primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 
 lvar = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
 
-decl_specifier = "int" | "char" | struct_decl
+decl_specifier = "int" | "char" | struct_decl | union_decl
 declarator = "*"* ident ("[" num "]")?
 
-struct_decl = "struct" ident? "{" struct_member* "}"
-struct_member = decl_specifier (declarator ("," declarator)*)? ";"
+struct_decl = "struct" ident? "{" member* "}"
+
+union_decl = "union" ident? "{" member* "}"
+
+member = decl_specifier (declarator ("," declarator)*)? ";"
 
 func_args = "(" (assign (, assign)*)? ")"
 ```

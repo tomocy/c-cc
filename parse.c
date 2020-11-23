@@ -224,8 +224,8 @@ static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
 }
 
 static Node* new_struct_ref_node(Node* lhs) {
-  if (lhs->type->kind != TY_STRUCT) {
-    error_tok(token, "expected a struct");
+  if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
+    error_tok(token, "expected a struct or union");
   }
   if (token->kind != TK_IDENT) {
     error_tok(token, "expected an ident");
@@ -618,6 +618,7 @@ static Node* expr() {
 }
 
 static Type* struct_decl();
+static Type* union_decl();
 
 static Type* decl_specifier() {
   if (consume("char")) {
@@ -630,6 +631,10 @@ static Type* decl_specifier() {
 
   if (equal(token, "struct")) {
     return struct_decl();
+  }
+
+  if (equal(token, "union")) {
+    return union_decl();
   }
 
   error_tok(token, "expected a typename");
@@ -659,6 +664,33 @@ static Decl* declarator(Type* ty) {
   return decl;
 }
 
+static Member* members() {
+  Member head = {};
+  Member* cur = &head;
+  while (!consume("}")) {
+    Type* spec = decl_specifier();
+
+    bool is_first = true;
+    while (!consume(";")) {
+      if (!is_first) {
+        expect(",");
+      }
+      is_first = false;
+
+      Decl* decl = declarator(spec);
+
+      Member* mem = calloc(1, sizeof(Member));
+      mem->type = decl->type;
+      mem->name = decl->name;
+
+      cur->next = mem;
+      cur = cur->next;
+    }
+  }
+
+  return head.next;
+}
+
 static Type* struct_decl() {
   expect("struct");
 
@@ -678,40 +710,63 @@ static Type* struct_decl() {
 
   expect("{");
 
-  Member head = {};
-  Member* cur = &head;
+  Member* mems = members();
   int offset = 0;
   int alignment = 1;
-  while (!consume("}")) {
-    Type* spec = decl_specifier();
+  for (Member* mem = mems; mem; mem = mem->next) {
+    offset = align(offset, mem->type->alignment);
+    mem->offset = offset;
+    offset += mem->type->size;
 
-    bool is_first = true;
-    while (!consume(";")) {
-      if (!is_first) {
-        expect(",");
-      }
-      is_first = false;
-
-      Decl* decl = declarator(spec);
-
-      Member* mem = calloc(1, sizeof(Member));
-      mem->type = decl->type;
-      mem->name = decl->name;
-      offset = align(offset, decl->type->alignment);
-      mem->offset = offset;
-      offset += decl->type->size;
-
-      if (alignment < mem->type->alignment) {
-        alignment = mem->type->alignment;
-      }
-
-      cur->next = mem;
-      cur = cur->next;
+    if (alignment < mem->type->alignment) {
+      alignment = mem->type->alignment;
     }
   }
 
   Type* ty = new_type(TY_STRUCT, align(offset, alignment), alignment);
-  ty->members = head.next;
+  ty->members = mems;
+
+  if (tag) {
+    new_tag(ty, strndup(tag->loc, tag->len));
+  }
+
+  return ty;
+}
+
+static Type* union_decl() {
+  expect("union");
+
+  Token* tag = NULL;
+  if (token->kind == TK_IDENT) {
+    tag = token;
+    token = token->next;
+  }
+
+  if (tag && !equal(token, "{")) {
+    Obj* found_tag = find_tag(tag->loc, tag->len);
+    if (!found_tag) {
+      error_tok(tag, "undefined tag");
+    }
+    return found_tag->type;
+  }
+
+  expect("{");
+
+  Member* mems = members();
+  int size = 0;
+  int alignment = 1;
+  for (Member* mem = mems; mem; mem = mem->next) {
+    mem->offset = 0;
+    if (size < mem->type->size) {
+      size = mem->type->size;
+    }
+    if (alignment < mem->type->alignment) {
+      alignment = mem->type->alignment;
+    }
+  }
+
+  Type* ty = new_type(TY_UNION, align(size, alignment), alignment);
+  ty->members = mems;
 
   if (tag) {
     new_tag(ty, strndup(tag->loc, tag->len));
@@ -748,7 +803,7 @@ static Node* lvar() {
 }
 
 bool equal_type_name(Token* tok) {
-  static char* tnames[] = {"int", "char", "struct"};
+  static char* tnames[] = {"int", "char", "struct", "union"};
   int len = sizeof(tnames) / sizeof(char*);
   for (int i = 0; i < len; i++) {
     if (equal(tok, tnames[i])) {
