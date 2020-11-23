@@ -51,6 +51,18 @@ static Type* new_array_type(Type* base, int len) {
   return arr;
 }
 
+static Type* new_struct_type(int size, int alignment, Member* mems) {
+  Type* struc = new_type(TY_STRUCT, align(size, alignment), alignment);
+  struc->members = mems;
+  return struc;
+}
+
+static Type* new_union_type(int size, int alignment, Member* mems) {
+  Type* uni = new_type(TY_UNION, align(size, alignment), alignment);
+  uni->members = mems;
+  return uni;
+}
+
 static Obj* new_obj(ObjKind kind) {
   Obj* obj = calloc(1, sizeof(Obj));
   obj->kind = kind;
@@ -223,7 +235,7 @@ static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   return node;
 }
 
-static Node* new_struct_ref_node(Node* lhs) {
+static Node* new_member_node(Node* lhs) {
   if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
     error_tok(token, "expected a struct or union");
   }
@@ -476,13 +488,13 @@ static Node* postfix() {
     }
 
     if (consume(".")) {
-      node = new_struct_ref_node(node);
+      node = new_member_node(node);
       continue;
     }
 
     if (consume("->")) {
       node = new_deref_node(node);
-      node = new_struct_ref_node(node);
+      node = new_member_node(node);
       continue;
     }
 
@@ -723,14 +735,13 @@ static Type* struct_decl() {
     }
   }
 
-  Type* ty = new_type(TY_STRUCT, align(offset, alignment), alignment);
-  ty->members = mems;
+  Type* struc = new_struct_type(offset, alignment, mems);
 
   if (tag) {
-    new_tag(ty, strndup(tag->loc, tag->len));
+    new_tag(struc, strndup(tag->loc, tag->len));
   }
 
-  return ty;
+  return struc;
 }
 
 static Type* union_decl() {
@@ -765,14 +776,13 @@ static Type* union_decl() {
     }
   }
 
-  Type* ty = new_type(TY_UNION, align(size, alignment), alignment);
-  ty->members = mems;
+  Type* uni = new_union_type(size, alignment, mems);
 
   if (tag) {
-    new_tag(ty, strndup(tag->loc, tag->len));
+    new_tag(uni, strndup(tag->loc, tag->len));
   }
 
-  return ty;
+  return uni;
 }
 
 static Node* lvar() {
