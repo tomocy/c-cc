@@ -53,7 +53,8 @@ static void gen_addr(Node* node) {
 }
 
 static void load(Node* node, char* dst, char* src) {
-  if (node->type->kind == TY_ARRAY) {
+  if (node->type->kind == TY_ARRAY || node->type->kind == TY_STRUCT ||
+      node->type->kind == TY_UNION) {
     return;
   }
   if (node->type->size == 1) {
@@ -70,6 +71,13 @@ static void gen_expr(Node* node) {
       push_reg("rax");
       gen_expr(node->rhs);
       pop("rdi");
+      if (node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
+        for (int i = 0; i < node->type->size; i++) {
+          genln("  mov r8b, %d[rax]", i);
+          genln("  mov %d[rdi], r8b", i);
+        }
+        return;
+      }
       if (node->type->size == 1) {
         genln("  mov [rdi], al");
         return;
