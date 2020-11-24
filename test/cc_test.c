@@ -48,6 +48,8 @@ int sub_long(long a, long b, long c) { return a - b - c; }
 
 long ret_long(int a) { return a; }
 
+int sub_short(short a, short b, short c) { return a - b - c; }
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -870,6 +872,11 @@ int main() {
            long x;
            sizeof(x);
          }));
+  ASSERT(5, ({
+           long x = 2;
+           long y = 3;
+           x + y;
+         }));
   ASSERT(16, ({
            struct {
              char a;
@@ -879,6 +886,24 @@ int main() {
          }));
   ASSERT(1, sub_long(7, 3, 3));
   ASSERT(5, ret_long(5));
+
+  ASSERT(2, ({
+           short x;
+           sizeof(x);
+         }));
+  ASSERT(5, ({
+           short x = 2;
+           short y = 3;
+           x + y;
+         }));
+  ASSERT(4, ({
+           struct {
+             char a;
+             short b;
+           } x;
+           sizeof(x);
+         }));
+  ASSERT(1, sub_short(7, 3, 3));
 
   ok();
 }

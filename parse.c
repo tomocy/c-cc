@@ -16,6 +16,11 @@ Type* ty_char = &(Type){
     1,
     1,
 };
+Type* ty_short = &(Type){
+    TY_SHORT,
+    2,
+    2,
+};
 Type* ty_int = &(Type){
     TY_INT,
     4,
@@ -320,8 +325,8 @@ static Node* new_div_node(Node* lhs, Node* rhs) {
 }
 
 bool is_numable(Node* node) {
-  return node->type->kind == TY_CHAR || node->type->kind == TY_INT ||
-         node->type->kind == TY_LONG;
+  return node->type->kind == TY_CHAR || node->type->kind == TY_SHORT ||
+         node->type->kind == TY_INT || node->type->kind == TY_LONG;
 }
 
 bool is_pointable(Node* node) {
@@ -643,6 +648,10 @@ static Type* decl_specifier() {
     return ty_char;
   }
 
+  if (consume("short")) {
+    return ty_short;
+  }
+
   if (consume("int")) {
     return ty_int;
   }
@@ -823,7 +832,7 @@ static Node* lvar() {
 }
 
 bool equal_type_name(Token* tok) {
-  static char* tnames[] = {"char", "int", "long", "struct", "union"};
+  static char* tnames[] = {"char", "short", "int", "long", "struct", "union"};
   int len = sizeof(tnames) / sizeof(char*);
   for (int i = 0; i < len; i++) {
     if (equal(tok, tnames[i])) {

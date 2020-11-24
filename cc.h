@@ -41,6 +41,7 @@ struct Member {
 typedef enum {
   TY_UNAVAILABLE,
   TY_CHAR,
+  TY_SHORT,
   TY_INT,
   TY_LONG,
   TY_STRUCT,
@@ -60,6 +61,7 @@ struct Type {
 
 extern Type* ty_unavailable;
 extern Type* ty_char;
+extern Type* ty_short;
 extern Type* ty_int;
 extern Type* ty_long;
 
