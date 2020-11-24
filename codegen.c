@@ -19,8 +19,8 @@ static void push_reg(char* reg) {
   depth++;
 }
 
-static void push_val(int v) {
-  genln("  push %d", v);
+static void push_val(int64_t v) {
+  genln("  push %ld", v);
   depth++;
 }
 

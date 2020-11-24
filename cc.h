@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,7 +24,7 @@ struct Token {
   Token* next;
   char* loc;
   int len;
-  int val;
+  int64_t val;
 };
 
 typedef struct Type Type;
@@ -41,6 +42,7 @@ typedef enum {
   TY_UNAVAILABLE,
   TY_CHAR,
   TY_INT,
+  TY_LONG,
   TY_STRUCT,
   TY_UNION,
   TY_PTR,
@@ -59,6 +61,7 @@ struct Type {
 extern Type* ty_unavailable;
 extern Type* ty_char;
 extern Type* ty_int;
+extern Type* ty_long;
 
 typedef struct Decl {
   Type* type;
@@ -109,7 +112,7 @@ struct Node {
   Node* args;
   char* name;
   int offset;
-  int val;
+  int64_t val;
 };
 
 typedef enum {

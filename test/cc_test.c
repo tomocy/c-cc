@@ -44,6 +44,10 @@ int fibo(int n) {
   return fibo(n - 1) + fibo(n - 2);
 }
 
+int sub_long(long a, long b, long c) { return a - b - c; }
+
+long ret_long(int a) { return a; }
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -232,7 +236,7 @@ int main() {
            alloc(&p, 1, 2, 4, 8);
            *p + *(p + 1) + *(p + 2) + *(p + 3);
          }));
-  ASSERT(4, sizeof 1);
+  ASSERT(8, sizeof 1);
   ASSERT(4, ({
            int a;
            sizeof(a);
@@ -861,6 +865,20 @@ int main() {
            y = x;
            y.c.b;
          }));
+
+  ASSERT(8, ({
+           long x;
+           sizeof(x);
+         }));
+  ASSERT(16, ({
+           struct {
+             char a;
+             long b;
+           } x;
+           sizeof(x);
+         }));
+  ASSERT(1, sub_long(7, 3, 3));
+  ASSERT(5, ret_long(5));
 
   ok();
 }

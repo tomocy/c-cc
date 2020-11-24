@@ -21,6 +21,11 @@ Type* ty_int = &(Type){
     4,
     4,
 };
+Type* ty_long = &(Type){
+    TY_LONG,
+    8,
+    8,
+};
 
 int str_count = 0;
 
@@ -295,10 +300,10 @@ static Node* new_funccall_node(char* name, Node* args) {
   return node;
 }
 
-static Node* new_num_node(int val) {
+static Node* new_num_node(int64_t val) {
   Node* node = new_node(ND_NUM);
   node->val = val;
-  node->type = ty_int;
+  node->type = ty_long;
   return node;
 }
 
@@ -315,7 +320,8 @@ static Node* new_div_node(Node* lhs, Node* rhs) {
 }
 
 bool is_numable(Node* node) {
-  return node->type->kind == TY_INT || node->type->kind == TY_CHAR;
+  return node->type->kind == TY_CHAR || node->type->kind == TY_INT ||
+         node->type->kind == TY_LONG;
 }
 
 bool is_pointable(Node* node) {
@@ -377,25 +383,25 @@ static Node* new_deref_node(Node* lhs) {
 
 static Node* new_eq_node(Node* lhs, Node* rhs) {
   Node* eq = new_binary_node(ND_EQ, lhs, rhs);
-  eq->type = ty_int;
+  eq->type = ty_long;
   return eq;
 }
 
 static Node* new_ne_node(Node* lhs, Node* rhs) {
   Node* ne = new_binary_node(ND_NE, lhs, rhs);
-  ne->type = ty_int;
+  ne->type = ty_long;
   return ne;
 }
 
 static Node* new_lt_node(Node* lhs, Node* rhs) {
   Node* lt = new_binary_node(ND_LT, lhs, rhs);
-  lt->type = ty_int;
+  lt->type = ty_long;
   return lt;
 }
 
 static Node* new_le_node(Node* lhs, Node* rhs) {
   Node* le = new_binary_node(ND_LE, lhs, rhs);
-  le->type = ty_int;
+  le->type = ty_long;
   return le;
 }
 
@@ -641,6 +647,10 @@ static Type* decl_specifier() {
     return ty_int;
   }
 
+  if (consume("long")) {
+    return ty_long;
+  }
+
   if (equal(token, "struct")) {
     return struct_decl();
   }
@@ -813,7 +823,7 @@ static Node* lvar() {
 }
 
 bool equal_type_name(Token* tok) {
-  static char* tnames[] = {"int", "char", "struct", "union"};
+  static char* tnames[] = {"char", "int", "long", "struct", "union"};
   int len = sizeof(tnames) / sizeof(char*);
   for (int i = 0; i < len; i++) {
     if (equal(tok, tnames[i])) {
