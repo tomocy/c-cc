@@ -27,7 +27,9 @@ primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 lvar = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
 
 decl_specifier = "char" | "short" | "int" | "long" | struct_decl | union_decl
-declarator = "*"* ident ("[" num "]")?
+declarator = "*"* ident type_suffix
+
+type_suffix = "[" num "]" type_suffix | ε
 
 struct_decl = "struct" ident? "{" member* "}"
 

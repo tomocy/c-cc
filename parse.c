@@ -672,6 +672,17 @@ static Type* decl_specifier() {
   return NULL;
 }
 
+static Type* type_suffix(Type* ty) {
+  if (consume("[")) {
+    int len = expect_num();
+    expect("]");
+    ty = type_suffix(ty);
+    return new_array_type(ty, len);
+  }
+
+  return ty;
+}
+
 static Decl* declarator(Type* ty) {
   while (consume("*")) {
     ty = new_ptr_type(ty);
@@ -683,11 +694,7 @@ static Decl* declarator(Type* ty) {
   Token* ident = token;
   token = token->next;
 
-  if (consume("[")) {
-    int len = expect_num();
-    expect("]");
-    ty = new_array_type(ty, len);
-  }
+  ty = type_suffix(ty);
 
   Decl* decl = calloc(1, sizeof(Decl));
   decl->type = ty;

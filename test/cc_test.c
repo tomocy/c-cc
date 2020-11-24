@@ -905,5 +905,93 @@ int main() {
          }));
   ASSERT(1, sub_short(7, 3, 3));
 
+  ASSERT(24, ({
+           int x[2][3];
+           sizeof(x);
+         }));
+  ASSERT(12, ({
+           int x[2][3];
+           sizeof(x[0]);
+         }));
+  ASSERT(0, ({
+           int x[2][3];
+           int* y = x;
+           *y = 0;
+           **x;
+         }));
+  ASSERT(0, ({
+           int x[2][3];
+           int* y = x;
+           *y = 0;
+           x[0][0];
+         }));
+  ASSERT(1, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 1) = 1;
+           *(*x + 1);
+         }));
+  ASSERT(1, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 1) = 1;
+           x[0][1];
+         }));
+  ASSERT(2, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 2) = 2;
+           *(*x + 2);
+         }));
+  ASSERT(2, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 2) = 2;
+           x[0][2];
+         }));
+  ASSERT(3, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 3) = 3;
+           **(x + 1);
+         }));
+  ASSERT(3, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 3) = 3;
+           x[1][0];
+         }));
+  ASSERT(4, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 4) = 4;
+           *(*(x + 1) + 1);
+         }));
+  ASSERT(4, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 4) = 4;
+           x[1][1];
+         }));
+  ASSERT(5, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 5) = 5;
+           *(*(x + 1) + 2);
+         }));
+  ASSERT(5, ({
+           int x[2][3];
+           int* y = x;
+           *(y + 5) = 5;
+           x[1][2];
+         }));
+  ASSERT(123, ({
+           int x[2][3][4];
+           int** y = x;
+           int* z = y;
+           z[6] = 123;
+           x[0][1][2];
+         }));
+
   ok();
 }
