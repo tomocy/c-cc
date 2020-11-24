@@ -18,8 +18,8 @@ Type* ty_char = &(Type){
 };
 Type* ty_int = &(Type){
     TY_INT,
-    8,
-    8,
+    4,
+    4,
 };
 
 int str_count = 0;

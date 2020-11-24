@@ -4,6 +4,7 @@ int depth = 0;
 int label_count = 0;
 int func_count = 0;
 char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
+char* arg_regs32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
 char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
 static void genln(char* fmt, ...) {
@@ -61,6 +62,10 @@ static void load(Node* node, char* dst, char* src) {
     genln("  movsx %s, BYTE PTR [%s]", dst, src);
     return;
   }
+  if (node->type->size == 4) {
+    genln("  movsx %s, DWORD PTR [%s]", dst, src);
+    return;
+  }
   genln("  mov %s, [%s]", dst, src);
 }
 
@@ -80,6 +85,10 @@ static void gen_expr(Node* node) {
       }
       if (node->type->size == 1) {
         genln("  mov [rdi], al");
+        return;
+      }
+      if (node->type->size == 4) {
+        genln("  mov [rdi], eax");
         return;
       }
       genln("  mov [rdi], rax");
@@ -280,6 +289,10 @@ static void gen_text() {
 
       if (param->type->size == 1) {
         genln("  mov [rax], %s", arg_regs8[i++]);
+        continue;
+      }
+      if (param->type->size == 4) {
+        genln("  mov [rax], %s", arg_regs32[i++]);
         continue;
       }
       genln("  mov [rax], %s", arg_regs64[i++]);

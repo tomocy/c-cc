@@ -27,10 +27,10 @@ int sum(int a, int b, int c, int d, int e, int f) {
 }
 
 void alloc(int** p, int a, int b, int c, int d) {
-  void* vs = calloc(4, 8);
+  void* vs = calloc(4, 4);
   *(int*)vs = a;
-  *(int*)(vs + 8) = b;
-  *(int*)(vs + 16) = c;
-  *(int*)(vs + 24) = d;
+  *(int*)(vs + 4) = b;
+  *(int*)(vs + 8) = c;
+  *(int*)(vs + 12) = d;
   *p = vs;
 }

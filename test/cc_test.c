@@ -232,8 +232,8 @@ int main() {
            alloc(&p, 1, 2, 4, 8);
            *p + *(p + 1) + *(p + 2) + *(p + 3);
          }));
-  ASSERT(8, sizeof 1);
-  ASSERT(8, ({
+  ASSERT(4, sizeof 1);
+  ASSERT(4, ({
            int a;
            sizeof(a);
          }));
@@ -241,7 +241,7 @@ int main() {
            int a;
            sizeof(&a);
          }));
-  ASSERT(80, ({
+  ASSERT(40, ({
            int as[10];
            sizeof(as);
          }));
@@ -363,8 +363,8 @@ int main() {
            gxs[3] = 3;
            gxs[3];
          }));
-  ASSERT(8, sizeof(gx));
-  ASSERT(32, sizeof(gxs));
+  ASSERT(4, sizeof(gx));
+  ASSERT(16, sizeof(gxs));
   ASSERT(1, ({
            char x;
            x = 1;
@@ -459,32 +459,32 @@ int main() {
            j;
          }));
 
-  ASSERT(8, ({
+  ASSERT(4, ({
            struct {
              int a;
            } x;
            sizeof(x);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct {
              int a;
              int b;
            } x;
            sizeof(x);
          }));
-  ASSERT(24, ({
+  ASSERT(12, ({
            struct {
              int a[3];
            } x;
            sizeof(x);
          }));
-  ASSERT(32, ({
+  ASSERT(16, ({
            struct {
              int a;
            } x[4];
            sizeof(x);
          }));
-  ASSERT(48, ({
+  ASSERT(24, ({
            struct {
              int a[3];
            } x[2];
@@ -497,14 +497,14 @@ int main() {
            } x;
            sizeof(x);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct {
              char a;
              int b;
            } x;
            sizeof(x);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct {
              int a;
              char b;
@@ -676,7 +676,7 @@ int main() {
            char* b = &z;
            a - b;
          }));
-  ASSERT(15, ({
+  ASSERT(7, ({
            int x = 0;
            char y = 0;
            int z = 0;
@@ -685,7 +685,7 @@ int main() {
            a - b;
          }));
 
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct t {
              int a;
              int b;
@@ -693,7 +693,7 @@ int main() {
            struct t y;
            sizeof(y);
          }));
-  ASSERT(16, ({
+  ASSERT(8, ({
            struct t {
              int a;
              int b;
@@ -744,6 +744,13 @@ int main() {
            union {
              int a;
              char b[6];
+           } x;
+           sizeof(x);
+         }));
+  ASSERT(4, ({
+           union {
+             int a;
+             char b[3];
            } x;
            sizeof(x);
          }));
