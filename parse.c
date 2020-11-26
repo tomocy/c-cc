@@ -987,7 +987,7 @@ static void func() {
   leave_scope();
 
   func->lvars = lvars;
-  func->stack_size = align(func->lvars->offset, 16);
+  func->stack_size = align((func->lvars) ? func->lvars->offset : 0, 16);
   lvars = NULL;
 }
 

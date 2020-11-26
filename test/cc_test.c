@@ -50,6 +50,8 @@ long ret_long(int a) { return a; }
 
 int sub_short(short a, short b, short c) { return a - b - c; }
 
+int no_lvars() { return 0; }
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
