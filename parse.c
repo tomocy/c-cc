@@ -200,10 +200,10 @@ static Obj* new_gvar(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_str(char* name, char* val, int val_len) {
-  Type* ty = new_array_type(ty_char, val_len + 1);
+static Obj* new_str(char* name, char* val) {
+  Type* ty = new_array_type(ty_char, strlen(val) + 1);
   Obj* str = new_gvar(ty, name);
-  str->str_val = strndup(val, val_len);
+  str->str_val = strdup(val);
   add_code(str);
   return str;
 }
@@ -478,7 +478,7 @@ static Node* primary() {
   if (token->kind == TK_STR) {
     char* name = calloc(20, sizeof(char));
     sprintf(name, ".Lstr%d", str_count++);
-    Obj* str = new_str(name, token->str, strlen(token->str));
+    Obj* str = new_str(name, token->str_val);
     token = token->next;
     return new_var_node(str);
   }

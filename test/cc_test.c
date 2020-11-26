@@ -406,12 +406,12 @@ int main() {
            yyy = 4;
            yy[0] + yyy;
          }));
-  assert("''''[0]", 0, ""[0]);
-  assert("sizeof('''')", 1, sizeof(""));
-  assert("''abc''[0]", 97, "abc"[0]);
-  assert("''abc''[1]", 98, "abc"[1]);
-  assert("''abc''[2]", 99, "abc"[2]);
-  assert("sizeof(''abc'')", 4, sizeof("abc"));
+  ASSERT(0, ""[0]);
+  ASSERT(1, sizeof(""));
+  ASSERT(97, "abc"[0]);
+  ASSERT(98, "abc"[1]);
+  ASSERT(99, "abc"[2]);
+  ASSERT(4, sizeof("abc"));
   ASSERT(6, ({
            6  //*
               //*2

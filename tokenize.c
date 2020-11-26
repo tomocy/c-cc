@@ -79,7 +79,7 @@ int expect_num() {
     error_at(token->loc, "expected a number");
   }
 
-  int val = token->val;
+  int val = token->int_val;
   token = token->next;
   return val;
 }
@@ -233,7 +233,7 @@ void tokenize() {
 
     if (isdigit(*p)) {
       cur->next = new_token(TK_NUM, p, 0);
-      cur->next->val = strtol(p, &p, 10);
+      cur->next->int_val = strtol(p, &p, 10);
       cur = cur->next;
       continue;
     }
@@ -250,19 +250,19 @@ void tokenize() {
       }
       char* end = p++;
 
-      char* str = calloc(1, end - start);
+      char* val = calloc(1, end - start);
       int i = 0;
       for (char* p = start + 1; p < end;) {
         if (*p == '\\') {
-          str[i++] = read_escaped_char(*(p + 1));
+          val[i++] = read_escaped_char(*(p + 1));
           p += 2;
           continue;
         }
-        str[i++] = *p++;
+        val[i++] = *p++;
       }
 
       cur->next = new_token(TK_STR, start + 1, end - start - 1);
-      cur->next->str = str;
+      cur->next->str_val = val;
       cur = cur->next;
       continue;
     }

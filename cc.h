@@ -24,8 +24,8 @@ struct Token {
   Token* next;
   char* loc;
   int len;
-  int64_t val;
-  char* str;
+  int64_t int_val;
+  char* str_val;
 };
 
 typedef struct Type Type;
