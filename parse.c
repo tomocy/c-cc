@@ -478,7 +478,7 @@ static Node* primary() {
   if (token->kind == TK_STR) {
     char* name = calloc(20, sizeof(char));
     sprintf(name, ".Lstr%d", str_count++);
-    Obj* str = new_str(name, token->loc, token->len);
+    Obj* str = new_str(name, token->str, strlen(token->str));
     token = token->next;
     return new_var_node(str);
   }

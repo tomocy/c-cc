@@ -25,6 +25,7 @@ struct Token {
   char* loc;
   int len;
   int64_t val;
+  char* str;
 };
 
 typedef struct Type Type;

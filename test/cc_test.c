@@ -995,5 +995,22 @@ int main() {
            x[0][1][2];
          }));
 
+  ASSERT(7, "\a"[0]);
+  ASSERT(8, "\b"[0]);
+  ASSERT(9, "\t"[0]);
+  ASSERT(10, "\n"[0]);
+  ASSERT(11, "\v"[0]);
+  ASSERT(12, "\f"[0]);
+  ASSERT(13, "\r"[0]);
+  ASSERT(27, "\e"[0]);
+  ASSERT(106, "\j"[0]);
+  ASSERT(107, "\k"[0]);
+  ASSERT(108, "\l"[0]);
+  ASSERT(7, "\ax\ny"[0]);
+  ASSERT(120, "\ax\ny"[1]);
+  ASSERT(10, "\ax\ny"[2]);
+  ASSERT(121, "\ax\ny"[3]);
+  ASSERT(5, sizeof("\ax\ny"));
+
   ok();
 }

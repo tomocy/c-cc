@@ -151,6 +151,29 @@ static void read_file() {
   fclose(fp);
 }
 
+static int read_escaped_char(char escaped) {
+  switch (escaped) {
+    case 'a':
+      return '\a';
+    case 'b':
+      return '\b';
+    case 't':
+      return '\t';
+    case 'n':
+      return '\n';
+    case 'v':
+      return '\v';
+    case 'f':
+      return '\f';
+    case 'r':
+      return '\r';
+    case 'e':
+      return 27;
+    default:
+      return escaped;
+  }
+}
+
 void tokenize() {
   read_file();
   char* p = user_input;
@@ -221,10 +244,25 @@ void tokenize() {
         if (*p == '\n' || *p == '\0') {
           error_at(start, "unclosed string literal");
         }
+        if (*p == '\\') {
+          p++;
+        }
       }
       char* end = p++;
 
+      char* str = calloc(1, end - start);
+      int i = 0;
+      for (char* p = start + 1; p < end;) {
+        if (*p == '\\') {
+          str[i++] = read_escaped_char(*(p + 1));
+          p += 2;
+          continue;
+        }
+        str[i++] = *p++;
+      }
+
       cur->next = new_token(TK_STR, start + 1, end - start - 1);
+      cur->next->str = str;
       cur = cur->next;
       continue;
     }
