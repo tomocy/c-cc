@@ -151,6 +151,22 @@ static void read_file() {
   fclose(fp);
 }
 
+static int hex_digit(char c) {
+  if ('0' <= c && c <= '9') {
+    return c - '0';
+  }
+
+  if ('a' <= c && c <= 'f') {
+    return c - 'a' + 10;
+  }
+
+  if ('A' <= c && c <= 'Z') {
+    return c - 'A' + 10;
+  }
+
+  return c;
+}
+
 static int read_escaped_char(char** c) {
   if ('0' <= **c && **c <= '7') {
     int digit = *(*c)++ - '0';
@@ -159,6 +175,20 @@ static int read_escaped_char(char** c) {
       if ('0' <= **c && **c <= '7') {
         digit = (digit << 3) + *(*c)++ - '0';
       }
+    }
+
+    return digit;
+  }
+
+  if (**c == 'x') {
+    (*c)++;
+    if (!isxdigit(**c)) {
+      error_at(*c, "expected a hex escape sequence");
+    }
+
+    int digit = 0;
+    for (; isxdigit(**c); (*c)++) {
+      digit = (digit << 4) + hex_digit(**c);
     }
 
     return digit;

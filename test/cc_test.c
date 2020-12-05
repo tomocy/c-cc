@@ -1018,5 +1018,15 @@ int main() {
   ASSERT(104, "\1500"[0]);
   ASSERT(48, "\1500"[1]);
 
+  ASSERT(0, "\x0"[0]);
+  ASSERT(0, "\x00"[0]);
+  ASSERT(119, "\x77"[0]);
+  ASSERT(127, "\x7f"[0]);
+  ASSERT(90, "\x5a"[0]);
+  ASSERT(90, "\x5A"[0]);
+  ASSERT(15, "\x00f"[0]);
+  ASSERT(15, "\x00F"[0]);
+  ASSERT(90, "\x00FZ"[1]);
+
   ok();
 }
