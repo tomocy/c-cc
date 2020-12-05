@@ -1012,5 +1012,11 @@ int main() {
   ASSERT(121, "\ax\ny"[3]);
   ASSERT(5, sizeof("\ax\ny"));
 
+  ASSERT(0, "\0"[0]);
+  ASSERT(16, "\20"[0]);
+  ASSERT(65, "\101"[0]);
+  ASSERT(104, "\1500"[0]);
+  ASSERT(48, "\1500"[1]);
+
   ok();
 }

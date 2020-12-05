@@ -151,7 +151,20 @@ static void read_file() {
   fclose(fp);
 }
 
-static int read_escaped_char(char escaped) {
+static int read_escaped_char(char** c) {
+  if ('0' <= **c && **c <= '7') {
+    int digit = *(*c)++ - '0';
+    if ('0' <= **c && **c <= '7') {
+      digit = (digit << 3) + *(*c)++ - '0';
+      if ('0' <= **c && **c <= '7') {
+        digit = (digit << 3) + *(*c)++ - '0';
+      }
+    }
+
+    return digit;
+  }
+
+  char escaped = *(*c)++;
   switch (escaped) {
     case 'a':
       return '\a';
@@ -254,8 +267,8 @@ void tokenize() {
       int i = 0;
       for (char* p = start + 1; p < end;) {
         if (*p == '\\') {
-          val[i++] = read_escaped_char(*(p + 1));
-          p += 2;
+          p++;
+          val[i++] = read_escaped_char(&p);
           continue;
         }
         val[i++] = *p++;
