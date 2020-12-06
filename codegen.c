@@ -1,5 +1,6 @@
 #include "cc.h"
 
+FILE* output_file;
 int depth = 0;
 int label_count = 0;
 int func_count = 0;
@@ -11,8 +12,8 @@ char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 static void genln(char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  vprintf(fmt, args);
-  printf("\n");
+  vfprintf(output_file, fmt, args);
+  fprintf(output_file, "\n");
 }
 
 static void push_reg(char* reg) {
@@ -259,23 +260,23 @@ static void gen_data() {
       continue;
     }
 
-    printf(".data\n");
-    printf(".global %s\n", var->name);
-    printf("%s:\n", var->name);
+    genln(".data");
+    genln(".global %s", var->name);
+    genln("%s:", var->name);
 
     if (var->str_val) {
       for (int i = 0; i < var->type->len; i++) {
-        printf("  .byte %d\n", var->str_val[i]);
+        genln("  .byte %d", var->str_val[i]);
       }
       continue;
     }
 
     if (var->int_val != 0) {
-      printf("  .long %d\n", var->int_val);
+      genln("  .long %d", var->int_val);
       continue;
     }
 
-    printf("  .zero %d\n", var->type->size);
+    genln("  .zero %d", var->type->size);
   }
 }
 
@@ -320,7 +321,21 @@ static void gen_text() {
   }
 }
 
+static void open_output_file() {
+  if (!output_filename || strcmp(output_filename, "-") == 0) {
+    output_file = stdout;
+    return;
+  }
+
+  output_file = fopen(output_filename, "w");
+  if (!output_file) {
+    error("cannot open output file: %s: %s", output_filename, strerror(errno));
+  }
+}
+
 void gen_program() {
+  open_output_file();
+
   genln(".intel_syntax noprefix");
   gen_data();
   gen_text();

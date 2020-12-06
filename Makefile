@@ -20,7 +20,7 @@ cc_test: $(TEST_ASMS) $(TEST_ADAPTER_OBJS)
 	$(CC) -o cc_test $^
 
 $(TEST_ASMS): cc $(TMP_TEST_SRCS)
-	./cc $(@:.s=.c) > $@
+	./cc $(@:.s=.c) -o $@
 
 $(TMP_TEST_SRCS): $(TEST_SRCS)
 	$(CC) -o $@ -P -E $(subst $(TMP_TEST_PREFIX),,$@)
@@ -29,6 +29,7 @@ $(TEST_ADAPTER_OBJS): $(TEST_ADAPTER_SRCS)
 
 .PHONY: test
 test: cc_test
+	./test/cli_test.sh
 	./cc_test
 	make clean
 

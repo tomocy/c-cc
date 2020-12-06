@@ -1,6 +1,5 @@
 #include "cc.h"
 
-char* filename;
 char* user_input;
 
 Token* token;
@@ -30,7 +29,7 @@ static void verror_at(char* loc, char* fmt, va_list args) {
     }
   }
 
-  int indent = fprintf(stderr, "%s:%d ", filename, line_num);
+  int indent = fprintf(stderr, "%s:%d ", input_filename, line_num);
   fprintf(stderr, "%.*s\n", (int)(end - start), start);
 
   int pos = loc - start + indent;
@@ -129,12 +128,12 @@ static bool consume_keyword(Token** tok, char** p) {
 
 static void read_file() {
   FILE* f;
-  if (strcmp(filename, "-") == 0) {
+  if (strcmp(input_filename, "-") == 0) {
     f = stdin;
   } else {
-    f = fopen(filename, "r");
+    f = fopen(input_filename, "r");
     if (!f) {
-      error("cannot open %s: %s", filename, strerror(errno));
+      error("cannot open input file %s: %s", input_filename, strerror(errno));
     }
   }
 

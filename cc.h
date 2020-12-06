@@ -153,7 +153,9 @@ struct Scope {
   ScopedObj* objs;
 };
 
-extern char* filename;
+extern char* input_filename;
+
+extern char* output_filename;
 
 extern Token* token;
 
