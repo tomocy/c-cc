@@ -1,32 +1,50 @@
 #include "cc.h"
 
+typedef struct ScopedObj ScopedObj;
+typedef struct Scope Scope;
+
+typedef struct Decl {
+  Type* type;
+  char* name;
+} Decl;
+
+struct ScopedObj {
+  ScopedObj* next;
+  Obj* obj;
+};
+
+struct Scope {
+  Scope* next;
+  ScopedObj* objs;
+};
+
 static Token* token;
 static Obj* codes;
 static Scope* scope;
 static Scope* gscope;
 static Obj* lvars;
 
-Type* ty_unavailable = &(Type){
+static Type* ty_unavailable = &(Type){
     TY_UNAVAILABLE,
     0,
     1,
 };
-Type* ty_char = &(Type){
+static Type* ty_char = &(Type){
     TY_CHAR,
     1,
     1,
 };
-Type* ty_short = &(Type){
+static Type* ty_short = &(Type){
     TY_SHORT,
     2,
     2,
 };
-Type* ty_int = &(Type){
+static Type* ty_int = &(Type){
     TY_INT,
     4,
     4,
 };
-Type* ty_long = &(Type){
+static Type* ty_long = &(Type){
     TY_LONG,
     8,
     8,
@@ -423,6 +441,11 @@ static Node* new_comma_node(Node* lhs, Node* rhs) {
 }
 
 static Node* assign();
+static Node* block_stmt();
+static Node* expr();
+static Type* struct_decl();
+static Type* union_decl();
+static Node* block_stmt();
 
 static Node* func_args() {
   expect_token(&token, "(");
@@ -437,9 +460,6 @@ static Node* func_args() {
   }
   return head.next;
 }
-
-static Node* block_stmt();
-static Node* expr();
 
 static Node* primary() {
   if (consume_token(&token, "(")) {
@@ -640,9 +660,6 @@ static Node* expr() {
   }
   return node;
 }
-
-static Type* struct_decl();
-static Type* union_decl();
 
 static Type* decl_specifier() {
   if (consume_token(&token, "char")) {
@@ -849,8 +866,6 @@ bool equal_type_name(Token* tok) {
   }
   return false;
 }
-
-static Node* block_stmt();
 
 static Node* stmt() {
   if (token_equal(token, "{")) {

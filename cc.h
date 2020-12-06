@@ -9,6 +9,12 @@
 #include <string.h>
 #include <strings.h>
 
+typedef struct Token Token;
+typedef struct Node Node;
+typedef struct Obj Obj;
+typedef struct Type Type;
+typedef struct Member Member;
+
 typedef enum {
   TK_RESERVED,
   TK_NUM,
@@ -16,8 +22,6 @@ typedef enum {
   TK_IDENT,
   TK_EOF,
 } TokenKind;
-
-typedef struct Token Token;
 
 struct Token {
   TokenKind kind;
@@ -28,10 +32,6 @@ struct Token {
   int64_t int_val;
   char* str_val;
 };
-
-typedef struct Type Type;
-
-typedef struct Member Member;
 
 struct Member {
   Member* next;
@@ -61,17 +61,6 @@ struct Type {
   int len;
 };
 
-extern Type* ty_unavailable;
-extern Type* ty_char;
-extern Type* ty_short;
-extern Type* ty_int;
-extern Type* ty_long;
-
-typedef struct Decl {
-  Type* type;
-  char* name;
-} Decl;
-
 typedef enum {
   ND_BLOCK,
   ND_IF,
@@ -96,10 +85,6 @@ typedef enum {
   ND_MEMBER,
   ND_FUNCCALL,
 } NodeKind;
-
-typedef struct Obj Obj;
-
-typedef struct Node Node;
 
 struct Node {
   Node* next;
@@ -138,20 +123,6 @@ struct Obj {
   int offset;
   char* str_val;
   int int_val;
-};
-
-typedef struct ScopedObj ScopedObj;
-
-struct ScopedObj {
-  ScopedObj* next;
-  Obj* obj;
-};
-
-typedef struct Scope Scope;
-
-struct Scope {
-  Scope* next;
-  ScopedObj* objs;
 };
 
 extern char* input_filename;
