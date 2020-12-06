@@ -158,24 +158,20 @@ extern char* input_filename;
 
 extern char* output_filename;
 
-extern Token* token;
-
 void error(char* fmt, ...);
 
-void error_tok(Token* tok, char* fmt, ...);
+void error_token(Token* tok, char* fmt, ...);
 
-bool equal(Token* tok, char* op);
+bool token_equal(Token* tok, char* op);
 
-bool consume(char* op);
+bool consume_token(Token** token, char* s);
 
-void expect(char* op);
+void expect_token(Token** token, char* s);
 
-int expect_num();
+int expect_num(Token** token);
 
-bool at_eof();
+Token* tokenize();
 
-void tokenize();
-
-Obj* parse();
+Obj* parse(Token* tokens);
 
 void gen(Obj* codes);

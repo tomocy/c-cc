@@ -37,8 +37,8 @@ static void parse_args(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   parse_args(argc, argv);
-  tokenize();
-  Obj* codes = parse();
+  Token* tokens = tokenize();
+  Obj* codes = parse(tokens);
   gen(codes);
   return 0;
 }

@@ -2,8 +2,6 @@
 
 static char* user_input;
 
-Token* token;
-
 void error(char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
@@ -47,43 +45,40 @@ static void error_at(char* loc, char* fmt, ...) {
   verror_at(line, loc, fmt, args);
 }
 
-void error_tok(Token* tok, char* fmt, ...) {
+void error_token(Token* token, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  verror_at(token->line, tok->loc, fmt, args);
+  verror_at(token->line, token->loc, fmt, args);
 }
 
-bool equal(Token* tok, char* op) {
-  return tok->kind == TK_RESERVED && memcmp(tok->loc, op, tok->len) == 0 &&
-         op[tok->len] == '\0';
+bool token_equal(Token* token, char* s) {
+  return memcmp(token->loc, s, token->len) == 0 && s[token->len] == '\0';
 }
 
-bool consume(char* op) {
-  if (!equal(token, op)) {
+bool consume_token(Token** token, char* s) {
+  if (!token_equal(*token, s)) {
     return false;
   }
-  token = token->next;
+
+  *token = (*token)->next;
   return true;
 }
 
-void expect(char* op) {
-  if (!equal(token, op)) {
-    error_at(token->loc, "expected '%s'", op);
+void expect_token(Token** token, char* s) {
+  if (!consume_token(token, s)) {
+    error_at((*token)->loc, "expected '%s'", s);
   }
-  token = token->next;
 }
 
-int expect_num() {
-  if (token->kind != TK_NUM) {
-    error_at(token->loc, "expected a number");
+int expect_num(Token** token) {
+  if ((*token)->kind != TK_NUM) {
+    error_token(*token, "expected a number");
   }
 
-  int val = token->int_val;
-  token = token->next;
+  int val = (*token)->int_val;
+  *token = (*token)->next;
   return val;
 }
-
-bool at_eof() { return token->kind == TK_EOF; }
 
 static Token* new_token(TokenKind kind, char* loc, int len) {
   Token* tok = calloc(1, sizeof(Token));
@@ -244,7 +239,7 @@ static void add_line_number(Token* token) {
   }
 }
 
-void tokenize() {
+Token* tokenize() {
   read_file();
   char* p = user_input;
 
@@ -342,6 +337,8 @@ void tokenize() {
   }
 
   cur->next = new_token(TK_EOF, p, 0);
-  token = head.next;
-  add_line_number(token);
+
+  Token* tokens = head.next;
+  add_line_number(tokens);
+  return tokens;
 }
