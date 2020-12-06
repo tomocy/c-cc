@@ -128,27 +128,39 @@ static bool consume_keyword(Token** tok, char** p) {
 }
 
 static void read_file() {
-  FILE* fp = fopen(filename, "r");
-  if (!fp) {
-    error("cannot open %s: %s", filename, strerror(errno));
+  FILE* f;
+  if (strcmp(filename, "-") == 0) {
+    f = stdin;
+  } else {
+    f = fopen(filename, "r");
+    if (!f) {
+      error("cannot open %s: %s", filename, strerror(errno));
+    }
   }
 
-  if (fseek(fp, 0, SEEK_END) != 0) {
-    error("cannot seek %s: %s", filename, strerror(errno));
-  }
-  size_t size = ftell(fp);
-  if (fseek(fp, 0, SEEK_SET) != 0) {
-    error("cannot seek %s: %s", filename, strerror(errno));
+  size_t len;
+  FILE* stream = open_memstream(&user_input, &len);
+
+  for (;;) {
+    char tmp[4096];
+    int n = fread(tmp, 1, sizeof(tmp), f);
+    if (n == 0) {
+      break;
+    }
+    fwrite(tmp, 1, n, stream);
   }
 
-  user_input = calloc(1, size + 2);
-  fread(user_input, size, 1, fp);
-  if (size == 0 || user_input[size - 1] != '\n') {
-    user_input[size++] = '\n';
+  if (f != stdin) {
+    fclose(f);
   }
-  user_input[size] = '\0';
 
-  fclose(fp);
+  fflush(stream);
+
+  if (len == 0 || user_input[len - 1] != '\n') {
+    fputc('\n', stream);
+  }
+  fputc('\0', stream);
+  fclose(stream);
 }
 
 static int hex_digit(char c) {
