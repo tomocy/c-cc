@@ -1006,7 +1006,7 @@ bool is_func() {
   return is_func;
 }
 
-void program() {
+void parse() {
   codes = NULL;
   scope = NULL;
   gscope = NULL;

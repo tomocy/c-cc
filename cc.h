@@ -178,6 +178,6 @@ bool at_eof();
 
 void tokenize();
 
-void program();
+void parse();
 
-void gen_program();
+void gen();

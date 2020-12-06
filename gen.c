@@ -333,7 +333,7 @@ static void open_output_file() {
   }
 }
 
-void gen_program() {
+void gen() {
   open_output_file();
 
   genln(".intel_syntax noprefix");
