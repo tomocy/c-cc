@@ -337,6 +337,7 @@ void gen_program() {
   open_output_file();
 
   genln(".intel_syntax noprefix");
+  genln(".file 1 \"%s\"", input_filename);
   gen_data();
   gen_text();
   if (depth != 0) {
