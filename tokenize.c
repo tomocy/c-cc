@@ -1,6 +1,6 @@
 #include "cc.h"
 
-char* user_input;
+static char* user_input;
 
 Token* token;
 

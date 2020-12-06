@@ -1,13 +1,13 @@
 #include "cc.h"
 
-FILE* output_file;
-int depth = 0;
-int label_count = 0;
-int func_count = 0;
-char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
-char* arg_regs16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
-char* arg_regs32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
-char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+static FILE* output_file;
+static int depth = 0;
+static int label_count = 0;
+static int func_count = 0;
+static char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
+static char* arg_regs16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
+static char* arg_regs32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
+static char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
 static void genln(char* fmt, ...) {
   va_list args;

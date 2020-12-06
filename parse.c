@@ -2,9 +2,9 @@
 
 Obj* codes;
 
-Scope* scope;
-Scope* gscope;
-Obj* lvars;
+static Scope* scope;
+static Scope* gscope;
+static Obj* lvars;
 
 Type* ty_unavailable = &(Type){
     TY_UNAVAILABLE,
