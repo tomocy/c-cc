@@ -22,6 +22,7 @@ typedef struct Token Token;
 struct Token {
   TokenKind kind;
   Token* next;
+  int line;
   char* loc;
   int len;
   int64_t int_val;

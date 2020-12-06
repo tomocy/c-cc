@@ -12,7 +12,7 @@ void error(char* fmt, ...) {
   exit(1);
 }
 
-static void verror_at(char* loc, char* fmt, va_list args) {
+static void verror_at(int line, char* loc, char* fmt, va_list args) {
   char* start = loc;
   while (user_input < start && start[-1] != '\n') {
     start--;
@@ -22,14 +22,7 @@ static void verror_at(char* loc, char* fmt, va_list args) {
     end++;
   }
 
-  int line_num = 1;
-  for (char* p = user_input; p < start; p++) {
-    if (*p == '\n') {
-      line_num++;
-    }
-  }
-
-  int indent = fprintf(stderr, "%s:%d ", input_filename, line_num);
+  int indent = fprintf(stderr, "%s:%d ", input_filename, line);
   fprintf(stderr, "%.*s\n", (int)(end - start), start);
 
   int pos = loc - start + indent;
@@ -42,15 +35,22 @@ static void verror_at(char* loc, char* fmt, va_list args) {
 }
 
 static void error_at(char* loc, char* fmt, ...) {
+  int line = 1;
+  for (char* cur = user_input; cur < loc; cur++) {
+    if (*cur == '\n') {
+      line++;
+    }
+  }
+
   va_list args;
   va_start(args, fmt);
-  verror_at(loc, fmt, args);
+  verror_at(line, loc, fmt, args);
 }
 
 void error_tok(Token* tok, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  verror_at(tok->loc, fmt, args);
+  verror_at(token->line, tok->loc, fmt, args);
 }
 
 bool equal(Token* tok, char* op) {
@@ -228,12 +228,29 @@ static int read_escaped_char(char** c) {
   }
 }
 
+static void add_line_number(Token* token) {
+  int line = 1;
+  for (char* loc = user_input; *loc; loc++) {
+    if (*loc == '\n') {
+      line++;
+      continue;
+    }
+
+    if (loc == token->loc) {
+      token->line = line;
+      token = token->next;
+      continue;
+    }
+  }
+}
+
 void tokenize() {
   read_file();
   char* p = user_input;
 
   Token head = {};
   Token* cur = &head;
+
   while (*p) {
     if (isspace(*p)) {
       p++;
@@ -326,4 +343,5 @@ void tokenize() {
 
   cur->next = new_token(TK_EOF, p, 0);
   token = head.next;
+  add_line_number(token);
 }
