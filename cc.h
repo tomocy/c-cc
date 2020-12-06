@@ -160,8 +160,6 @@ extern char* output_filename;
 
 extern Token* token;
 
-extern Obj* codes;
-
 void error(char* fmt, ...);
 
 void error_tok(Token* tok, char* fmt, ...);
@@ -178,6 +176,6 @@ bool at_eof();
 
 void tokenize();
 
-void parse();
+Obj* parse();
 
-void gen();
+void gen(Obj* codes);

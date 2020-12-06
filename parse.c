@@ -1,7 +1,6 @@
 #include "cc.h"
 
-Obj* codes;
-
+static Obj* codes;
 static Scope* scope;
 static Scope* gscope;
 static Obj* lvars;
@@ -1006,12 +1005,7 @@ bool is_func() {
   return is_func;
 }
 
-void parse() {
-  codes = NULL;
-  scope = NULL;
-  gscope = NULL;
-  lvars = NULL;
-
+Obj* parse() {
   enter_scope();
   gscope = scope;
 
@@ -1024,4 +1018,6 @@ void parse() {
   }
 
   leave_scope();
+
+  return codes;
 }

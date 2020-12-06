@@ -254,7 +254,7 @@ static void gen_stmt(Node* node) {
   }
 }
 
-static void gen_data() {
+static void gen_data(Obj* codes) {
   for (Obj* var = codes; var; var = var->next) {
     if (var->kind != OJ_GVAR) {
       continue;
@@ -280,7 +280,7 @@ static void gen_data() {
   }
 }
 
-static void gen_text() {
+static void gen_text(Obj* codes) {
   for (Obj* func = codes; func; func = func->next) {
     if (func->kind != OJ_FUNC) {
       continue;
@@ -333,13 +333,13 @@ static void open_output_file() {
   }
 }
 
-void gen() {
+void gen(Obj* codes) {
   open_output_file();
 
   genln(".intel_syntax noprefix");
   genln(".file 1 \"%s\"", input_filename);
-  gen_data();
-  gen_text();
+  gen_data(codes);
+  gen_text(codes);
   if (depth != 0) {
     error("push and pop do not offset each other: depth %d", depth);
   }
