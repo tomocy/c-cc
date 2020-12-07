@@ -51,12 +51,12 @@ void error_token(Token* token, char* fmt, ...) {
   verror_at(token->line, token->loc, fmt, args);
 }
 
-bool token_equal(Token* token, char* s) {
+bool equal_to_token(Token* token, char* s) {
   return memcmp(token->loc, s, token->len) == 0 && s[token->len] == '\0';
 }
 
 bool consume_token(Token** token, char* s) {
-  if (!token_equal(*token, s)) {
+  if (!equal_to_token(*token, s)) {
     return false;
   }
 

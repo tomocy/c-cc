@@ -2,7 +2,6 @@
 
 static FILE* output_file;
 static int depth = 0;
-static int label_count = 0;
 static int func_count = 0;
 static char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
 static char* arg_regs16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
@@ -29,6 +28,11 @@ static void push_val(int64_t v) {
 static void pop(char* reg) {
   genln("  pop %s", reg);
   depth--;
+}
+
+static int count_label() {
+  static int count = 0;
+  return ++count;
 }
 
 static void gen_expr(Node* node);
@@ -209,8 +213,8 @@ static void gen_stmt(Node* node) {
       return;
     case ND_IF: {
       gen_expr(node->cond);
-      int lelse = label_count++;
-      int lend = label_count++;
+      int lelse = count_label();
+      int lend = count_label();
       genln("  cmp rax, 0");
       genln("  je .Lelse%d", lelse);
       gen_stmt(node->then);
@@ -225,8 +229,8 @@ static void gen_stmt(Node* node) {
       if (node->init) {
         gen_expr(node->init);
       }
-      int lbegin = label_count++;
-      int lend = label_count++;
+      int lbegin = count_label();
+      int lend = count_label();
       genln(".Lbegin%d:", lbegin);
       if (node->cond) {
         push_reg("rax");

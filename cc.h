@@ -131,9 +131,9 @@ extern char* output_filename;
 
 void error(char* fmt, ...);
 
-void error_token(Token* tok, char* fmt, ...);
+void error_token(Token* token, char* fmt, ...);
 
-bool token_equal(Token* tok, char* op);
+bool equal_to_token(Token* token, char* s);
 
 bool consume_token(Token** token, char* s);
 
