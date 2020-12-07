@@ -88,20 +88,20 @@ static Token* new_token(TokenKind kind, char* loc, int len) {
   return tok;
 }
 
-static bool startswith(char* p, char* q) {
+static bool starting_with(char* p, char* q) {
   return memcmp(p, q, strlen(q)) == 0;
 }
 
-static bool is_identable1(char c) {
+static bool identable1(char c) {
   return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
 }
 
-static bool is_identable2(char c) {
-  return is_identable1(c) || ('0' <= c && c <= '9');
+static bool identable2(char c) {
+  return identable1(c) || ('0' <= c && c <= '9');
 }
 
 static bool equal_str(char* p, char* keyword) {
-  return startswith(p, keyword) && !is_identable2(p[strlen(keyword)]);
+  return starting_with(p, keyword) && !identable2(p[strlen(keyword)]);
 }
 
 static bool consume_keyword(Token** tok, char** p) {
@@ -252,14 +252,14 @@ Token* tokenize() {
       continue;
     }
 
-    if (startswith(p, "//")) {
+    if (starting_with(p, "//")) {
       while (*p != '\n') {
         p++;
       }
       continue;
     }
 
-    if (startswith(p, "/*")) {
+    if (starting_with(p, "/*")) {
       char* close = strstr(p + 2, "*/");
       if (!close) {
         error_at(p, "unclosed block comment");
@@ -273,8 +273,9 @@ Token* tokenize() {
       continue;
     }
 
-    if (startswith(p, "==") || startswith(p, "!=") || startswith(p, "<=") ||
-        startswith(p, ">=") || startswith(p, "->")) {
+    if (starting_with(p, "==") || starting_with(p, "!=") ||
+        starting_with(p, "<=") || starting_with(p, ">=") ||
+        starting_with(p, "->")) {
       cur->next = new_token(TK_RESERVED, p, 2);
       cur = cur->next;
       p += 2;
@@ -287,11 +288,11 @@ Token* tokenize() {
       continue;
     }
 
-    if (is_identable1(*p)) {
+    if (identable1(*p)) {
       char* start = p;
       do {
         p++;
-      } while (is_identable2(*p));
+      } while (identable2(*p));
       cur->next = new_token(TK_IDENT, start, p - start);
       cur = cur->next;
       continue;

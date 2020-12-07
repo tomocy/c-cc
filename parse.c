@@ -18,7 +18,7 @@ struct Scope {
   ScopedObj* objs;
 };
 
-static Token* token;
+static Token* tokens;
 static Obj* codes;
 static Scope* scope;
 static Scope* gscope;
@@ -265,18 +265,18 @@ static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
 
 static Node* new_member_node(Node* lhs) {
   if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
-    error_token(token, "expected a struct or union");
+    error_token(tokens, "expected a struct or union");
   }
-  if (token->kind != TK_IDENT) {
-    error_token(token, "expected an ident");
+  if (tokens->kind != TK_IDENT) {
+    error_token(tokens, "expected an ident");
   }
 
   for (Member* mem = lhs->type->members; mem; mem = mem->next) {
-    if (!strs_equal(mem->name, token->loc, token->len)) {
+    if (!strs_equal(mem->name, tokens->loc, tokens->len)) {
       continue;
     }
 
-    token = token->next;
+    tokens = tokens->next;
     Node* node = new_unary_node(ND_MEMBER, lhs);
     node->type = mem->type;
     node->name = mem->name;
@@ -284,7 +284,7 @@ static Node* new_member_node(Node* lhs) {
     return node;
   }
 
-  error_token(token, "no such member");
+  error_token(tokens, "no such member");
   return NULL;
 }
 
@@ -353,7 +353,7 @@ bool is_pointable(Node* node) {
 
 static Node* new_add_node(Node* lhs, Node* rhs) {
   if (is_pointable(lhs) && is_pointable(rhs)) {
-    error_token(token, "invalid operands");
+    error_token(tokens, "invalid operands");
   }
 
   Node* add;
@@ -448,12 +448,12 @@ static Type* union_decl();
 static Node* block_stmt();
 
 static Node* func_args() {
-  expect_token(&token, "(");
+  expect_token(&tokens, "(");
   Node head = {};
   Node* cur = &head;
-  while (!consume_token(&token, ")")) {
+  while (!consume_token(&tokens, ")")) {
     if (cur != &head) {
-      expect_token(&token, ",");
+      expect_token(&tokens, ",");
     }
     cur->next = assign();
     cur = cur->next;
@@ -462,48 +462,48 @@ static Node* func_args() {
 }
 
 static Node* primary() {
-  if (consume_token(&token, "(")) {
-    if (token_equal(token, "{")) {
+  if (consume_token(&tokens, "(")) {
+    if (token_equal(tokens, "{")) {
       Node* node = new_node(ND_STMT_EXPR);
       node->body = block_stmt();
-      expect_token(&token, ")");
+      expect_token(&tokens, ")");
       return node;
     }
 
     Node* node = expr();
-    expect_token(&token, ")");
+    expect_token(&tokens, ")");
     return node;
   }
 
-  if (token->kind == TK_IDENT) {
-    if (token_equal(token->next, "(")) {
-      Token* ident = token;
-      token = token->next;
+  if (tokens->kind == TK_IDENT) {
+    if (token_equal(tokens->next, "(")) {
+      Token* ident = tokens;
+      tokens = tokens->next;
       return new_funccall_node(strndup(ident->loc, ident->len), func_args());
     }
 
-    Obj* var = find_var(token->loc, token->len);
+    Obj* var = find_var(tokens->loc, tokens->len);
     if (!var) {
-      error_token(token, "undefined ident");
+      error_token(tokens, "undefined ident");
     }
     Node* node = new_var_node(var);
-    token = token->next;
+    tokens = tokens->next;
     return node;
   }
 
-  if (token->kind == TK_NUM) {
-    return new_num_node(expect_num(&token));
+  if (tokens->kind == TK_NUM) {
+    return new_num_node(expect_num(&tokens));
   }
 
-  if (token->kind == TK_STR) {
+  if (tokens->kind == TK_STR) {
     char* name = calloc(20, sizeof(char));
     sprintf(name, ".Lstr%d", str_count++);
-    Obj* str = new_str(name, token->str_val);
-    token = token->next;
+    Obj* str = new_str(name, tokens->str_val);
+    tokens = tokens->next;
     return new_var_node(str);
   }
 
-  error_token(token, "expected a primary");
+  error_token(tokens, "expected a primary");
   return NULL;
 }
 
@@ -511,19 +511,19 @@ static Node* postfix() {
   Node* node = primary();
 
   for (;;) {
-    if (consume_token(&token, "[")) {
+    if (consume_token(&tokens, "[")) {
       Node* index = expr();
-      expect_token(&token, "]");
+      expect_token(&tokens, "]");
       node = new_deref_node(new_add_node(node, index));
       continue;
     }
 
-    if (consume_token(&token, ".")) {
+    if (consume_token(&tokens, ".")) {
       node = new_member_node(node);
       continue;
     }
 
-    if (consume_token(&token, "->")) {
+    if (consume_token(&tokens, "->")) {
       node = new_deref_node(node);
       node = new_member_node(node);
       continue;
@@ -534,23 +534,23 @@ static Node* postfix() {
 }
 
 static Node* unary() {
-  if (consume_token(&token, "+")) {
+  if (consume_token(&tokens, "+")) {
     return primary();
   }
 
-  if (consume_token(&token, "-")) {
+  if (consume_token(&tokens, "-")) {
     return new_sub_node(new_num_node(0), primary());
   }
 
-  if (consume_token(&token, "&")) {
+  if (consume_token(&tokens, "&")) {
     return new_addr_node(unary());
   }
 
-  if (consume_token(&token, "*")) {
+  if (consume_token(&tokens, "*")) {
     return new_deref_node(unary());
   }
 
-  if (consume_token(&token, "sizeof")) {
+  if (consume_token(&tokens, "sizeof")) {
     Node* node = unary();
     return new_num_node(node->type->size);
   }
@@ -562,12 +562,12 @@ static Node* mul() {
   Node* node = unary();
 
   for (;;) {
-    if (consume_token(&token, "*")) {
+    if (consume_token(&tokens, "*")) {
       node = new_mul_node(node, unary());
       continue;
     }
 
-    if (consume_token(&token, "/")) {
+    if (consume_token(&tokens, "/")) {
       node = new_div_node(node, unary());
       continue;
     }
@@ -580,12 +580,12 @@ static Node* add() {
   Node* node = mul();
 
   for (;;) {
-    if (consume_token(&token, "+")) {
+    if (consume_token(&tokens, "+")) {
       node = new_add_node(node, mul());
       continue;
     }
 
-    if (consume_token(&token, "-")) {
+    if (consume_token(&tokens, "-")) {
       node = new_sub_node(node, mul());
       continue;
     }
@@ -598,22 +598,22 @@ static Node* relational() {
   Node* node = add();
 
   for (;;) {
-    if (consume_token(&token, "<")) {
+    if (consume_token(&tokens, "<")) {
       node = new_lt_node(node, add());
       continue;
     }
 
-    if (consume_token(&token, "<=")) {
+    if (consume_token(&tokens, "<=")) {
       node = new_le_node(node, add());
       continue;
     }
 
-    if (consume_token(&token, ">")) {
+    if (consume_token(&tokens, ">")) {
       node = new_lt_node(add(), node);
       continue;
     }
 
-    if (consume_token(&token, ">=")) {
+    if (consume_token(&tokens, ">=")) {
       node = new_le_node(add(), node);
       continue;
     }
@@ -626,12 +626,12 @@ static Node* equality() {
   Node* node = relational();
 
   for (;;) {
-    if (consume_token(&token, "==")) {
+    if (consume_token(&tokens, "==")) {
       node = new_eq_node(node, relational());
       continue;
     }
 
-    if (consume_token(&token, "!=")) {
+    if (consume_token(&tokens, "!=")) {
       node = new_ne_node(node, relational());
       continue;
     }
@@ -644,7 +644,7 @@ static Node* assign() {
   Node* node = equality();
 
   for (;;) {
-    if (consume_token(&token, "=")) {
+    if (consume_token(&tokens, "=")) {
       node = new_assign_node(node, equality());
       continue;
     }
@@ -655,45 +655,45 @@ static Node* assign() {
 
 static Node* expr() {
   Node* node = assign();
-  if (consume_token(&token, ",")) {
+  if (consume_token(&tokens, ",")) {
     return new_comma_node(node, expr());
   }
   return node;
 }
 
 static Type* decl_specifier() {
-  if (consume_token(&token, "char")) {
+  if (consume_token(&tokens, "char")) {
     return ty_char;
   }
 
-  if (consume_token(&token, "short")) {
+  if (consume_token(&tokens, "short")) {
     return ty_short;
   }
 
-  if (consume_token(&token, "int")) {
+  if (consume_token(&tokens, "int")) {
     return ty_int;
   }
 
-  if (consume_token(&token, "long")) {
+  if (consume_token(&tokens, "long")) {
     return ty_long;
   }
 
-  if (token_equal(token, "struct")) {
+  if (token_equal(tokens, "struct")) {
     return struct_decl();
   }
 
-  if (token_equal(token, "union")) {
+  if (token_equal(tokens, "union")) {
     return union_decl();
   }
 
-  error_token(token, "expected a typename");
+  error_token(tokens, "expected a typename");
   return NULL;
 }
 
 static Type* type_suffix(Type* ty) {
-  if (consume_token(&token, "[")) {
-    int len = expect_num(&token);
-    expect_token(&token, "]");
+  if (consume_token(&tokens, "[")) {
+    int len = expect_num(&tokens);
+    expect_token(&tokens, "]");
     ty = type_suffix(ty);
     return new_array_type(ty, len);
   }
@@ -702,15 +702,15 @@ static Type* type_suffix(Type* ty) {
 }
 
 static Decl* declarator(Type* ty) {
-  while (consume_token(&token, "*")) {
+  while (consume_token(&tokens, "*")) {
     ty = new_ptr_type(ty);
   }
 
-  if (token->kind != TK_IDENT) {
-    error_token(token, "expected an ident");
+  if (tokens->kind != TK_IDENT) {
+    error_token(tokens, "expected an ident");
   }
-  Token* ident = token;
-  token = token->next;
+  Token* ident = tokens;
+  tokens = tokens->next;
 
   ty = type_suffix(ty);
 
@@ -723,13 +723,13 @@ static Decl* declarator(Type* ty) {
 static Member* members() {
   Member head = {};
   Member* cur = &head;
-  while (!consume_token(&token, "}")) {
+  while (!consume_token(&tokens, "}")) {
     Type* spec = decl_specifier();
 
     bool is_first = true;
-    while (!consume_token(&token, ";")) {
+    while (!consume_token(&tokens, ";")) {
       if (!is_first) {
-        expect_token(&token, ",");
+        expect_token(&tokens, ",");
       }
       is_first = false;
 
@@ -748,15 +748,15 @@ static Member* members() {
 }
 
 static Type* struct_decl() {
-  expect_token(&token, "struct");
+  expect_token(&tokens, "struct");
 
   Token* tag = NULL;
-  if (token->kind == TK_IDENT) {
-    tag = token;
-    token = token->next;
+  if (tokens->kind == TK_IDENT) {
+    tag = tokens;
+    tokens = tokens->next;
   }
 
-  if (tag && !token_equal(token, "{")) {
+  if (tag && !token_equal(tokens, "{")) {
     Obj* found_tag = find_tag(tag->loc, tag->len);
     if (!found_tag) {
       error_token(tag, "undefined tag");
@@ -764,7 +764,7 @@ static Type* struct_decl() {
     return found_tag->type;
   }
 
-  expect_token(&token, "{");
+  expect_token(&tokens, "{");
 
   Member* mems = members();
   int offset = 0;
@@ -789,15 +789,15 @@ static Type* struct_decl() {
 }
 
 static Type* union_decl() {
-  expect_token(&token, "union");
+  expect_token(&tokens, "union");
 
   Token* tag = NULL;
-  if (token->kind == TK_IDENT) {
-    tag = token;
-    token = token->next;
+  if (tokens->kind == TK_IDENT) {
+    tag = tokens;
+    tokens = tokens->next;
   }
 
-  if (tag && !token_equal(token, "{")) {
+  if (tag && !token_equal(tokens, "{")) {
     Obj* found_tag = find_tag(tag->loc, tag->len);
     if (!found_tag) {
       error_token(tag, "undefined tag");
@@ -805,7 +805,7 @@ static Type* union_decl() {
     return found_tag->type;
   }
 
-  expect_token(&token, "{");
+  expect_token(&tokens, "{");
 
   Member* mems = members();
   int size = 0;
@@ -834,16 +834,16 @@ static Node* lvar() {
 
   Node head = {};
   Node* cur = &head;
-  while (!consume_token(&token, ";")) {
+  while (!consume_token(&tokens, ";")) {
     if (cur != &head) {
-      expect_token(&token, ",");
+      expect_token(&tokens, ",");
     }
 
     Decl* decl = declarator(spec);
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(var);
 
-    if (consume_token(&token, "=")) {
+    if (consume_token(&tokens, "=")) {
       node = new_assign_node(node, assign());
     }
 
@@ -856,11 +856,11 @@ static Node* lvar() {
   return node;
 }
 
-bool equal_type_name(Token* tok) {
-  static char* tnames[] = {"char", "short", "int", "long", "struct", "union"};
-  int len = sizeof(tnames) / sizeof(char*);
+bool type_name_equal(Token* token) {
+  static char* names[] = {"char", "short", "int", "long", "struct", "union"};
+  int len = sizeof(names) / sizeof(char*);
   for (int i = 0; i < len; i++) {
-    if (token_equal(tok, tnames[i])) {
+    if (token_equal(token, names[i])) {
       return true;
     }
   }
@@ -868,72 +868,72 @@ bool equal_type_name(Token* tok) {
 }
 
 static Node* stmt() {
-  if (token_equal(token, "{")) {
+  if (token_equal(tokens, "{")) {
     return block_stmt();
   }
 
-  if (consume_token(&token, "if")) {
-    expect_token(&token, "(");
+  if (consume_token(&tokens, "if")) {
+    expect_token(&tokens, "(");
     Node* node = new_node(ND_IF);
     node->cond = expr();
-    expect_token(&token, ")");
+    expect_token(&tokens, ")");
     node->then = stmt();
-    if (consume_token(&token, "else")) {
+    if (consume_token(&tokens, "else")) {
       node->els = stmt();
     }
     return node;
   }
 
-  if (consume_token(&token, "while")) {
-    expect_token(&token, "(");
+  if (consume_token(&tokens, "while")) {
+    expect_token(&tokens, "(");
     Node* node = new_node(ND_FOR);
     node->cond = expr();
-    expect_token(&token, ")");
+    expect_token(&tokens, ")");
     node->then = stmt();
     return node;
   }
 
-  if (consume_token(&token, "for")) {
-    expect_token(&token, "(");
+  if (consume_token(&tokens, "for")) {
+    expect_token(&tokens, "(");
     Node* node = new_node(ND_FOR);
-    if (!consume_token(&token, ";")) {
+    if (!consume_token(&tokens, ";")) {
       node->init = expr();
-      expect_token(&token, ";");
+      expect_token(&tokens, ";");
     }
-    if (!consume_token(&token, ";")) {
+    if (!consume_token(&tokens, ";")) {
       node->cond = expr();
-      expect_token(&token, ";");
+      expect_token(&tokens, ";");
     }
-    if (!consume_token(&token, ")")) {
+    if (!consume_token(&tokens, ")")) {
       node->inc = expr();
-      expect_token(&token, ")");
+      expect_token(&tokens, ")");
     }
     node->then = stmt();
     return node;
   }
 
-  if (consume_token(&token, "return")) {
+  if (consume_token(&tokens, "return")) {
     Node* node = new_unary_node(ND_RETURN, expr());
-    expect_token(&token, ";");
+    expect_token(&tokens, ";");
     return node;
   }
 
-  if (equal_type_name(token)) {
+  if (type_name_equal(tokens)) {
     return lvar();
   }
 
   Node* node = expr();
-  expect_token(&token, ";");
+  expect_token(&tokens, ";");
   return node;
 }
 
 static Node* block_stmt() {
-  expect_token(&token, "{");
+  expect_token(&tokens, "{");
   enter_scope();
 
   Node head = {};
   Node* curr = &head;
-  while (!consume_token(&token, "}")) {
+  while (!consume_token(&tokens, "}")) {
     curr->next = stmt();
     curr = curr->next;
   }
@@ -949,9 +949,9 @@ static void gvar() {
   Type* spec = decl_specifier();
 
   bool is_first = true;
-  while (!consume_token(&token, ";")) {
+  while (!consume_token(&tokens, ";")) {
     if (!is_first) {
-      expect_token(&token, ",");
+      expect_token(&tokens, ",");
     }
     is_first = false;
 
@@ -959,8 +959,8 @@ static void gvar() {
     Obj* var = new_gvar(decl->type, decl->name);
     add_code(var);
 
-    if (consume_token(&token, "=")) {
-      var->int_val = expect_num(&token);
+    if (consume_token(&tokens, "=")) {
+      var->int_val = expect_num(&tokens);
     }
   }
 }
@@ -968,24 +968,24 @@ static void gvar() {
 static void func() {
   Type* ty = decl_specifier();
 
-  if (token->kind != TK_IDENT) {
-    error_token(token, "expected an ident");
+  if (tokens->kind != TK_IDENT) {
+    error_token(tokens, "expected an ident");
   }
 
   Obj* func = new_obj(OJ_FUNC);
   add_code(func);
   func->type = ty;
-  func->name = strndup(token->loc, token->len);
-  token = token->next;
+  func->name = strndup(tokens->loc, tokens->len);
+  tokens = tokens->next;
 
-  expect_token(&token, "(");
+  expect_token(&tokens, "(");
   enter_scope();
 
   Node head = {};
   Node* cur = &head;
-  while (!consume_token(&token, ")")) {
+  while (!consume_token(&tokens, ")")) {
     if (cur != &head) {
-      expect_token(&token, ",");
+      expect_token(&tokens, ",");
     }
 
     Type* spec = decl_specifier();
@@ -1008,27 +1008,27 @@ static void func() {
 }
 
 bool is_func() {
-  Token* start = token;
+  Token* start = tokens;
 
   decl_specifier();
 
-  if (token->kind != TK_IDENT) {
-    error_token(token, "expected an ident");
+  if (tokens->kind != TK_IDENT) {
+    error_token(tokens, "expected an ident");
   }
-  token = token->next;
-  bool is_func = token_equal(token, "(");
+  tokens = tokens->next;
+  bool is_func = token_equal(tokens, "(");
 
-  token = start;
+  tokens = start;
   return is_func;
 }
 
-Obj* parse(Token* tokens) {
-  token = tokens;
+Obj* parse(Token* ts) {
+  tokens = ts;
 
   enter_scope();
   gscope = scope;
 
-  while (token->kind != TK_EOF) {
+  while (tokens->kind != TK_EOF) {
     if (is_func()) {
       func();
     } else {
