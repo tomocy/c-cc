@@ -29,6 +29,11 @@ static Type* ty_unavailable = &(Type){
     0,
     1,
 };
+static Type* ty_void = &(Type){
+    TY_VOID,
+    1,
+    1,
+};
 static Type* ty_char = &(Type){
     TY_CHAR,
     1,
@@ -691,6 +696,10 @@ static Node* expr(Token** tokens) {
 }
 
 static Type* decl_specifier(Token** tokens) {
+  if (consume_token(tokens, "void")) {
+    return ty_void;
+  }
+
   if (consume_token(tokens, "char")) {
     return ty_char;
   }
@@ -773,6 +782,9 @@ static Member* members(Token** tokens) {
       is_first = false;
 
       Decl* decl = declarator(tokens, spec);
+      if (decl->type == ty_void) {
+        error_token(decl->ident, "variable declared void");
+      }
 
       Member* mem = calloc(1, sizeof(Member));
       mem->type = decl->type;
@@ -881,6 +893,10 @@ static Node* lvar(Token** tokens) {
     }
 
     Decl* decl = declarator(tokens, spec);
+    if (decl->type == ty_void) {
+      error_token(decl->ident, "variable declared void");
+    }
+
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(decl->ident, var);
 
@@ -899,7 +915,8 @@ static Node* lvar(Token** tokens) {
 }
 
 bool equal_to_type_name(Token* token) {
-  static char* names[] = {"char", "short", "int", "long", "struct", "union"};
+  static char* names[] = {"void", "char",   "short", "int",
+                          "long", "struct", "union"};
   int len = sizeof(names) / sizeof(char*);
   for (int i = 0; i < len; i++) {
     if (equal_to_token(token, names[i])) {
@@ -1007,6 +1024,10 @@ static void gvar(Token** tokens) {
     is_first = false;
 
     Decl* decl = declarator(tokens, spec);
+    if (decl->type == ty_void) {
+      error_token(decl->ident, "variable declared void");
+    }
+
     Obj* var = new_gvar(decl->type, decl->name);
     add_code(var);
 
@@ -1041,6 +1062,9 @@ static void func(Token** tokens) {
 
     Type* spec = decl_specifier(tokens);
     Decl* decl = declarator(tokens, spec);
+    if (decl->type == ty_void) {
+      error_token(decl->ident, "variable declared void");
+    }
 
     Obj* var = new_lvar(decl->type, decl->name);
     Node* param = new_var_node(decl->ident, var);

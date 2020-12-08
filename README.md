@@ -8,9 +8,9 @@ func = decl_specifier ident "(" (decl_specifier declarator (, decl_specifier dec
 gvar = decl_specifier (declarator ("=" num)? ("," declarator ("=" num)?)*)? ";"
 
 bloc_stmt = "{" stmt* "}"
-stmt = "if" "(" expr ")" stmt ("else" stmt)? | 
+stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
-    "while" "(" expr ")" stmt | 
+    "while" "(" expr ")" stmt |
     "return" expr ";" |
     lvar |
     expr ";"
@@ -26,8 +26,8 @@ primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 
 lvar = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
 
-decl_specifier = "char" | "short" | "int" | "long" | struct_decl | union_decl
-declarator = "*"* ident type_suffix
+decl_specifier = "void" | "char" | "short" | "int" | "long" | struct_decl | union_decl
+declarator = "*"* ("(" declarator ")" | ident) type_suffix
 
 type_suffix = "[" num "]" type_suffix | ε
 

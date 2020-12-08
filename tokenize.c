@@ -106,7 +106,7 @@ static bool equal_str(char* p, char* keyword) {
 
 static bool consume_keyword(Token** tok, char** p) {
   static char* ks[] = {
-      "if",   "else",  "for", "while", "return", "sizeof",
+      "if",   "else",  "for", "while", "return", "sizeof", "void",
       "char", "short", "int", "long",  "struct", "union",
   };
   int len = sizeof(ks) / sizeof(char*);
