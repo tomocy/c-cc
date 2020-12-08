@@ -735,6 +735,15 @@ static Decl* declarator(Token** tokens, Type* ty) {
     ty = new_ptr_type(ty);
   }
 
+  if (consume_token(tokens, "(")) {
+    Token* start = *tokens;
+    Type ignored = {};
+    declarator(tokens, &ignored);
+    expect_token(tokens, ")");
+    ty = type_suffix(tokens, ty);
+    return declarator(&start, ty);
+  }
+
   if ((*tokens)->kind != TK_IDENT) {
     error_token(*tokens, "expected an ident");
   }
