@@ -90,6 +90,7 @@ struct Node {
   Node* next;
   NodeKind kind;
   Type* type;
+  Token* token;
   Node* lhs;
   Node* rhs;
   Node* init;

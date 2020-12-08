@@ -80,6 +80,8 @@ static void load(Node* node, char* dst, char* src) {
 }
 
 static void gen_expr(Node* node) {
+  genln("  .loc 1 %d", node->token->line);
+
   switch (node->kind) {
     case ND_ASSIGN:
       gen_addr(node->lhs);
@@ -205,6 +207,8 @@ static void gen_expr(Node* node) {
 }
 
 static void gen_stmt(Node* node) {
+  genln("  .loc 1 %d", node->token->line);
+
   switch (node->kind) {
     case ND_BLOCK:
       for (Node* body = node->body; body; body = body->next) {
