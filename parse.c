@@ -1049,6 +1049,11 @@ static void func(Token** tokens) {
   }
   func->params = head.next;
 
+  func->is_definition = !consume_token(tokens, ";");
+  if (!func->is_definition) {
+    return;
+  }
+
   func->body = block_stmt(tokens);
 
   leave_scope();

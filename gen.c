@@ -290,7 +290,7 @@ static void gen_data(Obj* codes) {
 
 static void gen_text(Obj* codes) {
   for (Obj* func = codes; func; func = func->next) {
-    if (func->kind != OJ_FUNC) {
+    if (func->kind != OJ_FUNC || !func->is_definition) {
       continue;
     }
 
