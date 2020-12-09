@@ -63,6 +63,18 @@ bool strs_equal(char* a, char* b, int b_len) {
   return strlen(a) == b_len && strncmp(a, b, b_len) == 0;
 }
 
+bool equal_to_type_name(Token* token) {
+  static char* names[] = {"void", "char",   "short", "int",
+                          "long", "struct", "union"};
+  int len = sizeof(names) / sizeof(char*);
+  for (int i = 0; i < len; i++) {
+    if (equal_to_token(token, names[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static Type* new_type(TypeKind kind, int size, int alignment) {
   Type* type = calloc(1, sizeof(Type));
   type->kind = kind;
@@ -696,36 +708,79 @@ static Node* expr(Token** tokens) {
 }
 
 static Type* decl_specifier(Token** tokens) {
-  if (consume_token(tokens, "void")) {
-    return ty_void;
+  Type* ty;
+  int counter = 0;
+
+  enum {
+    VOID = 1 << 0,
+    CHAR = 1 << 2,
+    SHORT = 1 << 4,
+    INT = 1 << 6,
+    LONG = 1 << 8,
+    OTHER = 1 << 10,
+  };
+
+  while (equal_to_type_name(*tokens)) {
+    Token* start = *tokens;
+
+    if (equal_to_token(*tokens, "struct")) {
+      counter += OTHER;
+      ty = struct_decl(tokens);
+      continue;
+    }
+
+    if (equal_to_token(*tokens, "union")) {
+      counter += OTHER;
+      ty = union_decl(tokens);
+      continue;
+    }
+
+    if (consume_token(tokens, "void")) {
+      counter += VOID;
+    }
+
+    if (consume_token(tokens, "char")) {
+      counter += CHAR;
+    }
+
+    if (consume_token(tokens, "short")) {
+      counter += SHORT;
+    }
+
+    if (consume_token(tokens, "int")) {
+      counter += INT;
+    }
+
+    if (consume_token(tokens, "long")) {
+      counter += LONG;
+    }
+
+    switch (counter) {
+      case VOID:
+        ty = ty_void;
+        break;
+      case CHAR:
+        ty = ty_char;
+        break;
+      case SHORT:
+      case SHORT + INT:
+        ty = ty_short;
+        break;
+      case INT:
+        ty = ty_int;
+        break;
+      case LONG:
+      case LONG + INT:
+      case LONG + LONG:
+      case LONG + LONG + INT:
+        ty = ty_long;
+        break;
+      default:
+        error_token(start, "expected a typename");
+    }
   }
 
-  if (consume_token(tokens, "char")) {
-    return ty_char;
-  }
-
-  if (consume_token(tokens, "short")) {
-    return ty_short;
-  }
-
-  if (consume_token(tokens, "int")) {
-    return ty_int;
-  }
-
-  if (consume_token(tokens, "long")) {
-    return ty_long;
-  }
-
-  if (equal_to_token(*tokens, "struct")) {
-    return struct_decl(tokens);
-  }
-
-  if (equal_to_token(*tokens, "union")) {
-    return union_decl(tokens);
-  }
-
-  error_token(*tokens, "expected a typename");
-  return NULL;
+  return ty;
 }
 
 static Type* type_suffix(Token** tokens, Type* ty) {
@@ -912,18 +967,6 @@ static Node* lvar(Token** tokens) {
   node->token = start;
   node->body = head.next;
   return node;
-}
-
-bool equal_to_type_name(Token* token) {
-  static char* names[] = {"void", "char",   "short", "int",
-                          "long", "struct", "union"};
-  int len = sizeof(names) / sizeof(char*);
-  for (int i = 0; i < len; i++) {
-    if (equal_to_token(token, names[i])) {
-      return true;
-    }
-  }
-  return false;
 }
 
 static Node* stmt(Token** tokens) {
