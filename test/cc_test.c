@@ -54,6 +54,14 @@ int no_lvars() { return 0; }
 
 int decl();
 
+typedef char MyChar;
+
+typedef int MyInt;
+
+typedef int MyInt2, MyInts[4];
+
+typedef DefaultType;
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -1108,6 +1116,73 @@ int main() {
   ASSERT(8, ({
            long long int x;
            sizeof(x);
+         }));
+
+  ASSERT(1, ({
+           MyChar x;
+           sizeof(x);
+         }));
+  ASSERT(5, ({
+           MyChar x = 5;
+           x;
+         }));
+  ASSERT(4, ({
+           MyInt x;
+           sizeof(x);
+         }));
+  ASSERT(3, ({
+           MyInt x = 3;
+           x;
+         }));
+  ASSERT(4, ({
+           MyInt2 x;
+           sizeof(x);
+         }));
+  ASSERT(16, ({
+           MyInts x;
+           sizeof(x);
+         }));
+  ASSERT(4, ({
+           DefaultType x;
+           sizeof(x);
+         }));
+  ASSERT(6, ({
+           DefaultType x = 2, y = 4;
+           x + y;
+         }));
+  ASSERT(1, ({
+           typedef char;
+           char x;
+           sizeof x;
+         }));
+  ASSERT(1, ({
+           typedef int t;
+           t x = 1;
+           x;
+         }));
+  ASSERT(1, ({
+           typedef struct {
+             int a;
+           } t;
+           t x;
+           x.a = 1;
+           x.a;
+         }));
+  ASSERT(1, ({
+           typedef int t;
+           ({
+             t t = 1;
+             t + 0;
+           });
+         }));
+  ASSERT(2, ({
+           typedef struct {
+             int a;
+           } t;
+           { typedef int t; }
+           t x;
+           x.a = 2;
+           x.a;
          }));
 
   ok();

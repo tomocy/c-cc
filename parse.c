@@ -63,18 +63,6 @@ bool strs_equal(char* a, char* b, int b_len) {
   return strlen(a) == b_len && strncmp(a, b, b_len) == 0;
 }
 
-bool equal_to_type_name(Token* token) {
-  static char* names[] = {"void", "char",   "short", "int",
-                          "long", "struct", "union"};
-  int len = sizeof(names) / sizeof(char*);
-  for (int i = 0; i < len; i++) {
-    if (equal_to_token(token, names[i])) {
-      return true;
-    }
-  }
-  return false;
-}
-
 static Type* new_type(TypeKind kind, int size, int alignment) {
   Type* type = calloc(1, sizeof(Type));
   type->kind = kind;
@@ -142,18 +130,25 @@ static void add_obj_to_scope(Scope* scope, Obj* obj) {
   scope->objs = scoped;
 }
 
-static void add_var_to_scope(Scope* scope, Obj* obj) {
-  if (obj->kind != OJ_GVAR && obj->kind != OJ_LVAR) {
+static void add_var_to_scope(Scope* scope, Obj* var) {
+  if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
     error("expected a variable");
   }
-  add_obj_to_scope(scope, obj);
+  add_obj_to_scope(scope, var);
 }
 
-static void add_tag_to_scope(Scope* scope, Obj* obj) {
-  if (obj->kind != OJ_TAG) {
+static void add_tag_to_scope(Scope* scope, Obj* tag) {
+  if (tag->kind != OJ_TAG) {
     error("expected a tag");
   }
-  add_obj_to_scope(scope, obj);
+  add_obj_to_scope(scope, tag);
+}
+
+static void add_def_type_to_scope(Scope* scope, Obj* def_type) {
+  if (def_type->kind != OJ_DEF_TYPE) {
+    error("expected a defined type");
+  }
+  add_obj_to_scope(scope, def_type);
 }
 
 static bool is_gscope(Scope* scope) { return !scope->next; }
@@ -185,6 +180,13 @@ static void add_tag(Obj* tag) {
     error("expected a tag");
   }
   add_tag_to_scope(scope, tag);
+}
+
+static void add_def_type(Obj* def_type) {
+  if (def_type->kind != OJ_DEF_TYPE) {
+    error("expected a defined type");
+  }
+  add_def_type_to_scope(scope, def_type);
 }
 
 static Obj* find_func(char* name, int len) {
@@ -227,6 +229,29 @@ static Obj* find_tag(char* name, int len) {
   return NULL;
 }
 
+static Obj* find_def_type(char* name, int len) {
+  for (Scope* s = scope; s; s = s->next) {
+    for (ScopedObj* def_type = s->objs; def_type; def_type = def_type->next) {
+      if (strs_equal(def_type->obj->name, name, len)) {
+        return def_type->obj->kind == OJ_DEF_TYPE ? def_type->obj : NULL;
+      }
+    }
+  }
+  return NULL;
+}
+
+bool equal_to_type_name(Token* token) {
+  static char* names[] = {"void", "char",   "short", "int",
+                          "long", "struct", "union"};
+  int len = sizeof(names) / sizeof(char*);
+  for (int i = 0; i < len; i++) {
+    if (equal_to_token(token, names[i])) {
+      return true;
+    }
+  }
+  return find_def_type(token->loc, token->len) != NULL;
+}
+
 static Obj* new_gvar(Type* type, char* name) {
   Obj* var = new_obj(OJ_GVAR);
   var->type = type;
@@ -259,6 +284,14 @@ static Obj* new_tag(Type* type, char* name) {
   tag->name = name;
   add_tag(tag);
   return tag;
+}
+
+static Obj* new_def_type(Type* type, char* name) {
+  Obj* def_type = new_obj(OJ_DEF_TYPE);
+  def_type->type = type;
+  def_type->name = name;
+  add_def_type(def_type);
+  return def_type;
 }
 
 static Node* new_node(NodeKind kind) {
@@ -481,6 +514,7 @@ static Node* expr();
 static Type* struct_decl();
 static Type* union_decl();
 static Node* block_stmt();
+static void tydef(Token** tokens);
 
 static Node* func_args(Token** tokens) {
   expect_token(tokens, "(");
@@ -708,7 +742,7 @@ static Node* expr(Token** tokens) {
 }
 
 static Type* decl_specifier(Token** tokens) {
-  Type* ty;
+  Type* ty = ty_int;
   int counter = 0;
 
   enum {
@@ -723,13 +757,33 @@ static Type* decl_specifier(Token** tokens) {
   while (equal_to_type_name(*tokens)) {
     Token* start = *tokens;
 
+    Obj* def_type = find_def_type((*tokens)->loc, (*tokens)->len);
+    if (def_type) {
+      if (counter > 0) {
+        break;
+      }
+
+      counter += OTHER;
+      ty = def_type->type;
+      *tokens = (*tokens)->next;
+      continue;
+    }
+
     if (equal_to_token(*tokens, "struct")) {
+      if (counter > 0) {
+        break;
+      }
+
       counter += OTHER;
       ty = struct_decl(tokens);
       continue;
     }
 
     if (equal_to_token(*tokens, "union")) {
+      if (counter > 0) {
+        break;
+      }
+
       counter += OTHER;
       ty = union_decl(tokens);
       continue;
@@ -1044,6 +1098,11 @@ static Node* block_stmt(Token** tokens) {
   Node head = {};
   Node* curr = &head;
   while (!consume_token(tokens, "}")) {
+    if (equal_to_token(*tokens, "typedef")) {
+      tydef(tokens);
+      continue;
+    }
+
     curr->next = stmt(tokens);
     curr = curr->next;
   }
@@ -1054,6 +1113,23 @@ static Node* block_stmt(Token** tokens) {
   node->token = start;
   node->body = head.next;
   return node;
+}
+
+static void tydef(Token** tokens) {
+  expect_token(tokens, "typedef");
+
+  Type* spec = decl_specifier(tokens);
+
+  bool is_first = true;
+  while (!consume_token(tokens, ";")) {
+    if (!is_first) {
+      expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    Decl* decl = declarator(tokens, spec);
+    new_def_type(decl->type, decl->name);
+  }
 }
 
 static void gvar(Token** tokens) {
@@ -1145,11 +1221,16 @@ Obj* parse(Token* tokens) {
   gscope = scope;
 
   while (tokens->kind != TK_EOF) {
+    if (equal_to_token(tokens, "typedef")) {
+      tydef(&tokens);
+      continue;
+    }
+
     if (is_func(tokens)) {
       func(&tokens);
-    } else {
-      gvar(&tokens);
+      continue;
     }
+    gvar(&tokens);
   }
 
   leave_scope();
