@@ -21,7 +21,7 @@ equality = realtional ("==" relational | "!=" relational)*
 relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
 mul = unary ("*" unary | "/" unary)*
-unary = ("+" | "-")? primary | ("&" | "*") unary | "sizeof" unary | postfix
+unary = ("+" | "-")? primary | ("&" | "*") unary | "sizeof" "(" abstract_declarator ")" | "sizeof" unary | postfix
 postfix = primary ("[" expr "]" | "." ident | "->" ident)*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 
@@ -29,6 +29,7 @@ lvar = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)
 
 decl_specifier = ("void" | "char" | "short" | "int" | "long" | struct_decl | union_decl | defined_type )*
 declarator = "*"* ("(" declarator ")" | ident) type_suffix
+abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix
 
 type_suffix = "[" num "]" type_suffix | ε
 

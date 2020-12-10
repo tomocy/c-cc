@@ -514,6 +514,9 @@ static Node* expr();
 static Type* struct_decl();
 static Type* union_decl();
 static Node* block_stmt();
+static Type* decl_specifier(Token** tokens);
+static Decl* declarator(Token** tokens, Type* ty);
+static Decl* abstract_declarator(Token** tokens, Type* ty);
 static void tydef(Token** tokens);
 
 static Node* func_args(Token** tokens) {
@@ -631,6 +634,14 @@ static Node* unary(Token** tokens) {
   }
 
   if (consume_token(tokens, "sizeof")) {
+    if (equal_to_token(*tokens, "(") && equal_to_type_name((*tokens)->next)) {
+      expect_token(tokens, "(");
+      Type* spec = decl_specifier(tokens);
+      Decl* decl = abstract_declarator(tokens, spec);
+      expect_token(tokens, ")");
+      return new_num_node(start, decl->type->size);
+    }
+
     Node* node = unary(tokens);
     return new_num_node(start, node->type->size);
   }
@@ -874,6 +885,27 @@ static Decl* declarator(Token** tokens, Type* ty) {
   decl->type = ty;
   decl->ident = ident;
   decl->name = strndup(ident->loc, ident->len);
+  return decl;
+}
+
+static Decl* abstract_declarator(Token** tokens, Type* ty) {
+  while (consume_token(tokens, "*")) {
+    ty = new_ptr_type(ty);
+  }
+
+  if (consume_token(tokens, "(")) {
+    Token* start = *tokens;
+    Type ignored = {};
+    abstract_declarator(tokens, &ignored);
+    expect_token(tokens, ")");
+    ty = type_suffix(tokens, ty);
+    return abstract_declarator(&start, ty);
+  }
+
+  ty = type_suffix(tokens, ty);
+
+  Decl* decl = calloc(1, sizeof(Decl));
+  decl->type = ty;
   return decl;
 }
 
