@@ -15,7 +15,7 @@ static void genln(char* fmt, ...) {
   fprintf(output_file, "\n");
 }
 
-static void push_reg(char* reg) {
+static void push(char* reg) {
   genln("  push %s", reg);
   depth++;
 }
@@ -54,24 +54,28 @@ static void gen_addr(Node* node) {
   }
 }
 
-static void load(Node* node, char* dst, char* src) {
+static void load(Node* node) {
   if (node->type->kind == TY_ARRAY || node->type->kind == TY_STRUCT ||
       node->type->kind == TY_UNION) {
     return;
   }
+
   if (node->type->size == 1) {
-    genln("  movsx %s, BYTE PTR [%s]", dst, src);
+    genln("  movsx rax, BYTE PTR [rax]");
     return;
   }
+
   if (node->type->size == 2) {
-    genln("  movsx %s, WORD PTR [%s]", dst, src);
+    genln("  movsx rax, WORD PTR [rax]");
     return;
   }
+
   if (node->type->size == 4) {
-    genln("  movsx %s, DWORD PTR [%s]", dst, src);
+    genln("  movsx rax, DWORD PTR [rax]");
     return;
   }
-  genln("  mov %s, [%s]", dst, src);
+
+  genln("  mov rax, [rax]");
 }
 
 static void cast(Type* to, Type* from) {
@@ -122,7 +126,7 @@ static void gen_expr(Node* node) {
   switch (node->kind) {
     case ND_ASSIGN:
       gen_addr(node->lhs);
-      push_reg("rax");
+      push("rax");
       gen_expr(node->rhs);
       pop("rdi");
       if (node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
@@ -159,13 +163,13 @@ static void gen_expr(Node* node) {
       return;
     case ND_DEREF:
       gen_expr(node->lhs);
-      load(node, "rax", "rax");
+      load(node);
       return;
     case ND_FUNCCALL: {
       int arg_count = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
         gen_expr(arg);
-        push_reg("rax");
+        push("rax");
         arg_count++;
       }
       for (int i = arg_count - 1; i >= 0; i--) {
@@ -180,7 +184,7 @@ static void gen_expr(Node* node) {
     case ND_LVAR:
     case ND_MEMBER:
       gen_addr(node);
-      load(node, "rax", "rax");
+      load(node);
       return;
     case ND_NUM:
       genln("  mov rax, %ld", node->val);
@@ -202,7 +206,7 @@ static void gen_expr(Node* node) {
   }
 
   gen_expr(node->lhs);
-  push_reg("rax");
+  push("rax");
   gen_expr(node->rhs);
   genln("  mov rdi, rax");
   pop("rax");
@@ -290,7 +294,7 @@ static void gen_stmt(Node* node) {
       int lend = count_label();
       genln(".Lbegin%d:", lbegin);
       if (node->cond) {
-        push_reg("rax");
+        push("rax");
         gen_expr(node->cond);
         genln("  cmp rax, 0");
         pop("rax");
@@ -298,7 +302,7 @@ static void gen_stmt(Node* node) {
       }
       gen_stmt(node->then);
       if (node->inc) {
-        push_reg("rax");
+        push("rax");
         gen_expr(node->inc);
         pop("rax");
       }
@@ -350,7 +354,7 @@ static void gen_text(Obj* codes) {
     genln(".text");
     genln(".global %s", func->name);
     genln("%s:", func->name);
-    push_reg("rbp");
+    push("rbp");
     genln("  mov rbp, rsp");
     genln("  sub rsp, %d", func->stack_size);
 
