@@ -387,6 +387,14 @@ static Node* new_num_node(Token* token, int64_t val) {
   return node;
 }
 
+static Node* new_cast_node(Type* type, Token* token, Node* lhs) {
+  Node* node = new_node(ND_CAST);
+  node->type = type;
+  node->token = token;
+  node->lhs = lhs;
+  return node;
+}
+
 static Node* new_mul_node(Node* lhs, Node* rhs) {
   Node* mul = new_binary_node(ND_MUL, lhs, rhs);
   mul->type = lhs->type;
@@ -508,16 +516,17 @@ static Node* new_comma_node(Node* lhs, Node* rhs) {
   return comma;
 }
 
-static Node* assign();
+static void tydef(Token** tokens);
 static Node* block_stmt();
+static Node* assign();
+static Node* cast(Token** tokens);
+static Node* unary(Token** tokens);
 static Node* expr();
 static Type* struct_decl();
 static Type* union_decl();
-static Node* block_stmt();
 static Type* decl_specifier(Token** tokens);
 static Decl* declarator(Token** tokens, Type* ty);
 static Decl* abstract_declarator(Token** tokens, Type* ty);
-static void tydef(Token** tokens);
 
 static Node* func_args(Token** tokens) {
   expect_token(tokens, "(");
@@ -618,19 +627,19 @@ static Node* unary(Token** tokens) {
   Token* start = *tokens;
 
   if (consume_token(tokens, "+")) {
-    return primary(tokens);
+    return cast(tokens);
   }
 
   if (consume_token(tokens, "-")) {
-    return new_sub_node(new_num_node(start, 0), primary(tokens));
+    return new_sub_node(new_num_node(start, 0), cast(tokens));
   }
 
   if (consume_token(tokens, "&")) {
-    return new_addr_node(start, unary(tokens));
+    return new_addr_node(start, cast(tokens));
   }
 
   if (consume_token(tokens, "*")) {
-    return new_deref_node(start, unary(tokens));
+    return new_deref_node(start, cast(tokens));
   }
 
   if (consume_token(tokens, "sizeof")) {
@@ -642,24 +651,37 @@ static Node* unary(Token** tokens) {
       return new_num_node(start, decl->type->size);
     }
 
-    Node* node = unary(tokens);
+    Node* node = cast(tokens);
     return new_num_node(start, node->type->size);
   }
 
   return postfix(tokens);
 }
 
+static Node* cast(Token** tokens) {
+  if (equal_to_token(*tokens, "(") && equal_to_type_name((*tokens)->next)) {
+    Token* start = *tokens;
+    expect_token(tokens, "(");
+    Type* spec = decl_specifier(tokens);
+    Decl* decl = abstract_declarator(tokens, spec);
+    expect_token(tokens, ")");
+    return new_cast_node(decl->type, start, cast(tokens));
+  }
+
+  return unary(tokens);
+}
+
 static Node* mul(Token** tokens) {
-  Node* node = unary(tokens);
+  Node* node = cast(tokens);
 
   for (;;) {
     if (consume_token(tokens, "*")) {
-      node = new_mul_node(node, unary(tokens));
+      node = new_mul_node(node, cast(tokens));
       continue;
     }
 
     if (consume_token(tokens, "/")) {
-      node = new_div_node(node, unary(tokens));
+      node = new_div_node(node, cast(tokens));
       continue;
     }
 

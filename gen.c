@@ -20,11 +20,6 @@ static void push_reg(char* reg) {
   depth++;
 }
 
-static void push_val(int64_t v) {
-  genln("  push %ld", v);
-  depth++;
-}
-
 static void pop(char* reg) {
   genln("  pop %s", reg);
   depth--;
@@ -79,6 +74,48 @@ static void load(Node* node, char* dst, char* src) {
   genln("  mov %s, [%s]", dst, src);
 }
 
+static void cast(Type* to, Type* from) {
+  if (to->kind == TY_VOID) {
+    return;
+  }
+
+  if ((from->size == 1 && to->size == 2) ||
+      (from->size == 2 && to->size == 1)) {
+    genln("  movsbw ax, al");
+    return;
+  }
+
+  if ((from->size == 1 && to->size == 4) ||
+      (from->size == 4 && to->size == 1)) {
+    genln("  movsbl eax, al");
+    return;
+  }
+
+  if ((from->size == 1 && to->size == 8) ||
+      (from->size == 8 && to->size == 1)) {
+    genln("  movsbq rax, al");
+    return;
+  }
+
+  if ((from->size == 2 && to->size == 4) ||
+      (from->size == 4 && to->size == 2)) {
+    genln("  movswl eax, ax");
+    return;
+  }
+
+  if ((from->size == 2 && to->size == 8) ||
+      (from->size == 8 && to->size == 2)) {
+    genln("  movswq rax, ax");
+    return;
+  }
+
+  if ((from->size == 4 && to->size == 8) ||
+      (from->size == 8 && to->size == 4)) {
+    genln("  movsxd rax, eax");
+    return;
+  }
+}
+
 static void gen_expr(Node* node) {
   genln("  .loc 1 %d", node->token->line);
 
@@ -113,6 +150,10 @@ static void gen_expr(Node* node) {
       gen_expr(node->lhs);
       gen_expr(node->rhs);
       return;
+    case ND_CAST:
+      gen_expr(node->lhs);
+      cast(node->type, node->lhs->type);
+      return;
     case ND_ADDR:
       gen_addr(node->lhs);
       return;
@@ -142,8 +183,7 @@ static void gen_expr(Node* node) {
       load(node, "rax", "rax");
       return;
     case ND_NUM:
-      push_val(node->val);
-      pop("rax");
+      genln("  mov rax, %ld", node->val);
       return;
     case ND_STMT_EXPR:
       gen_stmt(node->body);
