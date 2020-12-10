@@ -167,39 +167,52 @@ static void gen_expr(Node* node) {
   genln("  mov rdi, rax");
   pop("rax");
 
+  char *ax, *di;
+  if (node->lhs->type->size <= 4 && node->rhs->type->size <= 4) {
+    ax = "eax";
+    di = "edi ";
+  } else {
+    ax = "rax";
+    di = "rdi ";
+  }
+
   switch (node->kind) {
     case ND_EQ:
-      genln("  cmp rax, rdi");
+      genln("  cmp %s, %s", ax, di);
       genln("  sete al");
       genln("  movzb rax, al");
       return;
     case ND_NE:
-      genln("  cmp rax, rdi");
+      genln("  cmp %s, %s", ax, di);
       genln("  setne al");
       genln("  movzb rax, al");
       return;
     case ND_LT:
-      genln("  cmp rax, rdi");
+      genln("  cmp %s, %s", ax, di);
       genln("  setl al");
       genln("  movzb rax, al");
       return;
     case ND_LE:
-      genln("  cmp rax, rdi");
+      genln("  cmp %s, %s", ax, di);
       genln("  setle al");
       genln("  movzb rax, al");
       return;
     case ND_ADD:
-      genln("  add rax, rdi");
+      genln("  add %s, %s", ax, di);
       return;
     case ND_SUB:
-      genln("  sub rax, rdi");
+      genln("  sub %s, %s", ax, di);
       return;
     case ND_MUL:
-      genln("  imul rax, rdi");
+      genln("  imul %s, %s", ax, di);
       return;
     case ND_DIV:
-      genln("  cqo");
-      genln("  idiv rdi");
+      if (node->rhs->type->size == 8) {
+        genln("  cqo");
+      } else {
+        genln("  cdq");
+      }
+      genln("  idiv %s", di);
       return;
     default:
       error("expected an expression: %d", node->kind);
