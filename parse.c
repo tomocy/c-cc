@@ -381,7 +381,15 @@ static Node* new_funccall_node(Token* token, char* name, Node* args) {
   return node;
 }
 
-static Node* new_num_node(Token* token, int64_t val) {
+static Node* new_int_node(Token* token, int64_t val) {
+  Node* node = new_node(ND_NUM);
+  node->type = ty_int;
+  node->token = token;
+  node->val = val;
+  return node;
+}
+
+static Node* new_long_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
   node->type = ty_long;
   node->token = token;
@@ -397,7 +405,26 @@ static Node* new_cast_node(Type* type, Token* token, Node* lhs) {
   return node;
 }
 
+static Type* get_common_type(Type* a, Type* b) {
+  if (a->base) {
+    return new_ptr_type(a->base);
+  }
+
+  if (a->size == ty_long->size || b->size == ty_long->size) {
+    return ty_long;
+  }
+
+  return ty_int;
+}
+
+static void usual_arith_convert(Node** lhs, Node** rhs) {
+  Type* common = get_common_type((*lhs)->type, (*rhs)->type);
+  *lhs = new_cast_node(common, (*lhs)->token, *lhs);
+  *rhs = new_cast_node(common, (*rhs)->token, *rhs);
+}
+
 static Node* new_mul_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
   Node* mul = new_binary_node(ND_MUL, lhs, rhs);
   mul->type = lhs->type;
   mul->token = lhs->token;
@@ -405,6 +432,7 @@ static Node* new_mul_node(Node* lhs, Node* rhs) {
 }
 
 static Node* new_div_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
   Node* div = new_binary_node(ND_DIV, lhs, rhs);
   div->type = lhs->type;
   div->token = lhs->token;
@@ -426,19 +454,20 @@ static Node* new_add_node(Token* tokens, Node* lhs, Node* rhs) {
   }
 
   if (is_numable(lhs) && is_numable(rhs)) {
+    usual_arith_convert(&lhs, &rhs);
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->type = add->lhs->type;
     return add;
   }
 
   if (is_pointable(lhs) && is_numable(rhs)) {
-    rhs = new_mul_node(rhs, new_num_node(rhs->token, lhs->type->base->size));
+    rhs = new_mul_node(rhs, new_long_node(rhs->token, lhs->type->base->size));
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->type = add->lhs->type;
     return add;
   }
 
-  lhs = new_mul_node(lhs, new_num_node(lhs->token, rhs->type->base->size));
+  lhs = new_mul_node(lhs, new_long_node(lhs->token, rhs->type->base->size));
   Node* add = new_binary_node(ND_ADD, lhs, rhs);
   add->type = add->lhs->type;
   return add;
@@ -453,16 +482,17 @@ static Node* new_sub_node(Token* tokens, Node* lhs, Node* rhs) {
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->type = sub->lhs->type;
     return new_div_node(sub,
-                        new_num_node(lhs->token, sub->lhs->type->base->size));
+                        new_int_node(lhs->token, sub->lhs->type->base->size));
   }
 
   if (is_numable(lhs) && is_numable(rhs)) {
+    usual_arith_convert(&lhs, &rhs);
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->type = sub->lhs->type;
     return sub;
   }
 
-  rhs = new_mul_node(rhs, new_num_node(rhs->token, lhs->type->base->size));
+  rhs = new_mul_node(rhs, new_long_node(rhs->token, lhs->type->base->size));
   Node* sub = new_binary_node(ND_SUB, lhs, rhs);
   sub->type = sub->lhs->type;
   return sub;
@@ -484,6 +514,7 @@ static Node* new_deref_node(Token* token, Node* lhs) {
 }
 
 static Node* new_eq_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
   Node* eq = new_binary_node(ND_EQ, lhs, rhs);
   eq->type = ty_long;
   eq->token = lhs->token;
@@ -491,6 +522,7 @@ static Node* new_eq_node(Node* lhs, Node* rhs) {
 }
 
 static Node* new_ne_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
   Node* ne = new_binary_node(ND_NE, lhs, rhs);
   ne->type = ty_long;
   ne->token = lhs->token;
@@ -498,6 +530,7 @@ static Node* new_ne_node(Node* lhs, Node* rhs) {
 }
 
 static Node* new_lt_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
   Node* lt = new_binary_node(ND_LT, lhs, rhs);
   lt->type = ty_long;
   lt->token = lhs->token;
@@ -505,6 +538,7 @@ static Node* new_lt_node(Node* lhs, Node* rhs) {
 }
 
 static Node* new_le_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
   Node* le = new_binary_node(ND_LE, lhs, rhs);
   le->type = ty_long;
   le->token = le->token;
@@ -512,6 +546,9 @@ static Node* new_le_node(Node* lhs, Node* rhs) {
 }
 
 static Node* new_assign_node(Node* lhs, Node* rhs) {
+  if (lhs->type->kind != TY_STRUCT) {
+    rhs = new_cast_node(lhs->type, rhs->token, rhs);
+  }
   Node* assign = new_binary_node(ND_ASSIGN, lhs, rhs);
   assign->type = lhs->type;
   assign->token = lhs->token;
@@ -887,7 +924,7 @@ static Node* unary(Token** tokens) {
   }
 
   if (consume_token(tokens, "-")) {
-    return new_sub_node(start, new_num_node(start, 0), cast(tokens));
+    return new_sub_node(start, new_long_node(start, 0), cast(tokens));
   }
 
   if (consume_token(tokens, "&")) {
@@ -903,11 +940,11 @@ static Node* unary(Token** tokens) {
       expect_token(tokens, "(");
       Decl* decl = abstract_declarator(tokens, decl_specifier(tokens));
       expect_token(tokens, ")");
-      return new_num_node(start, decl->type->size);
+      return new_int_node(start, decl->type->size);
     }
 
     Node* node = cast(tokens);
-    return new_num_node(start, node->type->size);
+    return new_int_node(start, node->type->size);
   }
 
   return postfix(tokens);
@@ -976,7 +1013,7 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_NUM) {
-    Node* node = new_num_node(*tokens, (*tokens)->int_val);
+    Node* node = new_int_node(*tokens, (*tokens)->int_val);
     *tokens = (*tokens)->next;
     return node;
   }

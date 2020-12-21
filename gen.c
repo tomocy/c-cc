@@ -61,12 +61,12 @@ static void load(Node* node) {
   }
 
   if (node->type->size == 1) {
-    genln("  movsx rax, BYTE PTR [rax]");
+    genln("  movsx eax, BYTE PTR [rax]");
     return;
   }
 
   if (node->type->size == 2) {
-    genln("  movsx rax, WORD PTR [rax]");
+    genln("  movsx eax, WORD PTR [rax]");
     return;
   }
 
