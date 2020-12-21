@@ -425,38 +425,45 @@ static Node* new_add_node(Token* tokens, Node* lhs, Node* rhs) {
     error_token(tokens, "invalid operands");
   }
 
-  Node* add;
   if (is_numable(lhs) && is_numable(rhs)) {
-    add = new_binary_node(ND_ADD, lhs, rhs);
-  } else if (is_pointable(lhs) && is_numable(rhs)) {
-    rhs = new_mul_node(rhs, new_num_node(rhs->token, lhs->type->base->size));
-    add = new_binary_node(ND_ADD, lhs, rhs);
-  } else {
-    lhs = new_mul_node(lhs, new_num_node(lhs->token, rhs->type->base->size));
-    add = new_binary_node(ND_ADD, lhs, rhs);
+    Node* add = new_binary_node(ND_ADD, lhs, rhs);
+    add->type = add->lhs->type;
+    return add;
   }
+
+  if (is_pointable(lhs) && is_numable(rhs)) {
+    rhs = new_mul_node(rhs, new_num_node(rhs->token, lhs->type->base->size));
+    Node* add = new_binary_node(ND_ADD, lhs, rhs);
+    add->type = add->lhs->type;
+    return add;
+  }
+
+  lhs = new_mul_node(lhs, new_num_node(lhs->token, rhs->type->base->size));
+  Node* add = new_binary_node(ND_ADD, lhs, rhs);
   add->type = add->lhs->type;
   return add;
 }
 
-static Node* new_sub_node(Node* lhs, Node* rhs) {
-  Node* sub;
+static Node* new_sub_node(Token* tokens, Node* lhs, Node* rhs) {
+  if (is_numable(lhs) && is_pointable(rhs)) {
+    error_token(tokens, "invalid operands");
+  }
+
   if (is_pointable(lhs) && is_pointable(rhs)) {
-    sub = new_binary_node(ND_SUB, lhs, rhs);
+    Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->type = sub->lhs->type;
     return new_div_node(sub,
                         new_num_node(lhs->token, sub->lhs->type->base->size));
   }
 
   if (is_numable(lhs) && is_numable(rhs)) {
-    sub = new_binary_node(ND_SUB, lhs, rhs);
-  } else if (is_pointable(lhs) && is_numable(rhs)) {
-    rhs = new_mul_node(rhs, new_num_node(rhs->token, lhs->type->base->size));
-    sub = new_binary_node(ND_SUB, lhs, rhs);
-  } else {
-    lhs = new_mul_node(lhs, new_num_node(lhs->token, rhs->type->base->size));
-    sub = new_binary_node(ND_SUB, lhs, rhs);
+    Node* sub = new_binary_node(ND_SUB, lhs, rhs);
+    sub->type = sub->lhs->type;
+    return sub;
   }
+
+  rhs = new_mul_node(rhs, new_num_node(rhs->token, lhs->type->base->size));
+  Node* sub = new_binary_node(ND_SUB, lhs, rhs);
   sub->type = sub->lhs->type;
   return sub;
 }
@@ -834,7 +841,7 @@ static Node* add(Token** tokens) {
     }
 
     if (consume_token(tokens, "-")) {
-      node = new_sub_node(node, mul(tokens));
+      node = new_sub_node(*tokens, node, mul(tokens));
       continue;
     }
 
@@ -880,7 +887,7 @@ static Node* unary(Token** tokens) {
   }
 
   if (consume_token(tokens, "-")) {
-    return new_sub_node(new_num_node(start, 0), cast(tokens));
+    return new_sub_node(start, new_num_node(start, 0), cast(tokens));
   }
 
   if (consume_token(tokens, "&")) {
