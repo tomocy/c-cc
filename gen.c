@@ -50,7 +50,7 @@ static void gen_addr(Node* node) {
       genln("  add rax, %d", node->offset);
       break;
     default:
-      error("expected a left value: %d", node->kind);
+      error_token(node->token, "expected a left value");
   }
 }
 
@@ -202,7 +202,7 @@ static void gen_expr(Node* node) {
     case ND_DIV:
       break;
     default:
-      error("expected an expression: %d", node->kind);
+      error_token(node->token, "expected an expression");
   }
 
   gen_expr(node->lhs);
@@ -259,7 +259,7 @@ static void gen_expr(Node* node) {
       genln("  idiv %s", di);
       return;
     default:
-      error("expected an expression: %d", node->kind);
+      error_token(node->token, "expected an expression");
   }
 }
 
