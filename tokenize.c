@@ -51,6 +51,27 @@ void error_token(Token* token, char* fmt, ...) {
   verror_at(token->line, token->loc, fmt, args);
 }
 
+static void warn_at(int line, char* loc) {
+  char* start = loc;
+  while (user_input < start && start[-1] != '\n') {
+    start--;
+  }
+  char* end = loc;
+  while (*end != '\n') {
+    end++;
+  }
+
+  int indent = fprintf(stderr, "%s:%d ", input_filename, line);
+  fprintf(stderr, "%.*s\n", (int)(end - start), start);
+
+  int pos = loc - start + indent;
+  fprintf(stderr, "%*s", pos, "");
+  fprintf(stderr, "^ ");
+  fprintf(stderr, "\n");
+}
+
+void warn_token(Token* token) { warn_at(token->line, token->loc); }
+
 bool equal_to_token(Token* token, char* s) {
   return memcmp(token->loc, s, token->len) == 0 && s[token->len] == '\0';
 }

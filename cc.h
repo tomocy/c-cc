@@ -138,6 +138,8 @@ void error(char* fmt, ...);
 
 void error_token(Token* token, char* fmt, ...);
 
+void warn_token(Token* token);
+
 bool equal_to_token(Token* token, char* s);
 
 bool consume_token(Token** token, char* s);
