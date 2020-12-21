@@ -85,37 +85,37 @@ static void cast(Type* to, Type* from) {
 
   if ((from->size == 1 && to->size == 2) ||
       (from->size == 2 && to->size == 1)) {
-    genln("  movsbw ax, al");
+    genln("  movsx ax, al");
     return;
   }
 
   if ((from->size == 1 && to->size == 4) ||
       (from->size == 4 && to->size == 1)) {
-    genln("  movsbl eax, al");
+    genln("  movsx eax, al");
     return;
   }
 
   if ((from->size == 1 && to->size == 8) ||
       (from->size == 8 && to->size == 1)) {
-    genln("  movsbq rax, al");
+    genln("  movsx rax, al");
     return;
   }
 
   if ((from->size == 2 && to->size == 4) ||
       (from->size == 4 && to->size == 2)) {
-    genln("  movswl eax, ax");
+    genln("  movsx eax, ax");
     return;
   }
 
   if ((from->size == 2 && to->size == 8) ||
       (from->size == 8 && to->size == 2)) {
-    genln("  movswq rax, ax");
+    genln("  movsx rax, ax");
     return;
   }
 
   if ((from->size == 4 && to->size == 8) ||
       (from->size == 8 && to->size == 4)) {
-    genln("  movsxd rax, eax");
+    genln("  movsx rax, eax");
     return;
   }
 }
