@@ -988,7 +988,7 @@ static Node* primary(Token** tokens) {
     if (equal_to_token(*tokens, "{")) {
       Node* node = new_node(ND_STMT_EXPR);
       node->token = start;
-      node->body = block_stmt(tokens);
+      node->body = block_stmt(tokens)->body;
       expect_token(tokens, ")");
       return node;
     }

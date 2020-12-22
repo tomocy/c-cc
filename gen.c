@@ -190,7 +190,9 @@ static void gen_expr(Node* node) {
       genln("  mov rax, %ld", node->val);
       return;
     case ND_STMT_EXPR:
-      gen_stmt(node->body);
+      for (Node* stmt = node->body; stmt; stmt = stmt->next) {
+        gen_stmt(stmt);
+      }
       return;
     case ND_EQ:
     case ND_NE:
