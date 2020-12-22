@@ -343,6 +343,24 @@ static Node* new_member_node(Token** tokens, Token* token, Node* lhs) {
   return NULL;
 }
 
+static Node* new_stmt_expr_node(Token* token, Node* body) {
+  Node* last_stmt = NULL;
+  Node* stmt = body;
+  while (stmt) {
+    last_stmt = stmt;
+    stmt = stmt->next;
+  }
+  if (!last_stmt || !last_stmt->type) {
+    error_token(token, "statement expression returning void is not supported");
+  }
+
+  Node* expr = new_node(ND_STMT_EXPR);
+  expr->type = last_stmt->type;
+  expr->token = token;
+  expr->body = body;
+  return expr;
+}
+
 static Node* new_gvar_node(Type* type, Token* token, char* name) {
   Node* node = new_node(ND_GVAR);
   node->type = type;
@@ -986,9 +1004,7 @@ static Node* primary(Token** tokens) {
 
   if (consume_token(tokens, "(")) {
     if (equal_to_token(*tokens, "{")) {
-      Node* node = new_node(ND_STMT_EXPR);
-      node->token = start;
-      node->body = block_stmt(tokens)->body;
+      Node* node = new_stmt_expr_node(start, block_stmt(tokens)->body);
       expect_token(tokens, ")");
       return node;
     }
