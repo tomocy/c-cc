@@ -24,11 +24,6 @@ static Scope* scope;
 static Scope* gscope;
 static Obj* lvars;
 
-static Type* ty_unavailable = &(Type){
-    TY_UNAVAILABLE,
-    0,
-    1,
-};
 static Type* ty_void = &(Type){
     TY_VOID,
     1,
@@ -371,10 +366,10 @@ static Node* new_var_node(Token* token, Obj* obj) {
   }
 }
 
-static Node* new_funccall_node(Token* token, char* name, Node* args) {
-  Obj* func = find_func(name, strlen(name));
+static Node* new_funccall_node(Type* type, Token* token, char* name,
+                               Node* args) {
   Node* node = new_node(ND_FUNCCALL);
-  node->type = (func) ? func->type : ty_unavailable;
+  node->type = type;
   node->token = token;
   node->name = name;
   node->args = args;
@@ -998,8 +993,13 @@ static Node* primary(Token** tokens) {
   if ((*tokens)->kind == TK_IDENT) {
     if (equal_to_token((*tokens)->next, "(")) {
       Token* ident = *tokens;
+      Obj* func = find_func(ident->loc, ident->len);
+      if (!func) {
+        error_token(ident, "implicit declaration of a function");
+      }
       *tokens = (*tokens)->next;
-      return new_funccall_node(ident, strndup(ident->loc, ident->len),
+
+      return new_funccall_node(func->type, ident, func->name,
                                func_args(tokens));
     }
 

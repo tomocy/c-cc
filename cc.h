@@ -41,7 +41,6 @@ struct Member {
 };
 
 typedef enum {
-  TY_UNAVAILABLE,
   TY_VOID,
   TY_CHAR,
   TY_SHORT,

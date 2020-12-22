@@ -1,5 +1,8 @@
 #define ASSERT(x, y) assert(#y, x, y)
 
+void assert(char* name, int expected, int actual);
+void ok();
+
 int gx;
 int gy;
 int gxs[4];
@@ -11,11 +14,19 @@ int ret(int x) {
   return -1;
 }
 
+int add(int a, int b);
+
 int sub(int a, int b) { return a - b; }
+
+int addmul(int a, int b, int c);
+
+int sum(int a, int b, int c, int d, int e, int f);
 
 int ave(int a, int b, int c, int d, int e, int f) {
   return (a + b + c + d + e + f) / 6;
 }
+
+void alloc(int** p, int a, int b, int c, int d);
 
 int deref(int* p) { return *p; }
 
