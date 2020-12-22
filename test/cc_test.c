@@ -73,6 +73,8 @@ typedef int MyInt2, MyInts[4];
 
 typedef DefaultType;
 
+char int_to_char(int x) { return x; }
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -1288,6 +1290,8 @@ int main() {
            y = x;
            y.a;
          }));
+
+  ASSERT(5, int_to_char(261));
 
   ok();
 }

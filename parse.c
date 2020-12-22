@@ -23,6 +23,7 @@ static Obj* codes;
 static Scope* scope;
 static Scope* gscope;
 static Obj* lvars;
+static Obj* current_func;
 
 static Type* ty_void = &(Type){
     TY_VOID,
@@ -625,6 +626,7 @@ static void func(Token** tokens) {
   }
 
   Obj* func = new_obj(OJ_FUNC);
+  current_func = func;
   add_code(func);
   func->type = ty;
   func->name = strndup((*tokens)->loc, (*tokens)->len);
@@ -664,6 +666,7 @@ static void func(Token** tokens) {
   func->lvars = lvars;
   func->stack_size = align((func->lvars) ? func->lvars->offset : 0, 16);
   lvars = NULL;
+  current_func = NULL;
 }
 
 static void gvar(Token** tokens) {
@@ -784,7 +787,8 @@ static Node* stmt(Token** tokens) {
   }
 
   if (consume_token(tokens, "return")) {
-    Node* node = new_unary_node(ND_RETURN, expr(tokens));
+    Node* node = new_unary_node(
+        ND_RETURN, new_cast_node(current_func->type, *tokens, expr(tokens)));
     node->token = start;
     expect_token(tokens, ";");
     return node;
