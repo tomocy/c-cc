@@ -27,7 +27,7 @@ static void pop(char* reg) {
 
 static int count_label() {
   static int count = 0;
-  return ++count;
+  return count++;
 }
 
 static void gen_expr(Node* node);

@@ -50,7 +50,10 @@ static Type* ty_long = &(Type){
     8,
 };
 
-int str_count = 0;
+static int count_str() {
+  static int str_count = 0;
+  return str_count++;
+}
 
 static int align(int n, int align) { return (n + align - 1) / align * align; }
 
@@ -1020,7 +1023,7 @@ static Node* primary(Token** tokens) {
 
   if ((*tokens)->kind == TK_STR) {
     char* name = calloc(20, sizeof(char));
-    sprintf(name, ".Lstr%d", str_count++);
+    sprintf(name, ".Lstr%d", count_str());
     Obj* str = new_str(name, (*tokens)->str_val);
     Node* node = new_var_node(*tokens, str);
     *tokens = (*tokens)->next;
