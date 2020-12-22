@@ -20,9 +20,9 @@ struct Scope {
 };
 
 static Obj* codes;
-static Scope* scope;
 static Scope* gscope;
-static Obj* lvars;
+static Scope* current_scope;
+static Obj* current_lvars;
 static Obj* current_func;
 
 static Type* ty_void = &(Type){
@@ -99,15 +99,15 @@ static Type* new_type(TypeKind kind, int size, int alignment) {
 
 static void enter_scope() {
   Scope* next = calloc(1, sizeof(Scope));
-  next->next = scope;
-  scope = next;
+  next->next = current_scope;
+  current_scope = next;
 }
 
 static void leave_scope() {
-  if (!scope) {
+  if (!current_scope) {
     error("no scope to leave");
   }
-  scope = scope->next;
+  current_scope = current_scope->next;
 }
 
 static void add_code(Obj* code) {
@@ -162,26 +162,26 @@ static void add_lvar(Obj* var) {
   if (var->kind != OJ_LVAR) {
     error("expected a local var");
   }
-  if (is_gscope(scope)) {
+  if (is_gscope(current_scope)) {
     error("expected a local scope");
   }
-  var->next = lvars;
-  lvars = var;
-  add_var_to_scope(scope, var);
+  var->next = current_lvars;
+  current_lvars = var;
+  add_var_to_scope(current_scope, var);
 }
 
 static void add_tag(Obj* tag) {
   if (tag->kind != OJ_TAG) {
     error("expected a tag");
   }
-  add_tag_to_scope(scope, tag);
+  add_tag_to_scope(current_scope, tag);
 }
 
 static void add_def_type(Obj* def_type) {
   if (def_type->kind != OJ_DEF_TYPE) {
     error("expected a defined type");
   }
-  add_def_type_to_scope(scope, def_type);
+  add_def_type_to_scope(current_scope, def_type);
 }
 
 static Obj* new_obj(ObjKind kind) {
@@ -211,7 +211,8 @@ static Obj* new_lvar(Type* type, char* name) {
   var->type = type;
   var->name = name;
   var->offset =
-      align((lvars) ? lvars->offset + type->size : type->size, type->alignment);
+      align((current_lvars) ? current_lvars->offset + type->size : type->size,
+            type->alignment);
   add_lvar(var);
   return var;
 }
@@ -245,7 +246,7 @@ static Obj* find_func(char* name, int len) {
 }
 
 static Obj* find_var(char* name, int len) {
-  for (Scope* s = scope; s; s = s->next) {
+  for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* var = s->objs; var; var = var->next) {
       if (var->obj->kind != OJ_GVAR && var->obj->kind != OJ_LVAR) {
         continue;
@@ -259,7 +260,7 @@ static Obj* find_var(char* name, int len) {
 }
 
 static Obj* find_tag(char* name, int len) {
-  for (Scope* s = scope; s; s = s->next) {
+  for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* tag = s->objs; tag; tag = tag->next) {
       if (tag->obj->kind != OJ_TAG) {
         continue;
@@ -273,7 +274,7 @@ static Obj* find_tag(char* name, int len) {
 }
 
 static Obj* find_def_type(char* name, int len) {
-  for (Scope* s = scope; s; s = s->next) {
+  for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* def_type = s->objs; def_type; def_type = def_type->next) {
       if (strs_equal(def_type->obj->name, name, len)) {
         return def_type->obj->kind == OJ_DEF_TYPE ? def_type->obj : NULL;
@@ -598,7 +599,7 @@ bool is_func(Token* tokens) {
 
 Obj* parse(Token* tokens) {
   enter_scope();
-  gscope = scope;
+  gscope = current_scope;
 
   while (tokens->kind != TK_EOF) {
     if (equal_to_token(tokens, "typedef")) {
@@ -663,9 +664,9 @@ static void func(Token** tokens) {
 
   leave_scope();
 
-  func->lvars = lvars;
+  func->lvars = current_lvars;
   func->stack_size = align((func->lvars) ? func->lvars->offset : 0, 16);
-  lvars = NULL;
+  current_lvars = NULL;
   current_func = NULL;
 }
 
