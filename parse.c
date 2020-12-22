@@ -603,7 +603,7 @@ static Type* decl_specifier(Token** tokens);
 static Decl* declarator(Token** tokens, Type* type);
 static Decl* abstract_declarator(Token** tokens, Type* type);
 static Type* type_suffix(Token** tokens, Type* type);
-static Node* func_args(Token** tokens);
+static Node* func_args(Token** tokens, Node* params);
 
 bool is_func(Token* tokens) {
   decl_specifier(&tokens);
@@ -1024,7 +1024,7 @@ static Node* primary(Token** tokens) {
       *tokens = (*tokens)->next;
 
       return new_funccall_node(func->type, ident, func->name,
-                               func_args(tokens));
+                               func_args(tokens, func->params));
     }
 
     Obj* var = find_var((*tokens)->loc, (*tokens)->len);
@@ -1358,16 +1358,34 @@ static Type* type_suffix(Token** tokens, Type* type) {
   return type;
 }
 
-static Node* func_args(Token** tokens) {
+static Node* func_args(Token** tokens, Node* params) {
   expect_token(tokens, "(");
+
   Node head = {};
   Node* cur = &head;
   while (!consume_token(tokens, ")")) {
     if (cur != &head) {
       expect_token(tokens, ",");
     }
-    cur->next = assign(tokens);
+
+    Node* arg = assign(tokens);
+
+    if (params) {
+      if (params->type->kind == TY_STRUCT || params->type->kind == TY_UNION) {
+        error_token(arg->token, "passing struct or union is not supported yet");
+      }
+
+      if (params->type->kind == TY_CHAR || params->type->kind == TY_SHORT ||
+          params->type->kind == TY_INT || params->type->kind == TY_LONG) {
+        arg = new_cast_node(params->type, arg->token, arg);
+      }
+
+      params = params->next;
+    }
+
+    cur->next = arg;
     cur = cur->next;
   }
+
   return head.next;
 }

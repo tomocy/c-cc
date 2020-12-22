@@ -75,6 +75,12 @@ typedef DefaultType;
 
 char int_to_char(int x) { return x; }
 
+int div_long(long a, long b) { return a / b; }
+
+int sum_int_to_char(char a, char b) { return a + b; }
+
+int sizeof_char_from_int(char a) { return sizeof(a); }
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -1292,6 +1298,10 @@ int main() {
          }));
 
   ASSERT(5, int_to_char(261));
+
+  ASSERT(-5, div_long(-10, 2));
+  ASSERT(11, sum_int_to_char(261, 262));
+  ASSERT(1, sizeof_char_from_int(261));
 
   ok();
 }
