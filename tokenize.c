@@ -326,6 +326,32 @@ Token* tokenize() {
       continue;
     }
 
+    if (*p == '\'') {
+      char* start = p++;
+
+      if (*p == '\n' || *p == '\0') {
+        error_at(start, "unclosed string literal");
+      }
+
+      char c;
+      if (*p == '\\') {
+        p++;
+        c = read_escaped_char(&p);
+      } else {
+        c = *p++;
+      }
+
+      char* end = p++;
+      if (*end != '\'') {
+        error_at(start, "unclosed string literal");
+      }
+
+      cur->next = new_token(TK_NUM, start + 1, end - start - 1);
+      cur->next->int_val = c;
+      cur = cur->next;
+      continue;
+    }
+
     if (*p == '"') {
       char* start = p++;
       for (; *p != '"'; p++) {

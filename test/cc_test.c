@@ -1328,5 +1328,9 @@ int main() {
   ASSERT(1, bool_fn_add(0));
   ASSERT(1, bool_fn_sub(0));
 
+  ASSERT(97, 'a');
+  ASSERT(10, '\n');
+  ASSERT(-128, '\x80');
+
   ok();
 }
