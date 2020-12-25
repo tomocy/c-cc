@@ -83,6 +83,17 @@ static void cast(Type* to, Type* from) {
     return;
   }
 
+  if (to->kind == TY_BOOL) {
+    if (is_numable(from) && from->size <= 4) {
+      genln("  cmp eax, 0");
+    } else {
+      genln("  cmp rax, 0");
+    }
+    genln("  setne al");
+    genln("  movzx rax, al");
+    return;
+  }
+
   if ((from->size == 1 && to->size == 2) ||
       (from->size == 2 && to->size == 1)) {
     genln("  movsx ax, al");

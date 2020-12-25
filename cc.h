@@ -42,6 +42,7 @@ struct Member {
 
 typedef enum {
   TY_VOID,
+  TY_BOOL,
   TY_CHAR,
   TY_SHORT,
   TY_INT,
@@ -148,6 +149,8 @@ void expect_token(Token** token, char* s);
 int expect_num(Token** token);
 
 Token* tokenize();
+
+bool is_numable(Type* type);
 
 Obj* parse(Token* tokens);
 

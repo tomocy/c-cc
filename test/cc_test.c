@@ -81,6 +81,9 @@ int sum_int_to_char(char a, char b) { return a + b; }
 
 int sizeof_char_from_int(char a) { return sizeof(a); }
 
+_Bool bool_fn_add(_Bool x) { return x + 1; }
+_Bool bool_fn_sub(_Bool x) { return x - 1; }
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -1302,6 +1305,28 @@ int main() {
   ASSERT(-5, div_long(-10, 2));
   ASSERT(11, sum_int_to_char(261, 262));
   ASSERT(1, sizeof_char_from_int(261));
+
+  ASSERT(0, ({
+           _Bool x = 0;
+           x;
+         }));
+  ASSERT(1, ({
+           _Bool x = 1;
+           x;
+         }));
+  ASSERT(1, ({
+           _Bool x = 2;
+           x;
+         }));
+  ASSERT(1, (_Bool)1);
+  ASSERT(1, (_Bool)2);
+  ASSERT(0, (_Bool)(char)256);
+  ASSERT(1, bool_fn_add(3));
+  ASSERT(0, bool_fn_sub(3));
+  ASSERT(1, bool_fn_add(-3));
+  ASSERT(0, bool_fn_sub(-3));
+  ASSERT(1, bool_fn_add(0));
+  ASSERT(1, bool_fn_sub(0));
 
   ok();
 }

@@ -32,7 +32,11 @@ struct_decl = "struct" ident? "{" member* "}"
 union_decl = "union" ident? "{" member* "}"
 member = decl_specifier (declarator ("," declarator)*)? ";"
 
-decl_specifier = ("void" | "char" | "short" | "int" | "long" | struct_decl | union_decl | defined_type )*
+decl_specifier = (
+    "void" | "_Bool" | "char" |
+    "short" | "int" | "long" |
+    struct_decl | union_decl | defined_type
+)*
 declarator = "*"* ("(" declarator ")" | ident) type_suffix
 abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix
 type_suffix = "[" num "]" type_suffix | ε

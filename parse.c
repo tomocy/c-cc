@@ -30,6 +30,11 @@ static Type* ty_void = &(Type){
     1,
     1,
 };
+static Type* ty_bool = &(Type){
+    TY_BOOL,
+    1,
+    1,
+};
 static Type* ty_char = &(Type){
     TY_CHAR,
     1,
@@ -95,6 +100,16 @@ static Type* new_type(TypeKind kind, int size, int alignment) {
   type->size = size;
   type->alignment = alignment;
   return type;
+}
+
+bool is_numable(Type* type) {
+  return type->kind == TY_BOOL || type->kind == TY_CHAR ||
+         type->kind == TY_SHORT || type->kind == TY_INT ||
+         type->kind == TY_LONG;
+}
+
+static bool is_pointable(Type* type) {
+  return type->kind == TY_PTR || type->kind == TY_ARRAY;
 }
 
 static void enter_scope() {
@@ -285,8 +300,8 @@ static Obj* find_def_type(char* name, int len) {
 }
 
 bool equal_to_type_name(Token* token) {
-  static char* names[] = {"void", "char",   "short", "int",
-                          "long", "struct", "union"};
+  static char* names[] = {"void", "_Bool", "char",   "short",
+                          "int",  "long",  "struct", "union"};
   int len = sizeof(names) / sizeof(char*);
   for (int i = 0; i < len; i++) {
     if (equal_to_token(token, names[i])) {
@@ -457,28 +472,19 @@ static Node* new_div_node(Node* lhs, Node* rhs) {
   return div;
 }
 
-bool is_numable(Node* node) {
-  return node->type->kind == TY_CHAR || node->type->kind == TY_SHORT ||
-         node->type->kind == TY_INT || node->type->kind == TY_LONG;
-}
-
-bool is_pointable(Node* node) {
-  return node->type->kind == TY_PTR || node->type->kind == TY_ARRAY;
-}
-
 static Node* new_add_node(Token* tokens, Node* lhs, Node* rhs) {
-  if (is_pointable(lhs) && is_pointable(rhs)) {
+  if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
     error_token(tokens, "invalid operands");
   }
 
-  if (is_numable(lhs) && is_numable(rhs)) {
+  if (is_numable(lhs->type) && is_numable(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->type = add->lhs->type;
     return add;
   }
 
-  if (is_pointable(lhs) && is_numable(rhs)) {
+  if (is_pointable(lhs->type) && is_numable(rhs->type)) {
     rhs = new_mul_node(rhs, new_long_node(rhs->token, lhs->type->base->size));
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->type = add->lhs->type;
@@ -492,18 +498,18 @@ static Node* new_add_node(Token* tokens, Node* lhs, Node* rhs) {
 }
 
 static Node* new_sub_node(Token* tokens, Node* lhs, Node* rhs) {
-  if (is_numable(lhs) && is_pointable(rhs)) {
+  if (is_numable(lhs->type) && is_pointable(rhs->type)) {
     error_token(tokens, "invalid operands");
   }
 
-  if (is_pointable(lhs) && is_pointable(rhs)) {
+  if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->type = sub->lhs->type;
     return new_div_node(sub,
                         new_int_node(lhs->token, sub->lhs->type->base->size));
   }
 
-  if (is_numable(lhs) && is_numable(rhs)) {
+  if (is_numable(lhs->type) && is_numable(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->type = sub->lhs->type;
@@ -1207,11 +1213,12 @@ static Type* decl_specifier(Token** tokens) {
 
   enum {
     VOID = 1 << 0,
-    CHAR = 1 << 2,
-    SHORT = 1 << 4,
-    INT = 1 << 6,
-    LONG = 1 << 8,
-    OTHER = 1 << 10,
+    BOOL = 1 << 2,
+    CHAR = 1 << 4,
+    SHORT = 1 << 6,
+    INT = 1 << 8,
+    LONG = 1 << 10,
+    OTHER = 1 << 12,
   };
 
   while (equal_to_type_name(*tokens)) {
@@ -1253,6 +1260,10 @@ static Type* decl_specifier(Token** tokens) {
       counter += VOID;
     }
 
+    if (consume_token(tokens, "_Bool")) {
+      counter += BOOL;
+    }
+
     if (consume_token(tokens, "char")) {
       counter += CHAR;
     }
@@ -1272,6 +1283,9 @@ static Type* decl_specifier(Token** tokens) {
     switch (counter) {
       case VOID:
         ty = ty_void;
+        break;
+      case BOOL:
+        ty = ty_bool;
         break;
       case CHAR:
         ty = ty_char;
@@ -1375,8 +1389,7 @@ static Node* func_args(Token** tokens, Node* params) {
         error_token(arg->token, "passing struct or union is not supported yet");
       }
 
-      if (params->type->kind == TY_CHAR || params->type->kind == TY_SHORT ||
-          params->type->kind == TY_INT || params->type->kind == TY_LONG) {
+      if (is_numable(params->type)) {
         arg = new_cast_node(params->type, arg->token, arg);
       }
 
