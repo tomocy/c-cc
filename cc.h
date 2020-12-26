@@ -113,6 +113,7 @@ typedef enum {
   OJ_LVAR,
   OJ_TAG,
   OJ_DEF_TYPE,
+  OJ_ENUM,
 } ObjKind;
 
 struct Obj {

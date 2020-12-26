@@ -41,6 +41,8 @@ declarator = "*"* ("(" declarator ")" | ident) type_suffix
 abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix
 type_suffix = "[" num "]" type_suffix | ε
 
+enum_specifier = "enum" ident? "{" ident ("=" num)? ("," ident ("=" num)?)* "}"
+
 func_args = "(" (assign (, assign)*)? ")"
 ```
 

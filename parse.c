@@ -161,6 +161,13 @@ static void add_def_type_to_scope(Scope* scope, Obj* def_type) {
   add_obj_to_scope(scope, def_type);
 }
 
+static void add_enum_to_scope(Scope* scope, Obj* enu) {
+  if (enu->kind != OJ_ENUM) {
+    error("expected an enum");
+  }
+  add_obj_to_scope(scope, enu);
+}
+
 static bool is_gscope(Scope* scope) { return !scope->next; }
 
 static void add_gvar(Obj* var) {
@@ -197,6 +204,13 @@ static void add_def_type(Obj* def_type) {
     error("expected a defined type");
   }
   add_def_type_to_scope(current_scope, def_type);
+}
+
+static void add_enum(Obj* enu) {
+  if (enu->kind != OJ_ENUM) {
+    error("expected an enum");
+  }
+  add_enum_to_scope(current_scope, enu);
 }
 
 static Obj* new_obj(ObjKind kind) {
@@ -248,6 +262,14 @@ static Obj* new_def_type(Type* type, char* name) {
   return def_type;
 }
 
+static Obj* new_enum(char* name, int64_t val) {
+  Obj* enu = new_obj(OJ_ENUM);
+  enu->name = name;
+  enu->int_val = val;
+  add_enum(enu);
+  return enu;
+}
+
 static Obj* find_func(char* name, int len) {
   for (Obj* func = codes; func; func = func->next) {
     if (func->kind != OJ_FUNC) {
@@ -260,10 +282,11 @@ static Obj* find_func(char* name, int len) {
   return NULL;
 }
 
-static Obj* find_var(char* name, int len) {
+static Obj* find_var_or_enum(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* var = s->objs; var; var = var->next) {
-      if (var->obj->kind != OJ_GVAR && var->obj->kind != OJ_LVAR) {
+      if (var->obj->kind != OJ_GVAR && var->obj->kind != OJ_LVAR &&
+          var->obj->kind != OJ_ENUM) {
         continue;
       }
       if (strs_equal(var->obj->name, name, len)) {
@@ -300,8 +323,8 @@ static Obj* find_def_type(char* name, int len) {
 }
 
 bool equal_to_type_name(Token* token) {
-  static char* names[] = {"void", "_Bool", "char",   "short",
-                          "int",  "long",  "struct", "union"};
+  static char* names[] = {"void", "_Bool",  "char",  "short", "int",
+                          "long", "struct", "union", "enum"};
   int len = sizeof(names) / sizeof(char*);
   for (int i = 0; i < len; i++) {
     if (equal_to_token(token, names[i])) {
@@ -609,6 +632,7 @@ static Type* decl_specifier(Token** tokens);
 static Decl* declarator(Token** tokens, Type* type);
 static Decl* abstract_declarator(Token** tokens, Type* type);
 static Type* type_suffix(Token** tokens, Type* type);
+static Type* enum_specifier(Token** tokens);
 static Node* func_args(Token** tokens, Node* params);
 
 bool is_func(Token* tokens) {
@@ -1033,11 +1057,14 @@ static Node* primary(Token** tokens) {
                                func_args(tokens, func->params));
     }
 
-    Obj* var = find_var((*tokens)->loc, (*tokens)->len);
-    if (!var) {
+    Obj* var_or_enum = find_var_or_enum((*tokens)->loc, (*tokens)->len);
+    if (!var_or_enum) {
       error_token(*tokens, "undefined ident");
     }
-    Node* node = new_var_node(*tokens, var);
+
+    Node* node = var_or_enum->kind == OJ_ENUM
+                     ? new_int_node(*tokens, var_or_enum->int_val)
+                     : new_var_node(*tokens, var_or_enum);
     *tokens = (*tokens)->next;
     return node;
   }
@@ -1256,6 +1283,16 @@ static Type* decl_specifier(Token** tokens) {
       continue;
     }
 
+    if (equal_to_token(*tokens, "enum")) {
+      if (counter > 0) {
+        break;
+      }
+
+      counter += OTHER;
+      ty = enum_specifier(tokens);
+      continue;
+    }
+
     if (consume_token(tokens, "void")) {
       counter += VOID;
     }
@@ -1370,6 +1407,55 @@ static Type* type_suffix(Token** tokens, Type* type) {
   }
 
   return type;
+}
+
+static Type* enum_specifier(Token** tokens) {
+  expect_token(tokens, "enum");
+
+  Token* tag = NULL;
+  if ((*tokens)->kind == TK_IDENT) {
+    tag = *tokens;
+    *tokens = (*tokens)->next;
+  }
+
+  if (tag && !equal_to_token(*tokens, "{")) {
+    Obj* found_tag = find_tag(tag->loc, tag->len);
+    if (!found_tag) {
+      error_token(tag, "undefined tag");
+    }
+    return found_tag->type;
+  }
+
+  expect_token(tokens, "{");
+
+  bool is_first = true;
+  int val = 0;
+  while (!consume_token(tokens, "}")) {
+    if (!is_first) {
+      expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    if ((*tokens)->kind != TK_IDENT) {
+      error_token(*tokens, "expected an ident");
+    }
+    Token* ident = *tokens;
+    *tokens = (*tokens)->next;
+
+    if (consume_token(tokens, "=")) {
+      val = expect_num(tokens);
+    }
+
+    new_enum(strndup(ident->loc, ident->len), val++);
+  }
+
+  Type* enu = ty_int;
+
+  if (tag) {
+    new_tag(enu, strndup(tag->loc, tag->len));
+  }
+
+  return enu;
 }
 
 static Node* func_args(Token** tokens, Node* params) {
