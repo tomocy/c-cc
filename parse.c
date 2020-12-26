@@ -16,7 +16,8 @@ struct ScopedObj {
 
 struct Scope {
   Scope* next;
-  ScopedObj* objs;
+  ScopedObj* first_class_objs;
+  ScopedObj* second_class_objs;
 };
 
 static Obj* codes;
@@ -133,39 +134,59 @@ static void add_code(Obj* code) {
   codes = code;
 }
 
-static void add_obj_to_scope(Scope* scope, Obj* obj) {
+static void add_first_class_obj_to_scope(Scope* scope, Obj* obj) {
+  if (obj->kind != OJ_GVAR && obj->kind != OJ_LVAR && obj->kind != OJ_ENUM &&
+      obj->kind != OJ_DEF_TYPE) {
+    error("expected a first class object");
+  }
+
   ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
   scoped->obj = obj;
-  scoped->next = scope->objs;
-  scope->objs = scoped;
+  scoped->next = scope->first_class_objs;
+  scope->first_class_objs = scoped;
+}
+
+static void add_second_class_obj_to_scope(Scope* scope, Obj* obj) {
+  if (obj->kind != OJ_TAG) {
+    error("expected a second class object");
+  }
+
+  ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
+  scoped->obj = obj;
+  scoped->next = scope->second_class_objs;
+  scope->second_class_objs = scoped;
 }
 
 static void add_var_to_scope(Scope* scope, Obj* var) {
   if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
     error("expected a variable");
   }
-  add_obj_to_scope(scope, var);
-}
 
-static void add_tag_to_scope(Scope* scope, Obj* tag) {
-  if (tag->kind != OJ_TAG) {
-    error("expected a tag");
-  }
-  add_obj_to_scope(scope, tag);
-}
-
-static void add_def_type_to_scope(Scope* scope, Obj* def_type) {
-  if (def_type->kind != OJ_DEF_TYPE) {
-    error("expected a defined type");
-  }
-  add_obj_to_scope(scope, def_type);
+  add_first_class_obj_to_scope(scope, var);
 }
 
 static void add_enum_to_scope(Scope* scope, Obj* enu) {
   if (enu->kind != OJ_ENUM) {
     error("expected an enum");
   }
-  add_obj_to_scope(scope, enu);
+
+  add_first_class_obj_to_scope(scope, enu);
+}
+
+static void add_def_type_to_scope(Scope* scope, Obj* def_type) {
+  if (def_type->kind != OJ_DEF_TYPE) {
+    error("expected a defined type");
+  }
+
+  add_first_class_obj_to_scope(scope, def_type);
+}
+
+static void add_tag_to_scope(Scope* scope, Obj* tag) {
+  if (tag->kind != OJ_TAG) {
+    error("expected a tag");
+  }
+
+  add_second_class_obj_to_scope(scope, tag);
 }
 
 static bool is_gscope(Scope* scope) { return !scope->next; }
@@ -246,12 +267,12 @@ static Obj* new_lvar(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_tag(Type* type, char* name) {
-  Obj* tag = new_obj(OJ_TAG);
-  tag->type = type;
-  tag->name = name;
-  add_tag(tag);
-  return tag;
+static Obj* new_enum(char* name, int64_t val) {
+  Obj* enu = new_obj(OJ_ENUM);
+  enu->name = name;
+  enu->int_val = val;
+  add_enum(enu);
+  return enu;
 }
 
 static Obj* new_def_type(Type* type, char* name) {
@@ -262,50 +283,36 @@ static Obj* new_def_type(Type* type, char* name) {
   return def_type;
 }
 
-static Obj* new_enum(char* name, int64_t val) {
-  Obj* enu = new_obj(OJ_ENUM);
-  enu->name = name;
-  enu->int_val = val;
-  add_enum(enu);
-  return enu;
+static Obj* new_tag(Type* type, char* name) {
+  Obj* tag = new_obj(OJ_TAG);
+  tag->type = type;
+  tag->name = name;
+  add_tag(tag);
+  return tag;
 }
 
 static Obj* find_func(char* name, int len) {
   for (Obj* func = codes; func; func = func->next) {
-    if (func->kind != OJ_FUNC) {
+    if (!strs_equal(func->name, name, len)) {
       continue;
     }
-    if (strs_equal(func->name, name, len)) {
-      return func;
-    }
+
+    return func->kind == OJ_FUNC ? func : NULL;
   }
   return NULL;
 }
 
 static Obj* find_var_or_enum(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
-    for (ScopedObj* var = s->objs; var; var = var->next) {
-      if (var->obj->kind != OJ_GVAR && var->obj->kind != OJ_LVAR &&
-          var->obj->kind != OJ_ENUM) {
+    for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
+      if (!strs_equal(var->obj->name, name, len)) {
         continue;
       }
-      if (strs_equal(var->obj->name, name, len)) {
-        return var->obj;
-      }
-    }
-  }
-  return NULL;
-}
 
-static Obj* find_tag(char* name, int len) {
-  for (Scope* s = current_scope; s; s = s->next) {
-    for (ScopedObj* tag = s->objs; tag; tag = tag->next) {
-      if (tag->obj->kind != OJ_TAG) {
-        continue;
-      }
-      if (strs_equal(tag->obj->name, name, len)) {
-        return tag->obj;
-      }
+      return var->obj->kind == OJ_GVAR || var->obj->kind == OJ_LVAR ||
+                     var->obj->kind == OJ_ENUM
+                 ? var->obj
+                 : NULL;
     }
   }
   return NULL;
@@ -313,10 +320,26 @@ static Obj* find_tag(char* name, int len) {
 
 static Obj* find_def_type(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
-    for (ScopedObj* def_type = s->objs; def_type; def_type = def_type->next) {
-      if (strs_equal(def_type->obj->name, name, len)) {
-        return def_type->obj->kind == OJ_DEF_TYPE ? def_type->obj : NULL;
+    for (ScopedObj* def_type = s->first_class_objs; def_type;
+         def_type = def_type->next) {
+      if (!strs_equal(def_type->obj->name, name, len)) {
+        continue;
       }
+
+      return def_type->obj->kind == OJ_DEF_TYPE ? def_type->obj : NULL;
+    }
+  }
+  return NULL;
+}
+
+static Obj* find_tag(char* name, int len) {
+  for (Scope* s = current_scope; s; s = s->next) {
+    for (ScopedObj* tag = s->second_class_objs; tag; tag = tag->next) {
+      if (!strs_equal(tag->obj->name, name, len)) {
+        continue;
+      }
+
+      return tag->obj->kind == OJ_TAG ? tag->obj : NULL;
     }
   }
   return NULL;
@@ -625,6 +648,7 @@ static Node* unary(Token** tokens);
 static Node* postfix(Token** tokens);
 static Node* primary(Token** tokens);
 static Node* lvar(Token** tokens);
+static Type* enum_specifier(Token** tokens);
 static Type* struct_decl(Token** tokens);
 static Type* union_decl(Token** tokens);
 static Member* members(Token** tokens);
@@ -632,7 +656,6 @@ static Type* decl_specifier(Token** tokens);
 static Decl* declarator(Token** tokens, Type* type);
 static Decl* abstract_declarator(Token** tokens, Type* type);
 static Type* type_suffix(Token** tokens, Type* type);
-static Type* enum_specifier(Token** tokens);
 static Node* func_args(Token** tokens, Node* params);
 
 bool is_func(Token* tokens) {
@@ -1122,6 +1145,55 @@ static Node* lvar(Token** tokens) {
   return node;
 }
 
+static Type* enum_specifier(Token** tokens) {
+  expect_token(tokens, "enum");
+
+  Token* tag = NULL;
+  if ((*tokens)->kind == TK_IDENT) {
+    tag = *tokens;
+    *tokens = (*tokens)->next;
+  }
+
+  if (tag && !equal_to_token(*tokens, "{")) {
+    Obj* found_tag = find_tag(tag->loc, tag->len);
+    if (!found_tag) {
+      error_token(tag, "undefined tag");
+    }
+    return found_tag->type;
+  }
+
+  expect_token(tokens, "{");
+
+  bool is_first = true;
+  int val = 0;
+  while (!consume_token(tokens, "}")) {
+    if (!is_first) {
+      expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    if ((*tokens)->kind != TK_IDENT) {
+      error_token(*tokens, "expected an ident");
+    }
+    Token* ident = *tokens;
+    *tokens = (*tokens)->next;
+
+    if (consume_token(tokens, "=")) {
+      val = expect_num(tokens);
+    }
+
+    new_enum(strndup(ident->loc, ident->len), val++);
+  }
+
+  Type* enu = ty_int;
+
+  if (tag) {
+    new_tag(enu, strndup(tag->loc, tag->len));
+  }
+
+  return enu;
+}
+
 static Type* struct_decl(Token** tokens) {
   expect_token(tokens, "struct");
 
@@ -1407,55 +1479,6 @@ static Type* type_suffix(Token** tokens, Type* type) {
   }
 
   return type;
-}
-
-static Type* enum_specifier(Token** tokens) {
-  expect_token(tokens, "enum");
-
-  Token* tag = NULL;
-  if ((*tokens)->kind == TK_IDENT) {
-    tag = *tokens;
-    *tokens = (*tokens)->next;
-  }
-
-  if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found_tag = find_tag(tag->loc, tag->len);
-    if (!found_tag) {
-      error_token(tag, "undefined tag");
-    }
-    return found_tag->type;
-  }
-
-  expect_token(tokens, "{");
-
-  bool is_first = true;
-  int val = 0;
-  while (!consume_token(tokens, "}")) {
-    if (!is_first) {
-      expect_token(tokens, ",");
-    }
-    is_first = false;
-
-    if ((*tokens)->kind != TK_IDENT) {
-      error_token(*tokens, "expected an ident");
-    }
-    Token* ident = *tokens;
-    *tokens = (*tokens)->next;
-
-    if (consume_token(tokens, "=")) {
-      val = expect_num(tokens);
-    }
-
-    new_enum(strndup(ident->loc, ident->len), val++);
-  }
-
-  Type* enu = ty_int;
-
-  if (tag) {
-    new_tag(enu, strndup(tag->loc, tag->len));
-  }
-
-  return enu;
 }
 
 static Node* func_args(Token** tokens, Node* params) {
