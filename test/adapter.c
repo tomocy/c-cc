@@ -1,3 +1,5 @@
+#pragma GCC diagnostic ignored "-Wunused-function"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -34,3 +36,5 @@ void alloc(int** p, int a, int b, int c, int d) {
   *(int*)(vs + 12) = d;
   *p = vs;
 }
+
+static int static_fn() { return 5; }

@@ -365,7 +365,11 @@ static void gen_text(Obj* codes) {
     }
 
     genln(".text");
-    genln(".global %s", func->name);
+    if (func->is_static) {
+      genln(".local %s", func->name);
+    } else {
+      genln(".global %s", func->name);
+    }
     genln("%s:", func->name);
     push("rbp");
     genln("  mov rbp, rsp");

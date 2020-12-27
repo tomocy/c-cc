@@ -121,6 +121,7 @@ struct Obj {
   ObjKind kind;
   Type* type;
   char* name;
+  bool is_static;
   bool is_definition;
   Obj* lvars;
   Node* params;

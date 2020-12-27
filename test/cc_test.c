@@ -84,6 +84,8 @@ int sizeof_char_from_int(char a) { return sizeof(a); }
 _Bool bool_fn_add(_Bool x) { return x + 1; }
 _Bool bool_fn_sub(_Bool x) { return x - 1; }
 
+static int static_fn() { return 3; }
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -1377,6 +1379,8 @@ int main() {
            enum t y;
            sizeof(y);
          }));
+
+  ASSERT(3, static_fn());
 
   ok();
 }

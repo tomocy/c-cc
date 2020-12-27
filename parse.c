@@ -659,6 +659,7 @@ static Type* type_suffix(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Node* params);
 
 bool is_func(Token* tokens) {
+  consume_token(&tokens, "static");
   decl_specifier(&tokens);
 
   if (tokens->kind != TK_IDENT) {
@@ -691,6 +692,8 @@ Obj* parse(Token* tokens) {
 }
 
 static void func(Token** tokens) {
+  bool is_static = consume_token(tokens, "static");
+
   Type* ty = decl_specifier(tokens);
 
   if ((*tokens)->kind != TK_IDENT) {
@@ -702,6 +705,7 @@ static void func(Token** tokens) {
   add_code(func);
   func->type = ty;
   func->name = strndup((*tokens)->loc, (*tokens)->len);
+  func->is_static = is_static;
   *tokens = (*tokens)->next;
 
   expect_token(tokens, "(");
