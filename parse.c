@@ -901,12 +901,67 @@ static Node* expr(Token** tokens) {
   return node;
 }
 
+static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
+                                    Node* rhs) {
+  Obj* tmp_var = new_lvar(new_ptr_type(lhs->type), "");
+
+  Node* tmp_assign = new_assign_node(new_var_node(lhs->token, tmp_var),
+                                     new_addr_node(lhs->token, lhs));
+
+  Node* tmp_deref =
+      new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var));
+  Node* arith_op;
+  switch (op) {
+    case ND_ADD:
+      arith_op = new_add_node(token, tmp_deref, rhs);
+      break;
+    case ND_SUB:
+      arith_op = new_sub_node(token, tmp_deref, rhs);
+      break;
+    case ND_MUL:
+      arith_op = new_mul_node(tmp_deref, rhs);
+      break;
+    case ND_DIV:
+      arith_op = new_div_node(tmp_deref, rhs);
+      break;
+    default:
+      error_token(token, "invalid operation");
+  }
+
+  Node* assign = new_assign_node(
+      new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var)), arith_op);
+
+  return new_comma_node(tmp_assign, assign);
+}
+
 static Node* assign(Token** tokens) {
   Node* node = equality(tokens);
 
   for (;;) {
+    Token* start = *tokens;
+
     if (consume_token(tokens, "=")) {
       node = new_assign_node(node, equality(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, "+=")) {
+      node = convert_to_assign_node(start, ND_ADD, node, equality(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, "-=")) {
+      node = convert_to_assign_node(start, ND_SUB, node, equality(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, "*=")) {
+      node = convert_to_assign_node(start, ND_MUL, node, equality(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, "/=")) {
+      node = convert_to_assign_node(start, ND_DIV, node, equality(tokens));
       continue;
     }
 
