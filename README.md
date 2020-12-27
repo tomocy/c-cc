@@ -10,7 +10,7 @@ tydef = "typedef" decl_specifier declarator ";"
 
 bloc_stmt = "{" stmt* "}"
 stmt = "if" "(" expr ")" stmt ("else" stmt)? |
-    "for" "(" expr? ";" expr? ";" expr? ";" ")" stmt |
+    "for" "(" (expr | var_decl)? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt |
     "return" expr ";" |
     lvar |
@@ -26,7 +26,9 @@ unary = ("+" | "-" | "&" | "*" | "sizeof" ) cast | "sizeof" "(" abstract_declara
 postfix = primary ("[" expr "]" | "." ident | "->" ident)*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 
-lvar = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)? ";"
+lvar = var_decl";"
+
+var_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)?
 
 enum_specifier = "enum" ident? "{" ident ("=" num)? ("," ident ("=" num)?)* "}"
 

@@ -301,7 +301,7 @@ static void gen_stmt(Node* node) {
     }
     case ND_FOR: {
       if (node->init) {
-        gen_expr(node->init);
+        gen_stmt(node->init);
       }
       int lbegin = count_label();
       int lend = count_label();
