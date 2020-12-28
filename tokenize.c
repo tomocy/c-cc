@@ -2,6 +2,115 @@
 
 static char* user_input;
 
+static Token* new_token(TokenKind kind, char* loc, int len);
+
+static void error_at(char* loc, char* fmt, ...);
+
+static void read_file(char** content);
+static void add_line_number(Token* token);
+
+static bool consume_comment(char** c);
+static bool consume_keyword(Token** dst, char** c);
+static bool consume_punct(Token** dst, char** c);
+static bool consume_ident(Token** dst, char** c);
+static bool consume_number(Token** dst, char** c);
+static bool consume_char(Token** dst, char** c);
+static bool consume_str(Token** dst, char** c);
+
+Token* tokenize() {
+  read_file(&user_input);
+  char* c = user_input;
+
+  Token head = {};
+  Token* cur = &head;
+
+  while (*c) {
+    if (isspace(*c)) {
+      c++;
+      continue;
+    }
+
+    if (consume_comment(&c)) {
+      continue;
+    }
+
+    if (consume_keyword(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    if (consume_punct(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    if (consume_ident(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    if (consume_number(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    if (consume_char(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    if (consume_str(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    error_at(c, "invalid character");
+  }
+
+  cur->next = new_token(TK_EOF, c, 0);
+
+  Token* tokens = head.next;
+  add_line_number(tokens);
+  return tokens;
+}
+
+bool equal_to_token(Token* token, char* s) {
+  return memcmp(token->loc, s, token->len) == 0 && s[token->len] == '\0';
+}
+
+bool consume_token(Token** token, char* s) {
+  if (!equal_to_token(*token, s)) {
+    return false;
+  }
+
+  *token = (*token)->next;
+  return true;
+}
+
+void expect_token(Token** token, char* s) {
+  if (!consume_token(token, s)) {
+    error_at((*token)->loc, "expected '%s'", s);
+  }
+}
+
+int expect_num(Token** token) {
+  if ((*token)->kind != TK_NUM) {
+    error_token(*token, "expected a number");
+  }
+
+  int val = (*token)->int_val;
+  *token = (*token)->next;
+  return val;
+}
+
+static Token* new_token(TokenKind kind, char* loc, int len) {
+  Token* tok = calloc(1, sizeof(Token));
+  tok->kind = kind;
+  tok->loc = loc;
+  tok->len = len;
+  return tok;
+}
+
 void error(char* fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
@@ -72,78 +181,19 @@ static void warn_at(int line, char* loc) {
 
 void warn_token(Token* token) { warn_at(token->line, token->loc); }
 
-bool equal_to_token(Token* token, char* s) {
-  return memcmp(token->loc, s, token->len) == 0 && s[token->len] == '\0';
+static bool starting_with(char* c, char* prefix) {
+  return memcmp(c, prefix, strlen(prefix)) == 0;
 }
 
-bool consume_token(Token** token, char* s) {
-  if (!equal_to_token(*token, s)) {
-    return false;
-  }
-
-  *token = (*token)->next;
-  return true;
-}
-
-void expect_token(Token** token, char* s) {
-  if (!consume_token(token, s)) {
-    error_at((*token)->loc, "expected '%s'", s);
-  }
-}
-
-int expect_num(Token** token) {
-  if ((*token)->kind != TK_NUM) {
-    error_token(*token, "expected a number");
-  }
-
-  int val = (*token)->int_val;
-  *token = (*token)->next;
-  return val;
-}
-
-static Token* new_token(TokenKind kind, char* loc, int len) {
-  Token* tok = calloc(1, sizeof(Token));
-  tok->kind = kind;
-  tok->loc = loc;
-  tok->len = len;
-  return tok;
-}
-
-static bool starting_with(char* p, char* q) {
-  return memcmp(p, q, strlen(q)) == 0;
-}
-
-static bool identable1(char c) {
+static bool is_identable1(char c) {
   return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
 }
 
-static bool identable2(char c) {
-  return identable1(c) || ('0' <= c && c <= '9');
+static bool is_identable2(char c) {
+  return is_identable1(c) || ('0' <= c && c <= '9');
 }
 
-static bool equal_str(char* p, char* keyword) {
-  return starting_with(p, keyword) && !identable2(p[strlen(keyword)]);
-}
-
-static bool consume_keyword(Token** tok, char** p) {
-  static char* ks[] = {
-      "if",     "else",  "for",  "while",   "return", "sizeof",
-      "void",   "_Bool", "char", "short",   "int",    "long",
-      "struct", "union", "enum", "typedef", "static",
-  };
-  int len = sizeof(ks) / sizeof(char*);
-  for (int i = 0; i < len; i++) {
-    if (equal_str(*p, ks[i])) {
-      int klen = strlen(ks[i]);
-      *tok = new_token(TK_RESERVED, *p, klen);
-      *p += klen;
-      return true;
-    }
-  }
-  return false;
-}
-
-static void read_file() {
+static void read_file(char** content) {
   FILE* f;
   if (strcmp(input_filename, "-") == 0) {
     f = stdin;
@@ -155,7 +205,7 @@ static void read_file() {
   }
 
   size_t len;
-  FILE* stream = open_memstream(&user_input, &len);
+  FILE* stream = open_memstream(content, &len);
 
   for (;;) {
     char tmp[4096];
@@ -172,11 +222,157 @@ static void read_file() {
 
   fflush(stream);
 
-  if (len == 0 || user_input[len - 1] != '\n') {
+  if (len == 0 || (*content)[len - 1] != '\n') {
     fputc('\n', stream);
   }
   fputc('\0', stream);
   fclose(stream);
+}
+
+static void add_line_number(Token* token) {
+  int line = 1;
+  for (char* loc = user_input; *loc; loc++) {
+    if (*loc == '\n') {
+      line++;
+      continue;
+    }
+
+    if (loc == token->loc) {
+      token->line = line;
+      token = token->next;
+      continue;
+    }
+  }
+}
+
+static bool consume_comment(char** c) {
+  if (starting_with(*c, "//")) {
+    while (**c != '\n') {
+      (*c)++;
+    }
+    return true;
+  }
+
+  if (starting_with(*c, "/*")) {
+    char* close = strstr(*c + 2, "*/");
+    if (!close) {
+      error_at(*c, "unclosed block comment");
+    }
+    *c = close + 2;
+    return true;
+  }
+
+  return false;
+}
+
+static bool can_be_as_keyward(char* kw, char* c) {
+  return starting_with(c, kw) && !is_identable2(c[strlen(kw)]);
+}
+
+static bool consume_keyword(Token** dst, char** c) {
+  static char* kws[] = {
+      "if",     "else",  "for",  "while",   "return", "sizeof",
+      "void",   "_Bool", "char", "short",   "int",    "long",
+      "struct", "union", "enum", "typedef", "static",
+  };
+  static int klen = sizeof(kws) / sizeof(char*);
+
+  for (int i = 0; i < klen; i++) {
+    if (!can_be_as_keyward(kws[i], *c)) {
+      continue;
+    }
+
+    int len = strlen(kws[i]);
+    *dst = new_token(TK_RESERVED, *c, len);
+    *c += len;
+    return true;
+  }
+
+  return false;
+}
+
+static bool consume_duo_punct(Token** dst, char** c) {
+  static char* puncts[] = {
+      "==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=", "++", "--"};
+  static int plen = sizeof(puncts) / sizeof(char*);
+
+  for (int i = 0; i < plen; i++) {
+    if (!starting_with(*c, puncts[i])) {
+      continue;
+    }
+
+    int len = strlen(puncts[i]);
+    *dst = new_token(TK_RESERVED, *c, len);
+    *c += len;
+    return true;
+  }
+
+  return false;
+}
+
+static bool consume_mono_punct(Token** dst, char** c) {
+  if (!strchr("+-*/()<>=;{},.&[]", **c)) {
+    return false;
+  }
+
+  *dst = new_token(TK_RESERVED, *c, 1);
+  (*c)++;
+  return true;
+}
+
+static bool consume_punct(Token** dst, char** c) {
+  if (consume_duo_punct(dst, c)) {
+    return true;
+  }
+
+  if (consume_mono_punct(dst, c)) {
+    return true;
+  }
+
+  return false;
+}
+
+static bool consume_ident(Token** dst, char** c) {
+  if (!is_identable1(**c)) {
+    return false;
+  }
+
+  char* start = *c;
+  do {
+    (*c)++;
+  } while (is_identable2(**c));
+
+  *dst = new_token(TK_IDENT, start, *c - start);
+  return true;
+}
+
+static bool consume_number(Token** dst, char** c) {
+  if (!isdigit(**c)) {
+    return false;
+  }
+
+  char* start = *c;
+
+  int base = 10;
+  if (strncasecmp(*c, "0x", 2) == 0 && isalnum((*c)[2])) {
+    *c += 2;
+    base = 16;
+  } else if (strncasecmp(*c, "0b", 2) == 0 && isalnum((*c)[2])) {
+    *c += 2;
+    base = 2;
+  } else if (**c == '0') {
+    base = 8;
+  }
+
+  long val = strtoul(*c, c, base);
+  if (isalnum(**c)) {
+    error_at(*c, "invalid digit");
+  }
+
+  Token* token = new_token(TK_NUM, start, *c - start);
+  token->int_val = val;
+  *dst = token;
+  return true;
 }
 
 static int hex_digit(char c) {
@@ -245,170 +441,66 @@ static int read_escaped_char(char** c) {
   }
 }
 
-static void add_line_number(Token* token) {
-  int line = 1;
-  for (char* loc = user_input; *loc; loc++) {
-    if (*loc == '\n') {
-      line++;
-      continue;
-    }
-
-    if (loc == token->loc) {
-      token->line = line;
-      token = token->next;
-      continue;
-    }
+static bool consume_char(Token** dst, char** c) {
+  if (**c != '\'') {
+    return false;
   }
+
+  char* start = (*c)++;
+
+  if (**c == '\n' || **c == '\0') {
+    error_at(start, "unclosed string literal");
+  }
+
+  char read;
+  if (**c == '\\') {
+    (*c)++;
+    read = read_escaped_char(c);
+  } else {
+    read = **c;
+    (*c)++;
+  }
+
+  char* end = (*c)++;
+  if (*end != '\'') {
+    error_at(start, "unclosed string literal");
+  }
+
+  Token* token = new_token(TK_NUM, start + 1, end - start - 1);
+  token->int_val = read;
+  *dst = token;
+  return true;
 }
 
-Token* tokenize() {
-  read_file();
-  char* p = user_input;
-
-  Token head = {};
-  Token* cur = &head;
-
-  while (*p) {
-    if (isspace(*p)) {
-      p++;
-      continue;
-    }
-
-    if (starting_with(p, "//")) {
-      while (*p != '\n') {
-        p++;
-      }
-      continue;
-    }
-
-    if (starting_with(p, "/*")) {
-      char* close = strstr(p + 2, "*/");
-      if (!close) {
-        error_at(p, "unclosed block comment");
-      }
-      p = close + 2;
-      continue;
-    }
-
-    if (consume_keyword(&cur->next, &p)) {
-      cur = cur->next;
-      continue;
-    }
-
-    if (starting_with(p, "==") || starting_with(p, "!=") ||
-        starting_with(p, "<=") || starting_with(p, ">=") ||
-        starting_with(p, "->") || starting_with(p, "+=") ||
-        starting_with(p, "-=") || starting_with(p, "*=") ||
-        starting_with(p, "/=") || starting_with(p, "++") ||
-        starting_with(p, "--")) {
-      cur->next = new_token(TK_RESERVED, p, 2);
-      cur = cur->next;
-      p += 2;
-      continue;
-    }
-
-    if (strchr("+-*/()<>=;{},.&[]", *p)) {
-      cur->next = new_token(TK_RESERVED, p++, 1);
-      cur = cur->next;
-      continue;
-    }
-
-    if (identable1(*p)) {
-      char* start = p;
-      do {
-        p++;
-      } while (identable2(*p));
-      cur->next = new_token(TK_IDENT, start, p - start);
-      cur = cur->next;
-      continue;
-    }
-
-    if (isdigit(*p)) {
-      char* start = p;
-
-      int base = 10;
-      if (strncasecmp(p, "0x", 2) == 0 && isalnum(p[2])) {
-        p += 2;
-        base = 16;
-      } else if (strncasecmp(p, "0b", 2) == 0 && isalnum(p[2])) {
-        p += 2;
-        base = 2;
-      } else if (*p == '0') {
-        base = 8;
-      }
-
-      long val = strtoul(p, &p, base);
-      if (isalnum(*p)) {
-        error_at(p, "invalid digit");
-      }
-
-      cur->next = new_token(TK_NUM, start, p - start);
-      cur->next->int_val = val;
-      cur = cur->next;
-      continue;
-    }
-
-    if (*p == '\'') {
-      char* start = p++;
-
-      if (*p == '\n' || *p == '\0') {
-        error_at(start, "unclosed string literal");
-      }
-
-      char c;
-      if (*p == '\\') {
-        p++;
-        c = read_escaped_char(&p);
-      } else {
-        c = *p++;
-      }
-
-      char* end = p++;
-      if (*end != '\'') {
-        error_at(start, "unclosed string literal");
-      }
-
-      cur->next = new_token(TK_NUM, start + 1, end - start - 1);
-      cur->next->int_val = c;
-      cur = cur->next;
-      continue;
-    }
-
-    if (*p == '"') {
-      char* start = p++;
-      for (; *p != '"'; p++) {
-        if (*p == '\n' || *p == '\0') {
-          error_at(start, "unclosed string literal");
-        }
-        if (*p == '\\') {
-          p++;
-        }
-      }
-      char* end = p++;
-
-      char* val = calloc(1, end - start);
-      int i = 0;
-      for (char* p = start + 1; p < end;) {
-        if (*p == '\\') {
-          p++;
-          val[i++] = read_escaped_char(&p);
-          continue;
-        }
-        val[i++] = *p++;
-      }
-
-      cur->next = new_token(TK_STR, start + 1, end - start - 1);
-      cur->next->str_val = val;
-      cur = cur->next;
-      continue;
-    }
-
-    error_at(p, "invalid character");
+static bool consume_str(Token** dst, char** c) {
+  if (**c != '"') {
+    return false;
   }
 
-  cur->next = new_token(TK_EOF, p, 0);
+  char* start = (*c)++;
+  for (; **c != '"'; (*c)++) {
+    if (**c == '\n' || **c == '\0') {
+      error_at(start, "unclosed string literal");
+    }
+    if (**c == '\\') {
+      (*c)++;
+    }
+  }
+  char* end = (*c)++;
 
-  Token* tokens = head.next;
-  add_line_number(tokens);
-  return tokens;
+  char* val = calloc(1, end - start);
+  int i = 0;
+  for (char* c = start + 1; c < end;) {
+    if (*c == '\\') {
+      c++;
+      val[i++] = read_escaped_char(&c);
+      continue;
+    }
+    val[i++] = *c++;
+  }
+
+  Token* token = new_token(TK_STR, start + 1, end - start - 1);
+  token->str_val = val;
+  *dst = token;
+  return true;
 }
