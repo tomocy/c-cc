@@ -299,7 +299,8 @@ Token* tokenize() {
         starting_with(p, "<=") || starting_with(p, ">=") ||
         starting_with(p, "->") || starting_with(p, "+=") ||
         starting_with(p, "-=") || starting_with(p, "*=") ||
-        starting_with(p, "/=")) {
+        starting_with(p, "/=") || starting_with(p, "++") ||
+        starting_with(p, "--")) {
       cur->next = new_token(TK_RESERVED, p, 2);
       cur = cur->next;
       p += 2;

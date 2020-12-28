@@ -22,7 +22,11 @@ relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
 mul = cast ("*" cast | "/" cast)*
 cast = "(" abstract_declarator ")" cast | unary
-unary = ("+" | "-" | "&" | "*" | "sizeof" ) cast | "sizeof" "(" abstract_declarator ")" | postifx
+unary = ("+" | "-" | "&" | "*" ) cast |
+    ("++" | "--") unary |
+    "sizeof" cast |
+    "sizeof" "(" abstract_declarator ")" |
+    postifx
 postfix = primary ("[" expr "]" | "." ident | "->" ident)*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 

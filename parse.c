@@ -1082,6 +1082,16 @@ static Node* unary(Token** tokens) {
     return new_deref_node(start, cast(tokens));
   }
 
+  if (consume_token(tokens, "++")) {
+    return convert_to_assign_node(start, ND_ADD, unary(tokens),
+                                  new_int_node(start, 1));
+  }
+
+  if (consume_token(tokens, "--")) {
+    return convert_to_assign_node(start, ND_SUB, unary(tokens),
+                                  new_int_node(start, 1));
+  }
+
   if (consume_token(tokens, "sizeof")) {
     if (equal_to_token(*tokens, "(") && equal_to_type_name((*tokens)->next)) {
       expect_token(tokens, "(");
