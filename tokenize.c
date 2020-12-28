@@ -324,8 +324,26 @@ Token* tokenize() {
     }
 
     if (isdigit(*p)) {
-      cur->next = new_token(TK_NUM, p, 0);
-      cur->next->int_val = strtol(p, &p, 10);
+      char* start = p;
+
+      int base = 10;
+      if (strncasecmp(p, "0x", 2) == 0 && isalnum(p[2])) {
+        p += 2;
+        base = 16;
+      } else if (strncasecmp(p, "0b", 2) == 0 && isalnum(p[2])) {
+        p += 2;
+        base = 2;
+      } else if (*p == '0') {
+        base = 8;
+      }
+
+      long val = strtoul(p, &p, base);
+      if (isalnum(*p)) {
+        error_at(p, "invalid digit");
+      }
+
+      cur->next = new_token(TK_NUM, start, p - start);
+      cur->next->int_val = val;
       cur = cur->next;
       continue;
     }

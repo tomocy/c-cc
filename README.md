@@ -29,8 +29,9 @@ unary = ("+" | "-" | "&" | "*" ) cast |
     postifx
 postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
+num = ("0x" | "0X") hexadecimal | decimal | "0" octal | ("0b | "0B") binary
 
-lvar = var_decl";"
+lvar = var_decl ";"
 
 var_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)?
 
