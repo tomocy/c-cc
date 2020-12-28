@@ -1107,6 +1107,14 @@ static Node* unary(Token** tokens) {
   return postfix(tokens);
 }
 
+static Node* increment(Node* node, int delta) {
+  Node* inc = convert_to_assign_node(node->token, ND_ADD, node,
+                                     new_int_node(node->token, delta));
+  return new_cast_node(
+      node->type, node->token,
+      new_add_node(node->token, inc, new_int_node(node->token, -delta)));
+}
+
 static Node* postfix(Token** tokens) {
   Node* node = primary(tokens);
 
@@ -1128,6 +1136,16 @@ static Node* postfix(Token** tokens) {
     if (consume_token(tokens, "->")) {
       node = new_deref_node(start, node);
       node = new_member_node(tokens, start, node);
+      continue;
+    }
+
+    if (consume_token(tokens, "++")) {
+      node = increment(node, 1);
+      continue;
+    }
+
+    if (consume_token(tokens, "--")) {
+      node = increment(node, -1);
       continue;
     }
 

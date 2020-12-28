@@ -27,7 +27,7 @@ unary = ("+" | "-" | "&" | "*" ) cast |
     "sizeof" cast |
     "sizeof" "(" abstract_declarator ")" |
     postifx
-postfix = primary ("[" expr "]" | "." ident | "->" ident)*
+postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 
 lvar = var_decl";"
