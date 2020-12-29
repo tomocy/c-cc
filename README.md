@@ -16,7 +16,10 @@ stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     lvar |
     expr ";"
 expr = assign ("," expr)?
-assign = equality (("=" | "+=" | "-=" | "*=" | "/=" | "%=") equality)*
+assign = equality (("=" | "|=" | "^=" | "&=" | "+=" | "-=" | "*=" | "/=" | "%=") bitorr)*
+bitorr = bitxorr ("|" bitxorr)*
+bitxorr = bitandd ("^" bitandd)*
+bitandd = equality ("&" equality)*
 equality = realtional ("==" relational | "!=" relational)*
 relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*

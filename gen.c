@@ -215,6 +215,9 @@ static void gen_expr(Node* node) {
         gen_stmt(stmt);
       }
       return;
+    case ND_BITOR:
+    case ND_BITXOR:
+    case ND_BITAND:
     case ND_EQ:
     case ND_NE:
     case ND_LT:
@@ -245,6 +248,15 @@ static void gen_expr(Node* node) {
   }
 
   switch (node->kind) {
+    case ND_BITOR:
+      genln("  or %s, %s", ax, di);
+      return;
+    case ND_BITXOR:
+      genln("  xor %s, %s", ax, di);
+      return;
+    case ND_BITAND:
+      genln("  and %s, %s", ax, di);
+      return;
     case ND_EQ:
       genln("  cmp %s, %s", ax, di);
       genln("  sete al");
