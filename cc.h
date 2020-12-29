@@ -78,6 +78,7 @@ typedef enum {
   ND_ADDR,
   ND_DEREF,
   ND_NOT,
+  ND_BITNOT,
   ND_CAST,
   ND_MUL,
   ND_DIV,
