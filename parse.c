@@ -518,6 +518,14 @@ static Node* new_div_node(Node* lhs, Node* rhs) {
   return div;
 }
 
+static Node* new_mod_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
+  Node* mod = new_binary_node(ND_MOD, lhs, rhs);
+  mod->type = lhs->type;
+  mod->token = lhs->token;
+  return mod;
+}
+
 static Node* new_add_node(Token* tokens, Node* lhs, Node* rhs) {
   if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
     error_token(tokens, "invalid operands");
@@ -938,6 +946,9 @@ static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
     case ND_DIV:
       arith_op = new_div_node(tmp_deref, rhs);
       break;
+    case ND_MOD:
+      arith_op = new_mod_node(tmp_deref, rhs);
+      break;
     default:
       error_token(token, "invalid operation");
   }
@@ -976,6 +987,11 @@ static Node* assign(Token** tokens) {
 
     if (consume_token(tokens, "/=")) {
       node = convert_to_assign_node(start, ND_DIV, node, equality(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, "%=")) {
+      node = convert_to_assign_node(start, ND_MOD, node, equality(tokens));
       continue;
     }
 
@@ -1058,6 +1074,11 @@ static Node* mul(Token** tokens) {
 
     if (consume_token(tokens, "/")) {
       node = new_div_node(node, cast(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, "%")) {
+      node = new_mod_node(node, cast(tokens));
       continue;
     }
 

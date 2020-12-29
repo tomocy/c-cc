@@ -223,6 +223,7 @@ static void gen_expr(Node* node) {
     case ND_SUB:
     case ND_MUL:
     case ND_DIV:
+    case ND_MOD:
       break;
     default:
       error_token(node->token, "expected an expression");
@@ -274,12 +275,17 @@ static void gen_expr(Node* node) {
       genln("  imul %s, %s", ax, di);
       return;
     case ND_DIV:
+    case ND_MOD:
       if (node->rhs->type->size == 8) {
         genln("  cqo");
       } else {
         genln("  cdq");
       }
       genln("  idiv %s", di);
+
+      if (node->kind == ND_MOD) {
+        genln("  mov rax, rdx");
+      }
       return;
     default:
       error_token(node->token, "expected an expression");

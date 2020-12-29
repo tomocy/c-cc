@@ -82,6 +82,7 @@ typedef enum {
   ND_CAST,
   ND_MUL,
   ND_DIV,
+  ND_MOD,
   ND_STMT_EXPR,
   ND_NUM,
   ND_GVAR,
