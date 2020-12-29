@@ -583,6 +583,13 @@ static Node* new_deref_node(Token* token, Node* lhs) {
   return deref;
 }
 
+static Node* new_not_node(Token* token, Node* lhs) {
+  Node* n = new_unary_node(ND_NOT, lhs);
+  n->type = ty_int;
+  n->token = token;
+  return n;
+}
+
 static Node* new_eq_node(Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* eq = new_binary_node(ND_EQ, lhs, rhs);
@@ -1080,6 +1087,10 @@ static Node* unary(Token** tokens) {
 
   if (consume_token(tokens, "*")) {
     return new_deref_node(start, cast(tokens));
+  }
+
+  if (consume_token(tokens, "!")) {
+    return new_not_node(start, cast(tokens));
   }
 
   if (consume_token(tokens, "++")) {

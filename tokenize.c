@@ -311,7 +311,7 @@ static bool consume_duo_punct(Token** dst, char** c) {
 }
 
 static bool consume_mono_punct(Token** dst, char** c) {
-  if (!strchr("+-*/()<>=;{},.&[]", **c)) {
+  if (!strchr("+-*/()<>=;{},.&[]!", **c)) {
     return false;
   }
 

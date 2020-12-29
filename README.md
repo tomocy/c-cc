@@ -22,7 +22,7 @@ relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add = mul ("+" mul | "-" mul)*
 mul = cast ("*" cast | "/" cast)*
 cast = "(" abstract_declarator ")" cast | unary
-unary = ("+" | "-" | "&" | "*" ) cast |
+unary = ("+" | "-" | "&" | "*" | "!") cast |
     ("++" | "--") unary |
     "sizeof" cast |
     "sizeof" "(" abstract_declarator ")" |

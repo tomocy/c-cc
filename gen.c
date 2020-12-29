@@ -176,6 +176,12 @@ static void gen_expr(Node* node) {
       gen_expr(node->lhs);
       load(node);
       return;
+    case ND_NOT:
+      gen_expr(node->lhs);
+      genln("  cmp rax, 0");
+      genln("  sete al");
+      genln("  movzx rax, al");
+      return;
     case ND_FUNCCALL: {
       int arg_count = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
