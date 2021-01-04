@@ -724,6 +724,7 @@ static Type* decl_specifier(Token** tokens);
 static Decl* declarator(Token** tokens, Type* type);
 static Decl* abstract_declarator(Token** tokens, Type* type);
 static Type* type_suffix(Token** tokens, Type* type);
+static Type* array_dimensions(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Node* params);
 
 bool is_func(Token* tokens) {
@@ -787,9 +788,6 @@ static void func(Token** tokens) {
     }
 
     Decl* decl = declarator(tokens, decl_specifier(tokens));
-    if (decl->type == ty_void) {
-      error_token(decl->ident, "variable declared void");
-    }
 
     Obj* var = new_lvar(decl->type, decl->name);
     Node* param = new_var_node(decl->ident, var);
@@ -824,9 +822,6 @@ static void gvar(Token** tokens) {
     is_first = false;
 
     Decl* decl = declarator(tokens, spec);
-    if (decl->type == ty_void) {
-      error_token(decl->ident, "variable declared void");
-    }
 
     Obj* var = new_gvar(decl->type, decl->name);
     add_code(var);
@@ -1388,9 +1383,6 @@ static Node* var_decl(Token** tokens) {
     }
 
     Decl* decl = declarator(tokens, spec);
-    if (decl->type == ty_void) {
-      error_token(decl->ident, "variable declared void");
-    }
 
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(decl->ident, var);
@@ -1554,9 +1546,6 @@ static Member* members(Token** tokens) {
       is_first = false;
 
       Decl* decl = declarator(tokens, spec);
-      if (decl->type == ty_void) {
-        error_token(decl->ident, "variable declared void");
-      }
 
       Member* mem = calloc(1, sizeof(Member));
       mem->type = decl->type;
@@ -1705,6 +1694,12 @@ static Decl* declarator(Token** tokens, Type* type) {
   *tokens = (*tokens)->next;
 
   type = type_suffix(tokens, type);
+  if (type->size < 0) {
+    error_token(ident, "variable has imcomplete type");
+  }
+  if (type == ty_void) {
+    error_token(ident, "variable declared void");
+  }
 
   Decl* decl = calloc(1, sizeof(Decl));
   decl->type = type;
@@ -1727,7 +1722,12 @@ static Decl* abstract_declarator(Token** tokens, Type* type) {
     return abstract_declarator(&start, type);
   }
 
+  Token* start = *tokens;
+
   type = type_suffix(tokens, type);
+  if (type->size < 0) {
+    error_token(start, "variable has imcomplete type");
+  }
 
   Decl* decl = calloc(1, sizeof(Decl));
   decl->type = type;
@@ -1735,14 +1735,25 @@ static Decl* abstract_declarator(Token** tokens, Type* type) {
 }
 
 static Type* type_suffix(Token** tokens, Type* type) {
-  if (consume_token(tokens, "[")) {
-    int len = expect_num(tokens);
-    expect_token(tokens, "]");
-    type = type_suffix(tokens, type);
-    return new_array_type(type, len);
+  if (equal_to_token(*tokens, "[")) {
+    return array_dimensions(tokens, type);
   }
 
   return type;
+}
+
+static Type* array_dimensions(Token** tokens, Type* type) {
+  expect_token(tokens, "[");
+
+  if (consume_token(tokens, "]")) {
+    type = type_suffix(tokens, type);
+    return new_array_type(type, -1);
+  }
+
+  int len = expect_num(tokens);
+  expect_token(tokens, "]");
+  type = type_suffix(tokens, type);
+  return new_array_type(type, len);
 }
 
 static Node* func_args(Token** tokens, Node* params) {

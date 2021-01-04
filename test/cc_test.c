@@ -1640,5 +1640,8 @@ int main() {
   ASSERT(0, (2 - 2) && 5);
   ASSERT(1, 1 && 5);
 
+  ASSERT(8, sizeof(int(*)[10]));
+  ASSERT(8, sizeof(int(*)[][10]));
+
   ok();
 }

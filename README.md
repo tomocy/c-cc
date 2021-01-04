@@ -53,7 +53,8 @@ decl_specifier = (
 )*
 declarator = "*"* ("(" declarator ")" | ident) type_suffix
 abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix
-type_suffix = "[" num "]" type_suffix | ε
+type_suffix = array_dimensions | ε
+array_dimensions = "[" num? "]" type_suffix
 
 func_args = "(" (assign (, assign)*)? ")"
 ```
