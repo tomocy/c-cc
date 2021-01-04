@@ -69,6 +69,8 @@ typedef enum {
   ND_RETURN,
   ND_ASSIGN,
   ND_COMMA,
+  ND_OR,
+  ND_AND,
   ND_BITOR,
   ND_BITXOR,
   ND_BITAND,

@@ -17,6 +17,8 @@ stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     expr ";"
 expr = assign ("," expr)?
 assign = equality (("=" | "|=" | "^=" | "&=" | "+=" | "-=" | "*=" | "/=" | "%=") bitorr)*
+orr = andd ("||" addd)*
+andd = bitorr ("&&" bitorr)*
 bitorr = bitxorr ("|" bitxorr)*
 bitxorr = bitandd ("^" bitandd)*
 bitandd = equality ("&" equality)*

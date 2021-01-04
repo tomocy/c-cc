@@ -292,8 +292,8 @@ static bool consume_keyword(Token** dst, char** c) {
 }
 
 static bool consume_duo_punct(Token** dst, char** c) {
-  static char* puncts[] = {"==", "!=", "<=", ">=", "->", "+=", "-=", "*=",
-                           "/=", "%=", "|=", "^=", "&=", "++", "--"};
+  static char* puncts[] = {"==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=",
+                           "%=", "|=", "^=", "&=", "||", "&&", "++", "--"};
   static int plen = sizeof(puncts) / sizeof(char*);
 
   for (int i = 0; i < plen; i++) {

@@ -215,6 +215,8 @@ static void gen_expr(Node* node) {
         gen_stmt(stmt);
       }
       return;
+    case ND_OR:
+    case ND_AND:
     case ND_BITOR:
     case ND_BITXOR:
     case ND_BITAND:
@@ -248,6 +250,36 @@ static void gen_expr(Node* node) {
   }
 
   switch (node->kind) {
+    case ND_OR: {
+      int label = count_label();
+      gen_expr(node->lhs);
+      genln("  cmp rax, 0");
+      genln("  jne .Ltrue%d", label);
+      gen_expr(node->rhs);
+      genln("  cmp rax, 0");
+      genln("  jne .Ltrue%d", label);
+      genln("  mov rax, 0");
+      genln("  jmp .Lend%d", label);
+      genln(".Ltrue%d:", label);
+      genln("  mov rax, 1");
+      genln(".Lend%d:", label);
+      return;
+    }
+    case ND_AND: {
+      int label = count_label();
+      gen_expr(node->lhs);
+      genln("  cmp rax, 0");
+      genln("  je .Lfalse%d", label);
+      gen_expr(node->rhs);
+      genln("  cmp rax, 0");
+      genln("  je .Lfalse%d", label);
+      genln("  mov rax, 1");
+      genln("  jmp .Lend%d", label);
+      genln(".Lfalse%d:", label);
+      genln("  mov rax, 0");
+      genln(".Lend%d:", label);
+      return;
+    }
     case ND_BITOR:
       genln("  or %s, %s", ax, di);
       return;

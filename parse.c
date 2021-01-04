@@ -661,6 +661,22 @@ static Node* new_bitor_node(Node* lhs, Node* rhs) {
   return n;
 }
 
+static Node* new_and_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
+  Node* n = new_binary_node(ND_AND, lhs, rhs);
+  n->type = ty_int;
+  n->token = lhs->token;
+  return n;
+}
+
+static Node* new_or_node(Node* lhs, Node* rhs) {
+  usual_arith_convert(&lhs, &rhs);
+  Node* n = new_binary_node(ND_OR, lhs, rhs);
+  n->type = ty_int;
+  n->token = lhs->token;
+  return n;
+}
+
 static Node* new_assign_node(Node* lhs, Node* rhs) {
   if (lhs->type->kind != TY_STRUCT) {
     rhs = new_cast_node(lhs->type, rhs->token, rhs);
@@ -685,6 +701,8 @@ static Node* block_stmt(Token** tokens);
 static Node* stmt(Token** tokens);
 static Node* expr(Token** tokens);
 static Node* assign(Token** tokens);
+static Node* orr(Token** tokens);
+static Node* andd(Token** tokens);
 static Node* bitorr(Token** tokens);
 static Node* bitxorr(Token** tokens);
 static Node* bitandd(Token** tokens);
@@ -996,58 +1014,76 @@ static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
 }
 
 static Node* assign(Token** tokens) {
-  Node* node = bitorr(tokens);
+  Node* node = orr(tokens);
 
   for (;;) {
     Token* start = *tokens;
 
     if (consume_token(tokens, "=")) {
-      node = new_assign_node(node, bitorr(tokens));
+      node = new_assign_node(node, orr(tokens));
       continue;
     }
 
     if (consume_token(tokens, "|=")) {
-      node = convert_to_assign_node(start, ND_BITOR, node, bitorr(tokens));
+      node = convert_to_assign_node(start, ND_BITOR, node, orr(tokens));
       continue;
     }
 
     if (consume_token(tokens, "^=")) {
-      node = convert_to_assign_node(start, ND_BITXOR, node, bitorr(tokens));
+      node = convert_to_assign_node(start, ND_BITXOR, node, orr(tokens));
       continue;
     }
 
     if (consume_token(tokens, "&=")) {
-      node = convert_to_assign_node(start, ND_BITAND, node, bitorr(tokens));
+      node = convert_to_assign_node(start, ND_BITAND, node, orr(tokens));
       continue;
     }
 
     if (consume_token(tokens, "+=")) {
-      node = convert_to_assign_node(start, ND_ADD, node, bitorr(tokens));
+      node = convert_to_assign_node(start, ND_ADD, node, orr(tokens));
       continue;
     }
 
     if (consume_token(tokens, "-=")) {
-      node = convert_to_assign_node(start, ND_SUB, node, bitorr(tokens));
+      node = convert_to_assign_node(start, ND_SUB, node, orr(tokens));
       continue;
     }
 
     if (consume_token(tokens, "*=")) {
-      node = convert_to_assign_node(start, ND_MUL, node, bitorr(tokens));
+      node = convert_to_assign_node(start, ND_MUL, node, orr(tokens));
       continue;
     }
 
     if (consume_token(tokens, "/=")) {
-      node = convert_to_assign_node(start, ND_DIV, node, bitorr(tokens));
+      node = convert_to_assign_node(start, ND_DIV, node, orr(tokens));
       continue;
     }
 
     if (consume_token(tokens, "%=")) {
-      node = convert_to_assign_node(start, ND_MOD, node, bitorr(tokens));
+      node = convert_to_assign_node(start, ND_MOD, node, orr(tokens));
       continue;
     }
 
     return node;
   }
+}
+
+static Node* orr(Token** tokens) {
+  Node* node = andd(tokens);
+  while (consume_token(tokens, "||")) {
+    node = new_or_node(node, andd(tokens));
+  }
+
+  return node;
+}
+
+static Node* andd(Token** tokens) {
+  Node* node = bitorr(tokens);
+  while (consume_token(tokens, "&&")) {
+    node = new_and_node(node, bitorr(tokens));
+  }
+
+  return node;
 }
 
 static Node* bitorr(Token** tokens) {
