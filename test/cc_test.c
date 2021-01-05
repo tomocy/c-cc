@@ -86,6 +86,8 @@ _Bool bool_fn_sub(_Bool x) { return x - 1; }
 
 static int static_fn() { return 3; }
 
+int param_decay(int x[]) { return x[0]; }
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -1642,6 +1644,12 @@ int main() {
 
   ASSERT(8, sizeof(int(*)[10]));
   ASSERT(8, sizeof(int(*)[][10]));
+
+  ASSERT(3, ({
+           int x[2];
+           x[0] = 3;
+           param_decay(x);
+         }));
 
   ok();
 }

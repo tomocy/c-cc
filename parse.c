@@ -788,6 +788,9 @@ static void func(Token** tokens) {
     }
 
     Decl* decl = declarator(tokens, decl_specifier(tokens));
+    if (decl->type->kind == TY_ARRAY) {
+      decl->type = new_ptr_type(decl->type->base);
+    }
 
     Obj* var = new_lvar(decl->type, decl->name);
     Node* param = new_var_node(decl->ident, var);
@@ -822,6 +825,9 @@ static void gvar(Token** tokens) {
     is_first = false;
 
     Decl* decl = declarator(tokens, spec);
+    if (decl->type->size < 0) {
+      error_token(decl->ident, "variable has imcomplete type");
+    }
 
     Obj* var = new_gvar(decl->type, decl->name);
     add_code(var);
@@ -1383,6 +1389,9 @@ static Node* var_decl(Token** tokens) {
     }
 
     Decl* decl = declarator(tokens, spec);
+    if (decl->type->size < 0) {
+      error_token(decl->ident, "variable has imcomplete type");
+    }
 
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(decl->ident, var);
@@ -1546,6 +1555,9 @@ static Member* members(Token** tokens) {
       is_first = false;
 
       Decl* decl = declarator(tokens, spec);
+      if (decl->type->size < 0) {
+        error_token(decl->ident, "variable has imcomplete type");
+      }
 
       Member* mem = calloc(1, sizeof(Member));
       mem->type = decl->type;
@@ -1694,9 +1706,6 @@ static Decl* declarator(Token** tokens, Type* type) {
   *tokens = (*tokens)->next;
 
   type = type_suffix(tokens, type);
-  if (type->size < 0) {
-    error_token(ident, "variable has imcomplete type");
-  }
   if (type == ty_void) {
     error_token(ident, "variable declared void");
   }
