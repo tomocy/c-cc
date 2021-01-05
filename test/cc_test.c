@@ -1651,5 +1651,62 @@ int main() {
            param_decay(x);
          }));
 
+  ASSERT(8, ({
+           struct foo* bar;
+           sizeof(bar);
+         }));
+  ASSERT(4, ({
+           struct T* foo;
+           struct T {
+             int x;
+           };
+           sizeof(struct T);
+         }));
+  ASSERT(1, ({
+           struct T {
+             struct T* next;
+             int x;
+           } a;
+           struct T b;
+           b.x = 1;
+           a.next = &b;
+           a.next->x;
+         }));
+  ASSERT(4, ({
+           typedef struct T T;
+           struct T {
+             int x;
+           };
+           sizeof(T);
+         }));
+  ASSERT(8, ({
+           union foo* bar;
+           sizeof(bar);
+         }));
+  ASSERT(4, ({
+           union T* foo;
+           union T {
+             int x;
+           };
+           sizeof(union T);
+         }));
+  ASSERT(1, ({
+           union T {
+             union T* next;
+             int x;
+           } a;
+           union T b;
+           b.x = 1;
+           a.next = &b;
+           a.next->x;
+         }));
+  ASSERT(4, ({
+           typedef union T T;
+           union T {
+             int x;
+           };
+           sizeof(T);
+         }));
+
   ok();
 }

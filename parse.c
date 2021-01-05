@@ -332,6 +332,18 @@ static Obj* find_def_type(char* name, int len) {
   return NULL;
 }
 
+static Obj* find_tag_in_current_scope(char* name, int len) {
+  for (ScopedObj* tag = current_scope->second_class_objs; tag;
+       tag = tag->next) {
+    if (!strs_equal(tag->obj->name, name, len)) {
+      continue;
+    }
+
+    return tag->obj->kind == OJ_TAG ? tag->obj : NULL;
+  }
+  return NULL;
+}
+
 static Obj* find_tag(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* tag = s->second_class_objs; tag; tag = tag->next) {
@@ -1469,11 +1481,14 @@ static Type* struct_decl(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found_tag = find_tag(tag->loc, tag->len);
-    if (!found_tag) {
-      error_token(tag, "undefined tag");
+    Obj* found = find_tag(tag->loc, tag->len);
+    if (found) {
+      return found->type;
     }
-    return found_tag->type;
+
+    Type* struc = new_struct_type(-1, 1, NULL);
+    new_tag(struc, strndup(tag->loc, tag->len));
+    return struc;
   }
 
   expect_token(tokens, "{");
@@ -1493,10 +1508,17 @@ static Type* struct_decl(Token** tokens) {
 
   Type* struc = new_struct_type(offset, alignment, mems);
 
-  if (tag) {
-    new_tag(struc, strndup(tag->loc, tag->len));
+  if (!tag) {
+    return struc;
   }
 
+  Obj* found = find_tag_in_current_scope(tag->loc, tag->len);
+  if (found) {
+    *found->type = *struc;
+    return found->type;
+  }
+
+  new_tag(struc, strndup(tag->loc, tag->len));
   return struc;
 }
 
@@ -1510,11 +1532,14 @@ static Type* union_decl(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found_tag = find_tag(tag->loc, tag->len);
-    if (!found_tag) {
-      error_token(tag, "undefined tag");
+    Obj* found = find_tag(tag->loc, tag->len);
+    if (found) {
+      return found->type;
     }
-    return found_tag->type;
+
+    Type* uni = new_union_type(-1, 1, NULL);
+    new_tag(uni, strndup(tag->loc, tag->len));
+    return uni;
   }
 
   expect_token(tokens, "{");
@@ -1534,10 +1559,17 @@ static Type* union_decl(Token** tokens) {
 
   Type* uni = new_union_type(size, alignment, mems);
 
-  if (tag) {
-    new_tag(uni, strndup(tag->loc, tag->len));
+  if (!tag) {
+    return uni;
   }
 
+  Obj* found = find_tag_in_current_scope(tag->loc, tag->len);
+  if (found) {
+    *found->type = *uni;
+    return found->type;
+  }
+
+  new_tag(uni, strndup(tag->loc, tag->len));
   return uni;
 }
 
