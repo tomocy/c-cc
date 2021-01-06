@@ -66,10 +66,24 @@ static char* new_id() {
   return name;
 }
 
+static Token* expect_ident(Token** tokens) {
+  if ((*tokens)->kind != TK_IDENT) {
+    error_token(*tokens, "expected an ident");
+  }
+
+  Token* ident = *tokens;
+  *tokens = (*tokens)->next;
+  return ident;
+}
+
 static int align(int n, int align) { return (n + align - 1) / align * align; }
 
-bool strs_equal(char* a, char* b, int b_len) {
+static bool are_strs_equal_n(char* a, char* b, int b_len) {
   return strlen(a) == b_len && strncmp(a, b, b_len) == 0;
+}
+
+static bool are_strs_equal(char* a, char* b) {
+  return are_strs_equal_n(a, b, strlen(b));
 }
 
 static Type* new_type(TypeKind kind, int size, int alignment);
@@ -297,7 +311,7 @@ static Obj* new_tag(Type* type, char* name) {
 
 static Obj* find_func(char* name, int len) {
   for (Obj* func = codes; func; func = func->next) {
-    if (!strs_equal(func->name, name, len)) {
+    if (!are_strs_equal_n(func->name, name, len)) {
       continue;
     }
 
@@ -309,7 +323,7 @@ static Obj* find_func(char* name, int len) {
 static Obj* find_var_or_enum(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
-      if (!strs_equal(var->obj->name, name, len)) {
+      if (!are_strs_equal_n(var->obj->name, name, len)) {
         continue;
       }
 
@@ -326,7 +340,7 @@ static Obj* find_def_type(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* def_type = s->first_class_objs; def_type;
          def_type = def_type->next) {
-      if (!strs_equal(def_type->obj->name, name, len)) {
+      if (!are_strs_equal_n(def_type->obj->name, name, len)) {
         continue;
       }
 
@@ -339,7 +353,7 @@ static Obj* find_def_type(char* name, int len) {
 static Obj* find_tag_in_current_scope(char* name, int len) {
   for (ScopedObj* tag = current_scope->second_class_objs; tag;
        tag = tag->next) {
-    if (!strs_equal(tag->obj->name, name, len)) {
+    if (!are_strs_equal_n(tag->obj->name, name, len)) {
       continue;
     }
 
@@ -351,7 +365,7 @@ static Obj* find_tag_in_current_scope(char* name, int len) {
 static Obj* find_tag(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* tag = s->second_class_objs; tag; tag = tag->next) {
-      if (!strs_equal(tag->obj->name, name, len)) {
+      if (!are_strs_equal_n(tag->obj->name, name, len)) {
         continue;
       }
 
@@ -416,12 +430,11 @@ static Node* new_member_node(Token** tokens, Token* token, Node* lhs) {
   if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
     error_token(*tokens, "expected a struct or union");
   }
-  if ((*tokens)->kind != TK_IDENT) {
-    error_token(*tokens, "expected an ident");
-  }
+
+  Token* ident = expect_ident(tokens);
 
   for (Member* mem = lhs->type->members; mem; mem = mem->next) {
-    if (!strs_equal(mem->name, (*tokens)->loc, (*tokens)->len)) {
+    if (!are_strs_equal_n(mem->name, ident->loc, ident->len)) {
       continue;
     }
 
@@ -430,7 +443,6 @@ static Node* new_member_node(Token** tokens, Token* token, Node* lhs) {
     node->token = token;
     node->name = mem->name;
     node->offset = mem->offset;
-    *tokens = (*tokens)->next;
     return node;
   }
 
@@ -814,7 +826,7 @@ Obj* parse(Token* tokens) {
 static void resolve_goto_labels() {
   for (Node* g = current_gotos; g; g = g->gotos) {
     for (Node* l = current_labels; l; l = l->labels) {
-      if (!strs_equal(g->label, l->label, strlen(l->label))) {
+      if (!are_strs_equal(g->label, l->label)) {
         continue;
       }
 
@@ -836,17 +848,14 @@ static void func(Token** tokens) {
 
   Type* ty = decl_specifier(tokens);
 
-  if ((*tokens)->kind != TK_IDENT) {
-    error_token(*tokens, "expected an ident");
-  }
+  Token* ident = expect_ident(tokens);
 
   Obj* func = new_obj(OJ_FUNC);
   current_func = func;
   add_code(func);
   func->type = ty;
-  func->name = strndup((*tokens)->loc, (*tokens)->len);
+  func->name = strndup(ident->loc, ident->len);
   func->is_static = is_static;
-  *tokens = (*tokens)->next;
 
   expect_token(tokens, "(");
   enter_scope();
@@ -1025,21 +1034,16 @@ static Node* stmt(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_IDENT && equal_to_token((*tokens)->next, ":")) {
-    Token* ident = *tokens;
-    *tokens = (*tokens)->next;
+    Token* ident = expect_ident(tokens);
     expect_token(tokens, ":");
 
     return new_label_node(start, strndup(ident->loc, ident->len), stmt(tokens));
   }
 
   if (consume_token(tokens, "goto")) {
-    if ((*tokens)->kind != TK_IDENT) {
-      error_token(*tokens, "expected an ident");
-    }
+    Token* ident = expect_ident(tokens);
+    Node* node = new_goto_node(start, strndup(ident->loc, ident->len));
 
-    Node* node = new_goto_node(start, strndup((*tokens)->loc, (*tokens)->len));
-
-    *tokens = (*tokens)->next;
     expect_token(tokens, ";");
     return node;
   }
@@ -1419,27 +1423,26 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_IDENT) {
-    if (equal_to_token((*tokens)->next, "(")) {
-      Token* ident = *tokens;
+    Token* ident = expect_ident(tokens);
+
+    if (equal_to_token(*tokens, "(")) {
       Obj* func = find_func(ident->loc, ident->len);
       if (!func) {
         error_token(ident, "implicit declaration of a function");
       }
-      *tokens = (*tokens)->next;
 
       return new_funccall_node(func->type, ident, func->name,
                                func_args(tokens, func->params));
     }
 
-    Obj* var_or_enum = find_var_or_enum((*tokens)->loc, (*tokens)->len);
+    Obj* var_or_enum = find_var_or_enum(ident->loc, ident->len);
     if (!var_or_enum) {
-      error_token(*tokens, "undefined ident");
+      error_token(ident, "undefined ident");
     }
 
     Node* node = var_or_enum->kind == OJ_ENUM
-                     ? new_int_node(*tokens, var_or_enum->int_val)
-                     : new_var_node(*tokens, var_or_enum);
-    *tokens = (*tokens)->next;
+                     ? new_int_node(ident, var_or_enum->int_val)
+                     : new_var_node(ident, var_or_enum);
     return node;
   }
 
@@ -1506,8 +1509,7 @@ static Type* enum_specifier(Token** tokens) {
 
   Token* tag = NULL;
   if ((*tokens)->kind == TK_IDENT) {
-    tag = *tokens;
-    *tokens = (*tokens)->next;
+    tag = expect_ident(tokens);
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
@@ -1528,11 +1530,7 @@ static Type* enum_specifier(Token** tokens) {
     }
     is_first = false;
 
-    if ((*tokens)->kind != TK_IDENT) {
-      error_token(*tokens, "expected an ident");
-    }
-    Token* ident = *tokens;
-    *tokens = (*tokens)->next;
+    Token* ident = expect_ident(tokens);
 
     if (consume_token(tokens, "=")) {
       val = expect_num(tokens);
@@ -1555,8 +1553,7 @@ static Type* struct_decl(Token** tokens) {
 
   Token* tag = NULL;
   if ((*tokens)->kind == TK_IDENT) {
-    tag = *tokens;
-    *tokens = (*tokens)->next;
+    tag = expect_ident(tokens);
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
@@ -1606,8 +1603,7 @@ static Type* union_decl(Token** tokens) {
 
   Token* tag = NULL;
   if ((*tokens)->kind == TK_IDENT) {
-    tag = *tokens;
-    *tokens = (*tokens)->next;
+    tag = expect_ident(tokens);
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
@@ -1810,11 +1806,7 @@ static Decl* declarator(Token** tokens, Type* type) {
     return declarator(&start, type);
   }
 
-  if ((*tokens)->kind != TK_IDENT) {
-    error_token(*tokens, "expected an ident");
-  }
-  Token* ident = *tokens;
-  *tokens = (*tokens)->next;
+  Token* ident = expect_ident(tokens);
 
   type = type_suffix(tokens, type);
   if (type == ty_void) {
