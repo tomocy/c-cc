@@ -1708,5 +1708,39 @@ int main() {
            sizeof(T);
          }));
 
+  ASSERT(3, ({
+           int i = 0;
+           goto a;
+         a:
+           i++;
+         b:
+           i++;
+         c:
+           i++;
+           i;
+         }));
+  ASSERT(2, ({
+           int i = 0;
+           goto e;
+         d:
+           i++;
+         e:
+           i++;
+         f:
+           i++;
+           i;
+         }));
+  ASSERT(1, ({
+           int i = 0;
+           goto i;
+         g:
+           i++;
+         h:
+           i++;
+         i:
+           i++;
+           i;
+         }));
+
   ok();
 }

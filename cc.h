@@ -67,6 +67,8 @@ typedef enum {
   ND_IF,
   ND_FOR,
   ND_RETURN,
+  ND_LABEL,
+  ND_GOTO,
   ND_ASSIGN,
   ND_COMMA,
   ND_OR,
@@ -113,6 +115,10 @@ struct Node {
   char* name;
   int offset;
   int64_t val;
+  Node* labels;
+  Node* gotos;
+  char* label;
+  char* label_id;
 };
 
 typedef enum {

@@ -13,6 +13,8 @@ stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     "for" "(" (expr | var_decl)? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt |
     "return" expr ";" |
+    ident ":" stmt |
+    "goto" ident ";" |
     lvar |
     expr ";"
 expr = assign ("," expr)?

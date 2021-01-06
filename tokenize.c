@@ -273,7 +273,7 @@ static bool consume_keyword(Token** dst, char** c) {
   static char* kws[] = {
       "if",     "else",  "for",  "while",   "return", "sizeof",
       "void",   "_Bool", "char", "short",   "int",    "long",
-      "struct", "union", "enum", "typedef", "static",
+      "struct", "union", "enum", "typedef", "static", "goto",
   };
   static int klen = sizeof(kws) / sizeof(char*);
 
@@ -311,7 +311,7 @@ static bool consume_duo_punct(Token** dst, char** c) {
 }
 
 static bool consume_mono_punct(Token** dst, char** c) {
-  if (!strchr("+-*/%()<>=;{},.&|^[]!~", **c)) {
+  if (!strchr("+-*/%()<>=:;{},.&|^[]!~", **c)) {
     return false;
   }
 

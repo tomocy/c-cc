@@ -387,6 +387,13 @@ static void gen_stmt(Node* node) {
       gen_expr(node->lhs);
       genln("  jmp .Lreturn%d", func_count);
       return;
+    case ND_LABEL:
+      genln("%s:", node->label_id);
+      gen_stmt(node->lhs);
+      return;
+    case ND_GOTO:
+      genln("  jmp %s", node->label_id);
+      return;
     default:
       gen_expr(node);
   }

@@ -24,6 +24,8 @@ static Obj* codes;
 static Scope* gscope;
 static Scope* current_scope;
 static Obj* current_lvars;
+static Node* current_labels;
+static Node* current_gotos;
 static Obj* current_func;
 
 static Type* ty_void = &(Type){
@@ -57,9 +59,11 @@ static Type* ty_long = &(Type){
     8,
 };
 
-static int count_str() {
-  static int str_count = 0;
-  return str_count++;
+static char* new_id() {
+  static int id = 0;
+  char* name = calloc(20, sizeof(char));
+  sprintf(name, ".L%d", id++);
+  return name;
 }
 
 static int align(int n, int align) { return (n + align - 1) / align * align; }
@@ -367,6 +371,24 @@ bool equal_to_type_name(Token* token) {
     }
   }
   return find_def_type(token->loc, token->len) != NULL;
+}
+
+static void add_label(Node* l) {
+  if (l->kind != ND_LABEL) {
+    error("expected a label");
+  }
+
+  l->labels = current_labels;
+  current_labels = l;
+}
+
+static void add_goto(Node* g) {
+  if (g->kind != ND_GOTO) {
+    error("expected a goto");
+  }
+
+  g->gotos = current_gotos;
+  current_gotos = g;
 }
 
 static Node* new_node(NodeKind kind) {
@@ -706,6 +728,23 @@ static Node* new_comma_node(Node* lhs, Node* rhs) {
   return comma;
 }
 
+static Node* new_label_node(Token* token, char* label, Node* lhs) {
+  Node* l = new_unary_node(ND_LABEL, lhs);
+  l->token = token;
+  l->label = label;
+  l->label_id = new_id();
+  add_label(l);
+  return l;
+}
+
+static Node* new_goto_node(Token* token, char* label) {
+  Node* g = new_node(ND_GOTO);
+  g->token = token;
+  g->label = label;
+  add_goto(g);
+  return g;
+}
+
 static void func(Token** tokens);
 static void gvar(Token** tokens);
 static void tydef(Token** tokens);
@@ -772,6 +811,26 @@ Obj* parse(Token* tokens) {
   return codes;
 }
 
+static void resolve_goto_labels() {
+  for (Node* g = current_gotos; g; g = g->gotos) {
+    for (Node* l = current_labels; l; l = l->labels) {
+      if (!strs_equal(g->label, l->label, strlen(l->label))) {
+        continue;
+      }
+
+      g->label_id = l->label_id;
+      break;
+    }
+
+    if (g->label_id == NULL) {
+      error_token(g->token->next, "use of undeclared label");
+    }
+  }
+
+  current_labels = NULL;
+  current_gotos = NULL;
+}
+
 static void func(Token** tokens) {
   bool is_static = consume_token(tokens, "static");
 
@@ -823,6 +882,7 @@ static void func(Token** tokens) {
   func->lvars = current_lvars;
   func->stack_size = align((func->lvars) ? func->lvars->offset : 0, 16);
   current_lvars = NULL;
+  resolve_goto_labels();
   current_func = NULL;
 }
 
@@ -960,6 +1020,26 @@ static Node* stmt(Token** tokens) {
     Node* node = new_unary_node(
         ND_RETURN, new_cast_node(current_func->type, *tokens, expr(tokens)));
     node->token = start;
+    expect_token(tokens, ";");
+    return node;
+  }
+
+  if ((*tokens)->kind == TK_IDENT && equal_to_token((*tokens)->next, ":")) {
+    Token* ident = *tokens;
+    *tokens = (*tokens)->next;
+    expect_token(tokens, ":");
+
+    return new_label_node(start, strndup(ident->loc, ident->len), stmt(tokens));
+  }
+
+  if (consume_token(tokens, "goto")) {
+    if ((*tokens)->kind != TK_IDENT) {
+      error_token(*tokens, "expected an ident");
+    }
+
+    Node* node = new_goto_node(start, strndup((*tokens)->loc, (*tokens)->len));
+
+    *tokens = (*tokens)->next;
     expect_token(tokens, ";");
     return node;
   }
@@ -1370,8 +1450,7 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_STR) {
-    char* name = calloc(20, sizeof(char));
-    sprintf(name, ".Lstr%d", count_str());
+    char* name = new_id();
     Obj* str = new_str(name, (*tokens)->str_val);
     Node* node = new_var_node(*tokens, str);
     *tokens = (*tokens)->next;
