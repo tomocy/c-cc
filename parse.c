@@ -26,6 +26,7 @@ static Scope* current_scope;
 static Obj* current_lvars;
 static Node* current_labels;
 static Node* current_gotos;
+static char* current_break_label_id;
 static Obj* current_func;
 
 static Type* ty_void = &(Type){
@@ -763,6 +764,13 @@ static Node* new_goto_node(Token* token, char* label) {
   return g;
 }
 
+static Node* new_break_node(Token* token, char* label_id) {
+  Node* node = new_node(ND_GOTO);
+  node->token = token;
+  node->label_id = label_id;
+  return node;
+}
+
 static void func(Token** tokens);
 static void gvar(Token** tokens);
 static void tydef(Token** tokens);
@@ -991,11 +999,21 @@ static Node* stmt(Token** tokens) {
 
   if (consume_token(tokens, "while")) {
     expect_token(tokens, "(");
+
     Node* node = new_node(ND_FOR);
     node->token = start;
+
+    char* prev_break_label_id = current_break_label_id;
+    node->break_label_id = current_break_label_id = new_id();
+
     node->cond = expr(tokens);
+
     expect_token(tokens, ")");
+
     node->then = stmt(tokens);
+
+    current_break_label_id = prev_break_label_id;
+
     return node;
   }
 
@@ -1006,6 +1024,9 @@ static Node* stmt(Token** tokens) {
     node->token = start;
 
     enter_scope();
+
+    char* prev_break_label_id = current_break_label_id;
+    node->break_label_id = current_break_label_id = new_id();
 
     if (!consume_token(tokens, ";")) {
       if (equal_to_type_name(*tokens)) {
@@ -1029,6 +1050,9 @@ static Node* stmt(Token** tokens) {
     node->then = stmt(tokens);
 
     leave_scope();
+
+    current_break_label_id = prev_break_label_id;
+
     return node;
   }
 
@@ -1053,6 +1077,14 @@ static Node* stmt(Token** tokens) {
 
     expect_token(tokens, ";");
     return node;
+  }
+
+  if (consume_token(tokens, "break")) {
+    if (!current_break_label_id) {
+      error_token(start, "stray break");
+    }
+
+    return new_break_node(start, current_break_label_id);
   }
 
   if (equal_to_type_name(*tokens)) {

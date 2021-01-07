@@ -120,6 +120,7 @@ struct Node {
   Node* gotos;
   char* label;
   char* label_id;
+  char* break_label_id;
 };
 
 typedef enum {

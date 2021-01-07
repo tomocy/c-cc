@@ -364,14 +364,13 @@ static void gen_stmt(Node* node) {
         gen_stmt(node->init);
       }
       int lbegin = count_label();
-      int lend = count_label();
       genln(".Lbegin%d:", lbegin);
       if (node->cond) {
         push("rax");
         gen_expr(node->cond);
         genln("  cmp rax, 0");
         pop("rax");
-        genln("  je .Lend%d", lend);
+        genln("  je %s", node->break_label_id);
       }
       gen_stmt(node->then);
       if (node->inc) {
@@ -380,7 +379,7 @@ static void gen_stmt(Node* node) {
         pop("rax");
       }
       genln("  jmp .Lbegin%d", lbegin);
-      genln(".Lend%d:", lend);
+      genln("%s:", node->break_label_id);
       return;
     }
     case ND_RETURN:
