@@ -16,7 +16,8 @@ stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     ident ":" stmt |
     "goto" ident ";" |
     lvar |
-    expr ";"
+    expr_stmt
+expr_stmt = expr? ";"
 expr = assign ("," expr)?
 assign = equality (("=" | "|=" | "^=" | "&=" | "+=" | "-=" | "*=" | "/=" | "%=") bitorr)*
 orr = andd ("||" addd)*

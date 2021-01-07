@@ -69,6 +69,7 @@ typedef enum {
   ND_RETURN,
   ND_LABEL,
   ND_GOTO,
+  ND_EXPR_STMT,
   ND_ASSIGN,
   ND_COMMA,
   ND_OR,

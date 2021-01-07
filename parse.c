@@ -740,6 +740,12 @@ static Node* new_comma_node(Node* lhs, Node* rhs) {
   return comma;
 }
 
+static Node* new_expr_stmt_node(Node* lhs) {
+  Node* stmt = new_unary_node(ND_EXPR_STMT, lhs);
+  stmt->type = lhs->type;
+  return stmt;
+}
+
 static Node* new_label_node(Token* token, char* label, Node* lhs) {
   Node* l = new_unary_node(ND_LABEL, lhs);
   l->token = token;
@@ -762,6 +768,7 @@ static void gvar(Token** tokens);
 static void tydef(Token** tokens);
 static Node* block_stmt(Token** tokens);
 static Node* stmt(Token** tokens);
+static Node* expr_stmt(Token** tokens);
 static Node* expr(Token** tokens);
 static Node* assign(Token** tokens);
 static Node* orr(Token** tokens);
@@ -1052,7 +1059,19 @@ static Node* stmt(Token** tokens) {
     return lvar(tokens);
   }
 
-  Node* node = expr(tokens);
+  return expr_stmt(tokens);
+}
+
+static Node* expr_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  if (consume_token(tokens, ";")) {
+    Node* node = new_node(ND_BLOCK);
+    node->token = start;
+    return node;
+  }
+
+  Node* node = new_expr_stmt_node(expr(tokens));
   expect_token(tokens, ";");
   return node;
 }
