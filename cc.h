@@ -121,6 +121,7 @@ struct Node {
   char* label;
   char* label_id;
   char* break_label_id;
+  char* continue_label_id;
 };
 
 typedef enum {

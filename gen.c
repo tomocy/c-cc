@@ -373,6 +373,7 @@ static void gen_stmt(Node* node) {
         genln("  je %s", node->break_label_id);
       }
       gen_stmt(node->then);
+      genln("%s:", node->continue_label_id);
       if (node->inc) {
         push("rax");
         gen_expr(node->inc);

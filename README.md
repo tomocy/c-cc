@@ -16,6 +16,7 @@ stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     ident ":" stmt |
     "goto" ident ";" |
     "break" ";" |
+    "continue" ";" |
     lvar |
     expr_stmt
 expr_stmt = expr? ";"

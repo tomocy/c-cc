@@ -27,6 +27,7 @@ static Obj* current_lvars;
 static Node* current_labels;
 static Node* current_gotos;
 static char* current_break_label_id;
+static char* current_continue_label_id;
 static Obj* current_func;
 
 static Type* ty_void = &(Type){
@@ -771,6 +772,13 @@ static Node* new_break_node(Token* token, char* label_id) {
   return node;
 }
 
+static Node* new_continue_node(Token* token, char* label_id) {
+  Node* node = new_node(ND_GOTO);
+  node->token = token;
+  node->label_id = label_id;
+  return node;
+}
+
 static void func(Token** tokens);
 static void gvar(Token** tokens);
 static void tydef(Token** tokens);
@@ -1005,6 +1013,8 @@ static Node* stmt(Token** tokens) {
 
     char* prev_break_label_id = current_break_label_id;
     node->break_label_id = current_break_label_id = new_id();
+    char* prev_continue_label_id = current_continue_label_id;
+    node->continue_label_id = current_continue_label_id = new_id();
 
     node->cond = expr(tokens);
 
@@ -1013,6 +1023,7 @@ static Node* stmt(Token** tokens) {
     node->then = stmt(tokens);
 
     current_break_label_id = prev_break_label_id;
+    current_continue_label_id = prev_continue_label_id;
 
     return node;
   }
@@ -1027,6 +1038,8 @@ static Node* stmt(Token** tokens) {
 
     char* prev_break_label_id = current_break_label_id;
     node->break_label_id = current_break_label_id = new_id();
+    char* prev_continue_label_id = current_continue_label_id;
+    node->continue_label_id = current_continue_label_id = new_id();
 
     if (!consume_token(tokens, ";")) {
       if (equal_to_type_name(*tokens)) {
@@ -1052,6 +1065,7 @@ static Node* stmt(Token** tokens) {
     leave_scope();
 
     current_break_label_id = prev_break_label_id;
+    current_continue_label_id = prev_continue_label_id;
 
     return node;
   }
@@ -1085,6 +1099,14 @@ static Node* stmt(Token** tokens) {
     }
 
     return new_break_node(start, current_break_label_id);
+  }
+
+  if (consume_token(tokens, "continue")) {
+    if (!current_continue_label_id) {
+      error_token(start, "stray continue");
+    }
+
+    return new_continue_node(start, current_continue_label_id);
   }
 
   if (equal_to_type_name(*tokens)) {
