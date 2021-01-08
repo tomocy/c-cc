@@ -765,20 +765,6 @@ static Node* new_goto_node(Token* token, char* label) {
   return g;
 }
 
-static Node* new_break_node(Token* token, char* label_id) {
-  Node* node = new_node(ND_GOTO);
-  node->token = token;
-  node->label_id = label_id;
-  return node;
-}
-
-static Node* new_continue_node(Token* token, char* label_id) {
-  Node* node = new_node(ND_GOTO);
-  node->token = token;
-  node->label_id = label_id;
-  return node;
-}
-
 static void func(Token** tokens);
 static void gvar(Token** tokens);
 static void tydef(Token** tokens);
@@ -985,128 +971,198 @@ static Node* block_stmt(Token** tokens) {
   return node;
 }
 
-static Node* stmt(Token** tokens) {
+static Node* if_stmt(Token** tokens) {
   Token* start = *tokens;
 
+  expect_token(tokens, "if");
+  expect_token(tokens, "(");
+
+  Node* node = new_node(ND_IF);
+  node->token = start;
+
+  node->cond = expr(tokens);
+
+  expect_token(tokens, ")");
+
+  node->then = stmt(tokens);
+
+  if (consume_token(tokens, "else")) {
+    node->els = stmt(tokens);
+  }
+
+  return node;
+}
+
+static Node* while_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "while");
+  expect_token(tokens, "(");
+
+  Node* node = new_node(ND_FOR);
+  node->token = start;
+
+  char* prev_break_label_id = current_break_label_id;
+  node->break_label_id = current_break_label_id = new_id();
+  char* prev_continue_label_id = current_continue_label_id;
+  node->continue_label_id = current_continue_label_id = new_id();
+
+  node->cond = expr(tokens);
+
+  expect_token(tokens, ")");
+
+  node->then = stmt(tokens);
+
+  current_break_label_id = prev_break_label_id;
+  current_continue_label_id = prev_continue_label_id;
+
+  return node;
+}
+
+static Node* for_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "for");
+  expect_token(tokens, "(");
+
+  Node* node = new_node(ND_FOR);
+  node->token = start;
+
+  enter_scope();
+
+  char* prev_break_label_id = current_break_label_id;
+  node->break_label_id = current_break_label_id = new_id();
+  char* prev_continue_label_id = current_continue_label_id;
+  node->continue_label_id = current_continue_label_id = new_id();
+
+  if (!consume_token(tokens, ";")) {
+    if (equal_to_type_name(*tokens)) {
+      node->init = var_decl(tokens);
+    } else {
+      node->init = expr(tokens);
+    }
+    expect_token(tokens, ";");
+  }
+
+  if (!consume_token(tokens, ";")) {
+    node->cond = expr(tokens);
+    expect_token(tokens, ";");
+  }
+
+  if (!consume_token(tokens, ")")) {
+    node->inc = expr(tokens);
+    expect_token(tokens, ")");
+  }
+
+  node->then = stmt(tokens);
+
+  leave_scope();
+
+  current_break_label_id = prev_break_label_id;
+  current_continue_label_id = prev_continue_label_id;
+
+  return node;
+}
+
+static Node* return_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "return");
+
+  Node* node = new_unary_node(
+      ND_RETURN, new_cast_node(current_func->type, *tokens, expr(tokens)));
+  node->token = start;
+
+  expect_token(tokens, ";");
+
+  return node;
+}
+
+static Node* label_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  Token* ident = expect_ident(tokens);
+  expect_token(tokens, ":");
+
+  return new_label_node(start, strndup(ident->loc, ident->len), stmt(tokens));
+}
+
+static Node* goto_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "goto");
+
+  Token* ident = expect_ident(tokens);
+  expect_token(tokens, ";");
+
+  return new_goto_node(start, strndup(ident->loc, ident->len));
+}
+
+static Node* break_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "break");
+
+  if (!current_break_label_id) {
+    error_token(start, "stray break");
+  }
+
+  Node* node = new_node(ND_GOTO);
+  node->token = start;
+  node->label_id = current_break_label_id;
+  return node;
+}
+
+static Node* continue_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "continue");
+
+  if (!current_continue_label_id) {
+    error_token(start, "stray continue");
+  }
+
+  Node* node = new_node(ND_GOTO);
+  node->token = start;
+  node->label_id = current_continue_label_id;
+  return node;
+}
+
+static Node* stmt(Token** tokens) {
   if (equal_to_token(*tokens, "{")) {
     return block_stmt(tokens);
   }
 
-  if (consume_token(tokens, "if")) {
-    expect_token(tokens, "(");
-    Node* node = new_node(ND_IF);
-    node->token = start;
-    node->cond = expr(tokens);
-    expect_token(tokens, ")");
-    node->then = stmt(tokens);
-    if (consume_token(tokens, "else")) {
-      node->els = stmt(tokens);
-    }
-    return node;
+  if (equal_to_token(*tokens, "if")) {
+    return if_stmt(tokens);
   }
 
-  if (consume_token(tokens, "while")) {
-    expect_token(tokens, "(");
-
-    Node* node = new_node(ND_FOR);
-    node->token = start;
-
-    char* prev_break_label_id = current_break_label_id;
-    node->break_label_id = current_break_label_id = new_id();
-    char* prev_continue_label_id = current_continue_label_id;
-    node->continue_label_id = current_continue_label_id = new_id();
-
-    node->cond = expr(tokens);
-
-    expect_token(tokens, ")");
-
-    node->then = stmt(tokens);
-
-    current_break_label_id = prev_break_label_id;
-    current_continue_label_id = prev_continue_label_id;
-
-    return node;
+  if (equal_to_token(*tokens, "while")) {
+    return while_stmt(tokens);
   }
 
-  if (consume_token(tokens, "for")) {
-    expect_token(tokens, "(");
-
-    Node* node = new_node(ND_FOR);
-    node->token = start;
-
-    enter_scope();
-
-    char* prev_break_label_id = current_break_label_id;
-    node->break_label_id = current_break_label_id = new_id();
-    char* prev_continue_label_id = current_continue_label_id;
-    node->continue_label_id = current_continue_label_id = new_id();
-
-    if (!consume_token(tokens, ";")) {
-      if (equal_to_type_name(*tokens)) {
-        node->init = var_decl(tokens);
-      } else {
-        node->init = expr(tokens);
-      }
-      expect_token(tokens, ";");
-    }
-
-    if (!consume_token(tokens, ";")) {
-      node->cond = expr(tokens);
-      expect_token(tokens, ";");
-    }
-
-    if (!consume_token(tokens, ")")) {
-      node->inc = expr(tokens);
-      expect_token(tokens, ")");
-    }
-
-    node->then = stmt(tokens);
-
-    leave_scope();
-
-    current_break_label_id = prev_break_label_id;
-    current_continue_label_id = prev_continue_label_id;
-
-    return node;
+  if (equal_to_token(*tokens, "for")) {
+    return for_stmt(tokens);
   }
 
-  if (consume_token(tokens, "return")) {
-    Node* node = new_unary_node(
-        ND_RETURN, new_cast_node(current_func->type, *tokens, expr(tokens)));
-    node->token = start;
-    expect_token(tokens, ";");
-    return node;
+  if (equal_to_token(*tokens, "return")) {
+    return return_stmt(tokens);
   }
 
   if ((*tokens)->kind == TK_IDENT && equal_to_token((*tokens)->next, ":")) {
-    Token* ident = expect_ident(tokens);
-    expect_token(tokens, ":");
-
-    return new_label_node(start, strndup(ident->loc, ident->len), stmt(tokens));
+    return label_stmt(tokens);
   }
 
-  if (consume_token(tokens, "goto")) {
-    Token* ident = expect_ident(tokens);
-    Node* node = new_goto_node(start, strndup(ident->loc, ident->len));
-
-    expect_token(tokens, ";");
-    return node;
+  if (equal_to_token(*tokens, "goto")) {
+    return goto_stmt(tokens);
   }
 
-  if (consume_token(tokens, "break")) {
-    if (!current_break_label_id) {
-      error_token(start, "stray break");
-    }
-
-    return new_break_node(start, current_break_label_id);
+  if (equal_to_token(*tokens, "break")) {
+    return break_stmt(tokens);
   }
 
-  if (consume_token(tokens, "continue")) {
-    if (!current_continue_label_id) {
-      error_token(start, "stray continue");
-    }
-
-    return new_continue_node(start, current_continue_label_id);
+  if (equal_to_token(*tokens, "continue")) {
+    return continue_stmt(tokens);
   }
 
   if (equal_to_type_name(*tokens)) {
