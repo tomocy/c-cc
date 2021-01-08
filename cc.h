@@ -65,6 +65,8 @@ struct Type {
 typedef enum {
   ND_BLOCK,
   ND_IF,
+  ND_SWITCH,
+  ND_CASE,
   ND_FOR,
   ND_RETURN,
   ND_LABEL,
@@ -108,6 +110,7 @@ struct Node {
   Node* rhs;
   Node* init;
   Node* cond;
+  Node* cases;
   Node* inc;
   Node* then;
   Node* els;
@@ -120,6 +123,7 @@ struct Node {
   Node* gotos;
   char* label;
   char* label_id;
+  char* default_label_id;
   char* break_label_id;
   char* continue_label_id;
 };

@@ -24,6 +24,7 @@ static Obj* codes;
 static Scope* gscope;
 static Scope* current_scope;
 static Obj* current_lvars;
+static Node* current_switch;
 static Node* current_labels;
 static Node* current_gotos;
 static char* current_break_label_id;
@@ -993,6 +994,74 @@ static Node* if_stmt(Token** tokens) {
   return node;
 }
 
+static Node* switch_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "switch");
+  expect_token(tokens, "(");
+
+  Node* prev_switch = current_switch;
+  Node* node = current_switch = new_node(ND_SWITCH);
+  node->token = start;
+
+  char* prev_break_label_id = current_break_label_id;
+  node->break_label_id = current_break_label_id = new_id();
+
+  node->cond = expr(tokens);
+
+  expect_token(tokens, ")");
+
+  node->then = stmt(tokens);
+
+  current_switch = prev_switch;
+  current_break_label_id = prev_break_label_id;
+
+  return node;
+}
+
+static Node* case_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "case");
+
+  if (!current_switch) {
+    error_token(start, "stray case");
+  }
+
+  Node* node = new_node(ND_CASE);
+  node->token = start;
+  node->label_id = new_id();
+
+  node->val = expect_num(tokens);
+  expect_token(tokens, ":");
+
+  node->lhs = stmt(tokens);
+
+  node->cases = current_switch->cases;
+  current_switch->cases = node;
+
+  return node;
+}
+
+static Node* default_case_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "default");
+  expect_token(tokens, ":");
+
+  if (!current_switch) {
+    error_token(start, "stray default");
+  }
+
+  Node* node = new_node(ND_CASE);
+  node->token = start;
+  node->label_id = current_switch->default_label_id = new_id();
+
+  node->lhs = stmt(tokens);
+
+  return node;
+}
+
 static Node* while_stmt(Token** tokens) {
   Token* start = *tokens;
 
@@ -1135,6 +1204,18 @@ static Node* stmt(Token** tokens) {
 
   if (equal_to_token(*tokens, "if")) {
     return if_stmt(tokens);
+  }
+
+  if (equal_to_token(*tokens, "switch")) {
+    return switch_stmt(tokens);
+  }
+
+  if (equal_to_token(*tokens, "case")) {
+    return case_stmt(tokens);
+  }
+
+  if (equal_to_token(*tokens, "default")) {
+    return default_case_stmt(tokens);
   }
 
   if (equal_to_token(*tokens, "while")) {

@@ -359,6 +359,27 @@ static void gen_stmt(Node* node) {
       genln(".Lend%d:", lend);
       return;
     }
+    case ND_SWITCH:
+      gen_expr(node->cond);
+
+      char* r = node->cond->type->size == 8 ? "rax" : "eax";
+      for (Node* c = node->cases; c; c = c->cases) {
+        genln("  cmp %s, %ld", r, c->val);
+        genln("  je %s", c->label_id);
+      }
+      if (node->default_label_id) {
+        genln("  jmp %s", node->default_label_id);
+      }
+      genln("  jmp %s", node->break_label_id);
+
+      gen_stmt(node->then);
+
+      genln("%s:", node->break_label_id);
+      return;
+    case ND_CASE:
+      genln("%s:", node->label_id);
+      gen_stmt(node->lhs);
+      return;
     case ND_FOR: {
       if (node->init) {
         gen_stmt(node->init);

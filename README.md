@@ -10,6 +10,9 @@ tydef = "typedef" decl_specifier declarator ";"
 
 bloc_stmt = "{" stmt* "}"
 stmt = "if" "(" expr ")" stmt ("else" stmt)? |
+    "switch" "(" expr ")" stmt |
+    "case" ":" num |
+    "default" ":" |
     "for" "(" (expr | var_decl)? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt |
     "return" expr ";" |
