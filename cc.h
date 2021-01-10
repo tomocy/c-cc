@@ -83,6 +83,8 @@ typedef enum {
   ND_NE,
   ND_LT,
   ND_LE,
+  ND_LSHIFT,
+  ND_RSHIFT,
   ND_ADD,
   ND_SUB,
   ND_ADDR,

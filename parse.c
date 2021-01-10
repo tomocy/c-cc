@@ -625,6 +625,20 @@ static Node* new_sub_node(Token* tokens, Node* lhs, Node* rhs) {
   return sub;
 }
 
+static Node* new_lshift_node(Token* token, Node* lhs, Node* rhs) {
+  Node* shift = new_binary_node(ND_LSHIFT, lhs, rhs);
+  shift->type = lhs->type;
+  shift->token = token;
+  return shift;
+}
+
+static Node* new_rshift_node(Token* token, Node* lhs, Node* rhs) {
+  Node* shift = new_binary_node(ND_RSHIFT, lhs, rhs);
+  shift->type = lhs->type;
+  shift->token = token;
+  return shift;
+}
+
 static Node* new_addr_node(Token* token, Node* lhs) {
   Node* addr = new_unary_node(ND_ADDR, lhs);
   addr->type = new_ptr_type(addr->lhs->type);
@@ -781,6 +795,7 @@ static Node* bitxorr(Token** tokens);
 static Node* bitandd(Token** tokens);
 static Node* equality(Token** tokens);
 static Node* relational(Token** tokens);
+static Node* shift(Token** tokens);
 static Node* add(Token** tokens);
 static Node* mul(Token** tokens);
 static Node* cast(Token** tokens);
@@ -1295,6 +1310,12 @@ static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
     case ND_BITAND:
       arith_op = new_bitand_node(tmp_deref, rhs);
       break;
+    case ND_LSHIFT:
+      arith_op = new_lshift_node(token, tmp_deref, rhs);
+      break;
+    case ND_RSHIFT:
+      arith_op = new_rshift_node(token, tmp_deref, rhs);
+      break;
     case ND_ADD:
       arith_op = new_add_node(token, tmp_deref, rhs);
       break;
@@ -1343,6 +1364,16 @@ static Node* assign(Token** tokens) {
 
     if (consume_token(tokens, "&=")) {
       node = convert_to_assign_node(start, ND_BITAND, node, orr(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, "<<=")) {
+      node = convert_to_assign_node(start, ND_LSHIFT, node, orr(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, ">>=")) {
+      node = convert_to_assign_node(start, ND_RSHIFT, node, orr(tokens));
       continue;
     }
 
@@ -1439,26 +1470,46 @@ static Node* equality(Token** tokens) {
 }
 
 static Node* relational(Token** tokens) {
-  Node* node = add(tokens);
+  Node* node = shift(tokens);
 
   for (;;) {
     if (consume_token(tokens, "<")) {
-      node = new_lt_node(node, add(tokens));
+      node = new_lt_node(node, shift(tokens));
       continue;
     }
 
     if (consume_token(tokens, "<=")) {
-      node = new_le_node(node, add(tokens));
+      node = new_le_node(node, shift(tokens));
       continue;
     }
 
     if (consume_token(tokens, ">")) {
-      node = new_lt_node(add(tokens), node);
+      node = new_lt_node(shift(tokens), node);
       continue;
     }
 
     if (consume_token(tokens, ">=")) {
-      node = new_le_node(add(tokens), node);
+      node = new_le_node(shift(tokens), node);
+      continue;
+    }
+
+    return node;
+  }
+}
+
+static Node* shift(Token** tokens) {
+  Node* node = add(tokens);
+
+  for (;;) {
+    Token* start = *tokens;
+
+    if (consume_token(tokens, "<<")) {
+      node = new_lshift_node(start, node, add(tokens));
+      continue;
+    }
+
+    if (consume_token(tokens, ">>")) {
+      node = new_rshift_node(start, node, add(tokens));
       continue;
     }
 

@@ -292,9 +292,32 @@ static bool consume_keyword(Token** dst, char** c) {
   return false;
 }
 
+static bool consume_tri_punct(Token** dst, char** c) {
+  static char* puncts[] = {
+      "<<=",
+      ">>=",
+  };
+  static int plen = sizeof(puncts) / sizeof(char*);
+
+  for (int i = 0; i < plen; i++) {
+    if (!starting_with(*c, puncts[i])) {
+      continue;
+    }
+
+    int len = strlen(puncts[i]);
+    *dst = new_token(TK_RESERVED, *c, len);
+    *c += len;
+    return true;
+  }
+
+  return false;
+}
+
 static bool consume_duo_punct(Token** dst, char** c) {
-  static char* puncts[] = {"==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=",
-                           "%=", "|=", "^=", "&=", "||", "&&", "++", "--"};
+  static char* puncts[] = {
+      "==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=", "%=",
+      "|=", "^=", "&=", "||", "&&", "++", "--", "<<", ">>",
+  };
   static int plen = sizeof(puncts) / sizeof(char*);
 
   for (int i = 0; i < plen; i++) {
@@ -322,6 +345,10 @@ static bool consume_mono_punct(Token** dst, char** c) {
 }
 
 static bool consume_punct(Token** dst, char** c) {
+  if (consume_tri_punct(dst, c)) {
+    return true;
+  }
+
   if (consume_duo_punct(dst, c)) {
     return true;
   }

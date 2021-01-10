@@ -24,14 +24,15 @@ stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     expr_stmt
 expr_stmt = expr? ";"
 expr = assign ("," expr)?
-assign = equality (("=" | "|=" | "^=" | "&=" | "+=" | "-=" | "*=" | "/=" | "%=") bitorr)*
+assign = equality (("=" | "|=" | "^=" | "&=" | "<<=" | ">>=" | "+=" | "-=" | "*=" | "/=" | "%=") bitorr)*
 orr = andd ("||" addd)*
 andd = bitorr ("&&" bitorr)*
 bitorr = bitxorr ("|" bitxorr)*
 bitxorr = bitandd ("^" bitandd)*
 bitandd = equality ("&" equality)*
 equality = realtional ("==" relational | "!=" relational)*
-relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
+shift = add ("<<" add | ">>" add)*
 add = mul ("+" mul | "-" mul)*
 mul = cast ("*" cast | "/" cast | "%" cast)*
 cast = "(" abstract_declarator ")" cast | unary

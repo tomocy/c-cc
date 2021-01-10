@@ -224,6 +224,8 @@ static void gen_expr(Node* node) {
     case ND_NE:
     case ND_LT:
     case ND_LE:
+    case ND_LSHIFT:
+    case ND_RSHIFT:
     case ND_ADD:
     case ND_SUB:
     case ND_MUL:
@@ -308,6 +310,14 @@ static void gen_expr(Node* node) {
       genln("  cmp %s, %s", ax, di);
       genln("  setle al");
       genln("  movzb rax, al");
+      return;
+    case ND_LSHIFT:
+      genln("  mov rcx, rdi");
+      genln("  shl %s, cl", ax);
+      return;
+    case ND_RSHIFT:
+      genln("  mov rcx, rdi");
+      genln("  sar %s, cl", ax);
       return;
     case ND_ADD:
       genln("  add %s, %s", ax, di);
