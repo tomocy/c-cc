@@ -525,6 +525,35 @@ static Node* new_long_node(Token* token, int64_t val) {
   return node;
 }
 
+static Node* new_addr_node(Token* token, Node* lhs) {
+  Node* addr = new_unary_node(ND_ADDR, lhs);
+  addr->type = new_ptr_type(addr->lhs->type);
+  addr->token = token;
+  return addr;
+}
+
+static Node* new_deref_node(Token* token, Node* lhs) {
+  Node* deref = new_unary_node(ND_DEREF, lhs);
+  deref->type =
+      (deref->lhs->type->base) ? deref->lhs->type->base : deref->lhs->type;
+  deref->token = token;
+  return deref;
+}
+
+static Node* new_not_node(Token* token, Node* lhs) {
+  Node* n = new_unary_node(ND_NOT, lhs);
+  n->type = ty_int;
+  n->token = token;
+  return n;
+}
+
+static Node* new_bitnot_node(Token* token, Node* lhs) {
+  Node* n = new_unary_node(ND_BITNOT, lhs);
+  n->type = lhs->type;
+  n->token = token;
+  return n;
+}
+
 static Node* new_cast_node(Type* type, Token* token, Node* lhs) {
   Node* node = new_node(ND_CAST);
   node->type = type;
@@ -637,35 +666,6 @@ static Node* new_rshift_node(Token* token, Node* lhs, Node* rhs) {
   shift->type = lhs->type;
   shift->token = token;
   return shift;
-}
-
-static Node* new_addr_node(Token* token, Node* lhs) {
-  Node* addr = new_unary_node(ND_ADDR, lhs);
-  addr->type = new_ptr_type(addr->lhs->type);
-  addr->token = token;
-  return addr;
-}
-
-static Node* new_deref_node(Token* token, Node* lhs) {
-  Node* deref = new_unary_node(ND_DEREF, lhs);
-  deref->type =
-      (deref->lhs->type->base) ? deref->lhs->type->base : deref->lhs->type;
-  deref->token = token;
-  return deref;
-}
-
-static Node* new_not_node(Token* token, Node* lhs) {
-  Node* n = new_unary_node(ND_NOT, lhs);
-  n->type = ty_int;
-  n->token = token;
-  return n;
-}
-
-static Node* new_bitnot_node(Token* token, Node* lhs) {
-  Node* n = new_unary_node(ND_BITNOT, lhs);
-  n->type = lhs->type;
-  n->token = token;
-  return n;
 }
 
 static Node* new_eq_node(Node* lhs, Node* rhs) {
