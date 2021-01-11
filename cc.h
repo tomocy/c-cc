@@ -74,6 +74,7 @@ typedef enum {
   ND_EXPR_STMT,
   ND_ASSIGN,
   ND_COMMA,
+  ND_COND,
   ND_OR,
   ND_AND,
   ND_BITOR,

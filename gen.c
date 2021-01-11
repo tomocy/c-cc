@@ -165,6 +165,18 @@ static void gen_expr(Node* node) {
       gen_expr(node->lhs);
       gen_expr(node->rhs);
       return;
+    case ND_COND: {
+      int label = count_label();
+      gen_expr(node->cond);
+      genln("  cmp rax, 0");
+      genln("  je .Lelse%d", label);
+      gen_expr(node->then);
+      genln("  jmp .Lend%d", label);
+      genln(".Lelse%d:", label);
+      gen_expr(node->els);
+      genln(".Lend%d:", label);
+      return;
+    }
     case ND_CAST:
       gen_expr(node->lhs);
       cast(node->type, node->lhs->type);

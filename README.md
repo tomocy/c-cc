@@ -24,7 +24,8 @@ stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     expr_stmt
 expr_stmt = expr? ";"
 expr = assign ("," expr)?
-assign = equality (("=" | "|=" | "^=" | "&=" | "<<=" | ">>=" | "+=" | "-=" | "*=" | "/=" | "%=") bitorr)*
+assign = conditional (("=" | "|=" | "^=" | "&=" | "<<=" | ">>=" | "+=" | "-=" | "*=" | "/=" | "%=") assign)*
+conditional = orr ("?" expr ":" conditional)?
 orr = andd ("||" addd)*
 andd = bitorr ("&&" bitorr)*
 bitorr = bitxorr ("|" bitxorr)*

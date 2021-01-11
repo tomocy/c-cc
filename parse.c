@@ -740,6 +740,22 @@ static Node* new_or_node(Node* lhs, Node* rhs) {
   return n;
 }
 
+static Node* new_cond_node(Token* token, Node* cond, Node* then, Node* els) {
+  Node* c = new_node(ND_COND);
+  c->token = token;
+  c->cond = cond;
+  c->then = then;
+  c->els = els;
+
+  if (c->then->type->kind == TY_VOID || c->els->type->kind == TY_VOID) {
+    c->type = ty_void;
+  } else {
+    usual_arith_convert(&c->then, &c->els);
+    c->type = c->then->type;
+  }
+  return c;
+}
+
 static Node* new_assign_node(Node* lhs, Node* rhs) {
   if (lhs->type->kind != TY_STRUCT) {
     rhs = new_cast_node(lhs->type, rhs->token, rhs);
@@ -788,6 +804,7 @@ static Node* stmt(Token** tokens);
 static Node* expr_stmt(Token** tokens);
 static Node* expr(Token** tokens);
 static Node* assign(Token** tokens);
+static Node* conditional(Token** tokens);
 static Node* orr(Token** tokens);
 static Node* andd(Token** tokens);
 static Node* bitorr(Token** tokens);
@@ -1342,7 +1359,7 @@ static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
 }
 
 static Node* assign(Token** tokens) {
-  Node* node = orr(tokens);
+  Node* node = conditional(tokens);
 
   for (;;) {
     Token* start = *tokens;
@@ -1404,6 +1421,22 @@ static Node* assign(Token** tokens) {
 
     return node;
   }
+}
+
+static Node* conditional(Token** tokens) {
+  Token* start = *tokens;
+
+  Node* node = orr(tokens);
+
+  if (consume_token(tokens, "?")) {
+    Node* then = expr(tokens);
+    expect_token(tokens, ":");
+    Node* els = conditional(tokens);
+
+    return new_cond_node(start, node, then, els);
+  }
+
+  return node;
 }
 
 static Node* orr(Token** tokens) {
