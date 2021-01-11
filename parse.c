@@ -580,76 +580,85 @@ static void usual_arith_convert(Node** lhs, Node** rhs) {
   *rhs = new_cast_node(common, (*rhs)->token, *rhs);
 }
 
-static Node* new_mul_node(Node* lhs, Node* rhs) {
+static Node* new_mul_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* mul = new_binary_node(ND_MUL, lhs, rhs);
+  mul->token = token;
   mul->type = lhs->type;
-  mul->token = lhs->token;
   return mul;
 }
 
-static Node* new_div_node(Node* lhs, Node* rhs) {
+static Node* new_div_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* div = new_binary_node(ND_DIV, lhs, rhs);
+  div->token = token;
   div->type = lhs->type;
-  div->token = lhs->token;
   return div;
 }
 
-static Node* new_mod_node(Node* lhs, Node* rhs) {
+static Node* new_mod_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* mod = new_binary_node(ND_MOD, lhs, rhs);
+  mod->token = token;
   mod->type = lhs->type;
-  mod->token = lhs->token;
   return mod;
 }
 
-static Node* new_add_node(Token* tokens, Node* lhs, Node* rhs) {
+static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
   if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
-    error_token(tokens, "invalid operands");
+    error_token(token, "invalid operands");
   }
 
   if (is_numable(lhs->type) && is_numable(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
+    add->token = token;
     add->type = add->lhs->type;
     return add;
   }
 
   if (is_pointable(lhs->type) && is_numable(rhs->type)) {
-    rhs = new_mul_node(rhs, new_long_node(rhs->token, lhs->type->base->size));
+    rhs = new_mul_node(rhs->token, rhs,
+                       new_long_node(rhs->token, lhs->type->base->size));
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
+    add->token = token;
     add->type = add->lhs->type;
     return add;
   }
 
-  lhs = new_mul_node(lhs, new_long_node(lhs->token, rhs->type->base->size));
+  lhs = new_mul_node(lhs->token, lhs,
+                     new_long_node(lhs->token, rhs->type->base->size));
   Node* add = new_binary_node(ND_ADD, lhs, rhs);
+  add->token = token;
   add->type = add->lhs->type;
   return add;
 }
 
-static Node* new_sub_node(Token* tokens, Node* lhs, Node* rhs) {
+static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   if (is_numable(lhs->type) && is_pointable(rhs->type)) {
-    error_token(tokens, "invalid operands");
+    error_token(token, "invalid operands");
   }
 
   if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
+    sub->token = token;
     sub->type = sub->lhs->type;
-    return new_div_node(sub,
+    return new_div_node(sub->token, sub,
                         new_int_node(lhs->token, sub->lhs->type->base->size));
   }
 
   if (is_numable(lhs->type) && is_numable(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
+    sub->token = token;
     sub->type = sub->lhs->type;
     return sub;
   }
 
-  rhs = new_mul_node(rhs, new_long_node(rhs->token, lhs->type->base->size));
+  rhs = new_mul_node(rhs->token, rhs,
+                     new_long_node(rhs->token, lhs->type->base->size));
   Node* sub = new_binary_node(ND_SUB, lhs, rhs);
+  sub->token = token;
   sub->type = sub->lhs->type;
   return sub;
 }
@@ -668,75 +677,75 @@ static Node* new_rshift_node(Token* token, Node* lhs, Node* rhs) {
   return shift;
 }
 
-static Node* new_eq_node(Node* lhs, Node* rhs) {
+static Node* new_eq_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* eq = new_binary_node(ND_EQ, lhs, rhs);
+  eq->token = token;
   eq->type = ty_long;
-  eq->token = lhs->token;
   return eq;
 }
 
-static Node* new_ne_node(Node* lhs, Node* rhs) {
+static Node* new_ne_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* ne = new_binary_node(ND_NE, lhs, rhs);
+  ne->token = token;
   ne->type = ty_long;
-  ne->token = lhs->token;
   return ne;
 }
 
-static Node* new_lt_node(Node* lhs, Node* rhs) {
+static Node* new_lt_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* lt = new_binary_node(ND_LT, lhs, rhs);
+  lt->token = token;
   lt->type = ty_long;
-  lt->token = lhs->token;
   return lt;
 }
 
-static Node* new_le_node(Node* lhs, Node* rhs) {
+static Node* new_le_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* le = new_binary_node(ND_LE, lhs, rhs);
+  le->token = token;
   le->type = ty_long;
-  le->token = le->token;
   return le;
 }
 
-static Node* new_bitand_node(Node* lhs, Node* rhs) {
+static Node* new_bitand_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* n = new_binary_node(ND_BITAND, lhs, rhs);
+  n->token = token;
   n->type = lhs->type;
-  n->token = lhs->token;
   return n;
 }
 
-static Node* new_bitxor_node(Node* lhs, Node* rhs) {
+static Node* new_bitxor_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* n = new_binary_node(ND_BITXOR, lhs, rhs);
+  n->token = token;
   n->type = lhs->type;
-  n->token = lhs->token;
   return n;
 }
 
-static Node* new_bitor_node(Node* lhs, Node* rhs) {
+static Node* new_bitor_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* n = new_binary_node(ND_BITOR, lhs, rhs);
+  n->token = token;
   n->type = lhs->type;
-  n->token = lhs->token;
   return n;
 }
 
-static Node* new_and_node(Node* lhs, Node* rhs) {
+static Node* new_and_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* n = new_binary_node(ND_AND, lhs, rhs);
+  n->token = token;
   n->type = ty_int;
-  n->token = lhs->token;
   return n;
 }
 
-static Node* new_or_node(Node* lhs, Node* rhs) {
+static Node* new_or_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* n = new_binary_node(ND_OR, lhs, rhs);
+  n->token = token;
   n->type = ty_int;
-  n->token = lhs->token;
   return n;
 }
 
@@ -756,20 +765,20 @@ static Node* new_cond_node(Token* token, Node* cond, Node* then, Node* els) {
   return c;
 }
 
-static Node* new_assign_node(Node* lhs, Node* rhs) {
+static Node* new_assign_node(Token* token, Node* lhs, Node* rhs) {
   if (lhs->type->kind != TY_STRUCT) {
     rhs = new_cast_node(lhs->type, rhs->token, rhs);
   }
   Node* assign = new_binary_node(ND_ASSIGN, lhs, rhs);
+  assign->token = token;
   assign->type = lhs->type;
-  assign->token = lhs->token;
   return assign;
 }
 
-static Node* new_comma_node(Node* lhs, Node* rhs) {
+static Node* new_comma_node(Token* token, Node* lhs, Node* rhs) {
   Node* comma = new_binary_node(ND_COMMA, lhs, rhs);
+  comma->token = token;
   comma->type = comma->rhs->type;
-  comma->token = rhs->token;
   return comma;
 }
 
@@ -1300,10 +1309,14 @@ static Node* expr_stmt(Token** tokens) {
 }
 
 static Node* expr(Token** tokens) {
+  Token* start = *tokens;
+
   Node* node = assign(tokens);
+
   if (consume_token(tokens, ",")) {
-    return new_comma_node(node, expr(tokens));
+    return new_comma_node(start, node, expr(tokens));
   }
+
   return node;
 }
 
@@ -1311,21 +1324,22 @@ static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
                                     Node* rhs) {
   Obj* tmp_var = new_lvar(new_ptr_type(lhs->type), "");
 
-  Node* tmp_assign = new_assign_node(new_var_node(lhs->token, tmp_var),
-                                     new_addr_node(lhs->token, lhs));
+  Node* tmp_assign =
+      new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var),
+                      new_addr_node(lhs->token, lhs));
 
   Node* tmp_deref =
       new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var));
   Node* arith_op;
   switch (op) {
     case ND_BITOR:
-      arith_op = new_bitor_node(tmp_deref, rhs);
+      arith_op = new_bitor_node(token, tmp_deref, rhs);
       break;
     case ND_BITXOR:
-      arith_op = new_bitxor_node(tmp_deref, rhs);
+      arith_op = new_bitxor_node(token, tmp_deref, rhs);
       break;
     case ND_BITAND:
-      arith_op = new_bitand_node(tmp_deref, rhs);
+      arith_op = new_bitand_node(token, tmp_deref, rhs);
       break;
     case ND_LSHIFT:
       arith_op = new_lshift_node(token, tmp_deref, rhs);
@@ -1340,22 +1354,23 @@ static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
       arith_op = new_sub_node(token, tmp_deref, rhs);
       break;
     case ND_MUL:
-      arith_op = new_mul_node(tmp_deref, rhs);
+      arith_op = new_mul_node(token, tmp_deref, rhs);
       break;
     case ND_DIV:
-      arith_op = new_div_node(tmp_deref, rhs);
+      arith_op = new_div_node(token, tmp_deref, rhs);
       break;
     case ND_MOD:
-      arith_op = new_mod_node(tmp_deref, rhs);
+      arith_op = new_mod_node(token, tmp_deref, rhs);
       break;
     default:
       error_token(token, "invalid operation");
   }
 
   Node* assign = new_assign_node(
-      new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var)), arith_op);
+      lhs->token, new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var)),
+      arith_op);
 
-  return new_comma_node(tmp_assign, assign);
+  return new_comma_node(token, tmp_assign, assign);
 }
 
 static Node* assign(Token** tokens) {
@@ -1365,57 +1380,57 @@ static Node* assign(Token** tokens) {
     Token* start = *tokens;
 
     if (consume_token(tokens, "=")) {
-      node = new_assign_node(node, orr(tokens));
+      node = new_assign_node(start, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "|=")) {
-      node = convert_to_assign_node(start, ND_BITOR, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_BITOR, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "^=")) {
-      node = convert_to_assign_node(start, ND_BITXOR, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_BITXOR, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "&=")) {
-      node = convert_to_assign_node(start, ND_BITAND, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_BITAND, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "<<=")) {
-      node = convert_to_assign_node(start, ND_LSHIFT, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_LSHIFT, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, ">>=")) {
-      node = convert_to_assign_node(start, ND_RSHIFT, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_RSHIFT, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "+=")) {
-      node = convert_to_assign_node(start, ND_ADD, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_ADD, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "-=")) {
-      node = convert_to_assign_node(start, ND_SUB, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_SUB, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "*=")) {
-      node = convert_to_assign_node(start, ND_MUL, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_MUL, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "/=")) {
-      node = convert_to_assign_node(start, ND_DIV, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_DIV, node, assign(tokens));
       continue;
     }
 
     if (consume_token(tokens, "%=")) {
-      node = convert_to_assign_node(start, ND_MOD, node, orr(tokens));
+      node = convert_to_assign_node(start, ND_MOD, node, assign(tokens));
       continue;
     }
 
@@ -1440,45 +1455,60 @@ static Node* conditional(Token** tokens) {
 }
 
 static Node* orr(Token** tokens) {
+  Token* start = *tokens;
+
   Node* node = andd(tokens);
+
   while (consume_token(tokens, "||")) {
-    node = new_or_node(node, andd(tokens));
+    node = new_or_node(start, node, andd(tokens));
   }
 
   return node;
 }
 
 static Node* andd(Token** tokens) {
+  Token* start = *tokens;
+
   Node* node = bitorr(tokens);
+
   while (consume_token(tokens, "&&")) {
-    node = new_and_node(node, bitorr(tokens));
+    node = new_and_node(start, node, bitorr(tokens));
   }
 
   return node;
 }
 
 static Node* bitorr(Token** tokens) {
+  Token* start = *tokens;
+
   Node* node = bitxorr(tokens);
+
   while (consume_token(tokens, "|")) {
-    node = new_bitor_node(node, bitxorr(tokens));
+    node = new_bitor_node(start, node, bitxorr(tokens));
   }
 
   return node;
 }
 
 static Node* bitxorr(Token** tokens) {
+  Token* start = *tokens;
+
   Node* node = bitandd(tokens);
+
   while (consume_token(tokens, "^")) {
-    node = new_bitxor_node(node, bitandd(tokens));
+    node = new_bitxor_node(start, node, bitandd(tokens));
   }
 
   return node;
 }
 
 static Node* bitandd(Token** tokens) {
+  Token* start = *tokens;
+
   Node* node = equality(tokens);
+
   while (consume_token(tokens, "&")) {
-    node = new_bitand_node(node, equality(tokens));
+    node = new_bitand_node(start, node, equality(tokens));
   }
 
   return node;
@@ -1488,13 +1518,15 @@ static Node* equality(Token** tokens) {
   Node* node = relational(tokens);
 
   for (;;) {
+    Token* start = *tokens;
+
     if (consume_token(tokens, "==")) {
-      node = new_eq_node(node, relational(tokens));
+      node = new_eq_node(start, node, relational(tokens));
       continue;
     }
 
     if (consume_token(tokens, "!=")) {
-      node = new_ne_node(node, relational(tokens));
+      node = new_ne_node(start, node, relational(tokens));
       continue;
     }
 
@@ -1506,23 +1538,25 @@ static Node* relational(Token** tokens) {
   Node* node = shift(tokens);
 
   for (;;) {
+    Token* start = *tokens;
+
     if (consume_token(tokens, "<")) {
-      node = new_lt_node(node, shift(tokens));
+      node = new_lt_node(start, node, shift(tokens));
       continue;
     }
 
     if (consume_token(tokens, "<=")) {
-      node = new_le_node(node, shift(tokens));
+      node = new_le_node(start, node, shift(tokens));
       continue;
     }
 
     if (consume_token(tokens, ">")) {
-      node = new_lt_node(shift(tokens), node);
+      node = new_lt_node(start, shift(tokens), node);
       continue;
     }
 
     if (consume_token(tokens, ">=")) {
-      node = new_le_node(shift(tokens), node);
+      node = new_le_node(start, shift(tokens), node);
       continue;
     }
 
@@ -1554,13 +1588,15 @@ static Node* add(Token** tokens) {
   Node* node = mul(tokens);
 
   for (;;) {
+    Token* start = *tokens;
+
     if (consume_token(tokens, "+")) {
-      node = new_add_node(*tokens, node, mul(tokens));
+      node = new_add_node(start, node, mul(tokens));
       continue;
     }
 
     if (consume_token(tokens, "-")) {
-      node = new_sub_node(*tokens, node, mul(tokens));
+      node = new_sub_node(start, node, mul(tokens));
       continue;
     }
 
@@ -1572,18 +1608,20 @@ static Node* mul(Token** tokens) {
   Node* node = cast(tokens);
 
   for (;;) {
+    Token* start = *tokens;
+
     if (consume_token(tokens, "*")) {
-      node = new_mul_node(node, cast(tokens));
+      node = new_mul_node(start, node, cast(tokens));
       continue;
     }
 
     if (consume_token(tokens, "/")) {
-      node = new_div_node(node, cast(tokens));
+      node = new_div_node(start, node, cast(tokens));
       continue;
     }
 
     if (consume_token(tokens, "%")) {
-      node = new_mod_node(node, cast(tokens));
+      node = new_mod_node(start, node, cast(tokens));
       continue;
     }
 
@@ -1784,8 +1822,10 @@ static Node* var_decl(Token** tokens) {
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(decl->ident, var);
 
+    Token* start = *tokens;
+
     if (consume_token(tokens, "=")) {
-      node = new_assign_node(node, assign(tokens));
+      node = new_assign_node(start, node, assign(tokens));
     }
 
     cur->next = node;
