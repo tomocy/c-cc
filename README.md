@@ -5,13 +5,13 @@
 program = (func | gvar | tydef)*
 
 func = decl_specifier ident "(" (decl_specifier declarator (, decl_specifier declarator)*)? ")" bloc_stmt
-gvar = decl_specifier (declarator ("=" num)? ("," declarator ("=" num)?)*)? ";"
+gvar = decl_specifier (declarator ("=" const_expr)? ("," declarator ("=" const_expr)?)*)? ";"
 tydef = "typedef" decl_specifier declarator ";"
 
 bloc_stmt = "{" stmt* "}"
 stmt = "if" "(" expr ")" stmt ("else" stmt)? |
     "switch" "(" expr ")" stmt |
-    "case" ":" num |
+    "case" ":" const_expr |
     "default" ":" |
     "for" "(" (expr | var_decl)? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt |
@@ -45,12 +45,13 @@ unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
 postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
 num = ("0x" | "0X") hexadecimal | decimal | "0" octal | ("0b | "0B") binary
+const_expr
 
 lvar = var_decl ";"
 
 var_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)?
 
-enum_specifier = "enum" ident? "{" ident ("=" num)? ("," ident ("=" num)?)* "}"
+enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* "}"
 
 struct_decl = "struct" ident? "{" member* "}"
 union_decl = "union" ident? "{" member* "}"
@@ -64,7 +65,7 @@ decl_specifier = (
 declarator = "*"* ("(" declarator ")" | ident) type_suffix
 abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix
 type_suffix = array_dimensions | ε
-array_dimensions = "[" num? "]" type_suffix
+array_dimensions = "[" const_expr? "]" type_suffix
 
 func_args = "(" (assign (, assign)*)? ")"
 ```

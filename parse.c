@@ -847,6 +847,7 @@ static Decl* abstract_declarator(Token** tokens, Type* type);
 static Type* type_suffix(Token** tokens, Type* type);
 static Type* array_dimensions(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Node* params);
+static int64_t const_expr(Token** tokens);
 
 bool is_func(Token* tokens) {
   consume_token(&tokens, "static");
@@ -972,7 +973,7 @@ static void gvar(Token** tokens) {
     add_code(var);
 
     if (consume_token(tokens, "=")) {
-      var->int_val = expect_num(tokens);
+      var->int_val = const_expr(tokens);
     }
   }
 }
@@ -1080,7 +1081,7 @@ static Node* case_stmt(Token** tokens) {
   node->token = start;
   node->label_id = new_id();
 
-  node->val = expect_num(tokens);
+  node->val = const_expr(tokens);
   expect_token(tokens, ":");
 
   node->lhs = stmt(tokens);
@@ -1803,6 +1804,77 @@ static Node* primary(Token** tokens) {
   return NULL;
 }
 
+static int64_t eval(Node* node) {
+  switch (node->kind) {
+    case ND_COMMA:
+      return eval(node->rhs);
+    case ND_COND:
+      return eval(node->cond) ? eval(node->then) : eval(node->els);
+    case ND_OR:
+      return eval(node->lhs) || eval(node->rhs);
+    case ND_AND:
+      return eval(node->lhs) && eval(node->rhs);
+    case ND_BITOR:
+      return eval(node->lhs) | eval(node->rhs);
+    case ND_BITXOR:
+      return eval(node->lhs) ^ eval(node->rhs);
+    case ND_BITAND:
+      return eval(node->lhs) & eval(node->rhs);
+    case ND_EQ:
+      return eval(node->lhs) == eval(node->rhs);
+    case ND_NE:
+      return eval(node->lhs) != eval(node->rhs);
+    case ND_LT:
+      return eval(node->lhs) < eval(node->rhs);
+    case ND_LE:
+      return eval(node->lhs) <= eval(node->rhs);
+    case ND_LSHIFT:
+      return eval(node->lhs) << eval(node->rhs);
+    case ND_RSHIFT:
+      return eval(node->lhs) >> eval(node->rhs);
+    case ND_ADD:
+      return eval(node->lhs) + eval(node->rhs);
+    case ND_SUB:
+      return eval(node->lhs) - eval(node->rhs);
+    case ND_MUL:
+      return eval(node->lhs) * eval(node->rhs);
+    case ND_DIV:
+      return eval(node->lhs) / eval(node->rhs);
+    case ND_MOD:
+      return eval(node->lhs) % eval(node->rhs);
+    case ND_CAST:
+      if (!is_numable(node->type)) {
+        return eval(node->lhs);
+      }
+      switch (node->type->size) {
+        case 1:
+          return (uint8_t)eval(node->lhs);
+        case 2:
+          return (uint16_t)eval(node->lhs);
+        case 4:
+          return (uint32_t)eval(node->lhs);
+        default:
+          return eval(node->lhs);
+      }
+    case ND_NEG:
+      return -eval(node->lhs);
+    case ND_NOT:
+      return !eval(node->lhs);
+    case ND_BITNOT:
+      return ~eval(node->lhs);
+    case ND_NUM:
+      return node->val;
+    default:
+      error_token(node->token, "not a compile-time constant");
+      return 0;
+  }
+}
+
+static int64_t const_expr(Token** tokens) {
+  Node* node = conditional(tokens);
+  return eval(node);
+}
+
 static Node* lvar(Token** tokens) {
   Node* node = var_decl(tokens);
   expect_token(tokens, ";");
@@ -1874,7 +1946,7 @@ static Type* enum_specifier(Token** tokens) {
     Token* ident = expect_ident(tokens);
 
     if (consume_token(tokens, "=")) {
-      val = expect_num(tokens);
+      val = const_expr(tokens);
     }
 
     new_enum(strndup(ident->loc, ident->len), val++);
@@ -2203,7 +2275,7 @@ static Type* array_dimensions(Token** tokens, Type* type) {
     return new_array_type(type, -1);
   }
 
-  int len = expect_num(tokens);
+  int len = const_expr(tokens);
   expect_token(tokens, "]");
   type = type_suffix(tokens, type);
   return new_array_type(type, len);
