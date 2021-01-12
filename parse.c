@@ -525,6 +525,13 @@ static Node* new_long_node(Token* token, int64_t val) {
   return node;
 }
 
+static Node* new_neg_node(Token* token, Node* lhs) {
+  Node* neg = new_unary_node(ND_NEG, lhs);
+  neg->type = lhs->type;
+  neg->token = token;
+  return neg;
+}
+
 static Node* new_addr_node(Token* token, Node* lhs) {
   Node* addr = new_unary_node(ND_ADDR, lhs);
   addr->type = new_ptr_type(addr->lhs->type);
@@ -1649,7 +1656,7 @@ static Node* unary(Token** tokens) {
   }
 
   if (consume_token(tokens, "-")) {
-    return new_sub_node(start, new_long_node(start, 0), cast(tokens));
+    return new_neg_node(start, cast(tokens));
   }
 
   if (consume_token(tokens, "&")) {

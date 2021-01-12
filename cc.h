@@ -88,6 +88,7 @@ typedef enum {
   ND_RSHIFT,
   ND_ADD,
   ND_SUB,
+  ND_NEG,
   ND_ADDR,
   ND_DEREF,
   ND_NOT,

@@ -181,6 +181,10 @@ static void gen_expr(Node* node) {
       gen_expr(node->lhs);
       cast(node->type, node->lhs->type);
       return;
+    case ND_NEG:
+      gen_expr(node->lhs);
+      genln("  neg rax");
+      return;
     case ND_ADDR:
       gen_addr(node->lhs);
       return;
