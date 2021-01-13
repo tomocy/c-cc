@@ -836,7 +836,7 @@ static Node* unary(Token** tokens);
 static Node* postfix(Token** tokens);
 static Node* primary(Token** tokens);
 static Node* lvar(Token** tokens);
-static Node* var_decl(Token** tokens);
+static Node* lvar_decl(Token** tokens);
 static Type* enum_specifier(Token** tokens);
 static Type* struct_decl(Token** tokens);
 static Type* union_decl(Token** tokens);
@@ -1155,7 +1155,7 @@ static Node* for_stmt(Token** tokens) {
 
   if (!consume_token(tokens, ";")) {
     if (equal_to_type_name(*tokens)) {
-      node->init = var_decl(tokens);
+      node->init = lvar_decl(tokens);
     } else {
       node->init = expr(tokens);
     }
@@ -1876,12 +1876,12 @@ static int64_t const_expr(Token** tokens) {
 }
 
 static Node* lvar(Token** tokens) {
-  Node* node = var_decl(tokens);
+  Node* node = lvar_decl(tokens);
   expect_token(tokens, ";");
   return node;
 }
 
-static Node* var_decl(Token** tokens) {
+static Node* lvar_decl(Token** tokens) {
   Token* start = *tokens;
 
   Type* spec = decl_specifier(tokens);
