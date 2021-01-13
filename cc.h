@@ -99,6 +99,7 @@ typedef enum {
   ND_BITNOT,
   ND_STMT_EXPR,
   ND_NUM,
+  ND_NULL,
   ND_GVAR,
   ND_LVAR,
   ND_MEMBER,

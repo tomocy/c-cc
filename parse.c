@@ -2,6 +2,8 @@
 
 typedef struct ScopedObj ScopedObj;
 typedef struct Scope Scope;
+typedef struct Initer Initer;
+typedef struct DesignatedIniter DesignatedIniter;
 
 typedef struct Decl {
   Type* type;
@@ -18,6 +20,20 @@ struct Scope {
   Scope* next;
   ScopedObj* first_class_objs;
   ScopedObj* second_class_objs;
+};
+
+struct Initer {
+  Initer* next;
+  Type* type;
+  Token* token;
+  Node* expr;
+  Initer** children;
+};
+
+struct DesignatedIniter {
+  DesignatedIniter* next;
+  int i;
+  Obj* var;
 };
 
 static Obj* codes;
@@ -1881,6 +1897,83 @@ static Node* lvar(Token** tokens) {
   return node;
 }
 
+static Initer* new_initer(Type* ty) {
+  Initer* init = calloc(1, sizeof(Initer));
+  init->type = ty;
+  if (init->type->kind != TY_ARRAY) {
+    return init;
+  }
+
+  init->children = calloc(init->type->size, sizeof(Initer*));
+  for (int i = 0; i < init->type->size; i++) {
+    init->children[i] = new_initer(init->type->base);
+  }
+  return init;
+}
+
+static void init_initer(Token** tokens, Initer* init) {
+  if (init->type->kind != TY_ARRAY) {
+    init->expr = assign(tokens);
+    return;
+  }
+
+  expect_token(tokens, "{");
+
+  for (int i = 0; i < init->type->len; i++) {
+    if (i > 0) {
+      expect_token(tokens, ",");
+    }
+    init_initer(tokens, init->children[i]);
+  }
+
+  expect_token(tokens, "}");
+}
+
+static Initer* initer(Token** tokens, Type* ty) {
+  Initer* init = new_initer(ty);
+  init_initer(tokens, init);
+  return init;
+}
+
+static Node* designated_expr(Token* token, DesignatedIniter* init, int depth) {
+  if (init->var) {
+    return new_var_node(token, init->var);
+  }
+
+  Node* lhs = designated_expr(token, init->next, ++depth);
+  Node* rhs = new_int_node(token, init->i);
+  return new_deref_node(token, new_add_node(token, lhs, rhs));
+}
+
+static Node* lvar_init(Token* token, Initer* init,
+                       DesignatedIniter* designated) {
+  if (init->type->kind != TY_ARRAY) {
+    return new_assign_node(token, designated_expr(token, designated, 0),
+                           init->expr);
+  }
+
+  Node* node = new_node(ND_NULL);
+  node->token = token;
+
+  for (int i = 0; i < init->type->len; i++) {
+    DesignatedIniter next = {designated, i};
+    node =
+        new_comma_node(token, node, lvar_init(token, init->children[i], &next));
+  }
+
+  return node;
+}
+
+static Node* lvar_initer(Token** tokens, Obj* var) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "=");
+
+  Initer* init = initer(tokens, var->type);
+  DesignatedIniter designated = {NULL, 0, var};
+  return lvar_init(start, init, &designated);
+}
+
 static Node* lvar_decl(Token** tokens) {
   Token* start = *tokens;
 
@@ -1901,10 +1994,8 @@ static Node* lvar_decl(Token** tokens) {
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(decl->ident, var);
 
-    Token* start = *tokens;
-
-    if (consume_token(tokens, "=")) {
-      node = new_assign_node(start, node, assign(tokens));
+    if (equal_to_token(*tokens, "=")) {
+      node = lvar_initer(tokens, var);
     }
 
     cur->next = node;

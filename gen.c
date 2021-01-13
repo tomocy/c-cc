@@ -226,6 +226,8 @@ static void gen_expr(Node* node) {
     case ND_NUM:
       genln("  mov rax, %ld", node->val);
       return;
+    case ND_NULL:
+      return;
     case ND_STMT_EXPR:
       for (Node* stmt = node->body; stmt; stmt = stmt->next) {
         gen_stmt(stmt);
