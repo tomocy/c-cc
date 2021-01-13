@@ -653,7 +653,7 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
                      new_long_node(lhs->token, rhs->type->base->size));
   Node* add = new_binary_node(ND_ADD, lhs, rhs);
   add->token = token;
-  add->type = add->lhs->type;
+  add->type = add->rhs->type;
   return add;
 }
 
