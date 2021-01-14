@@ -1925,6 +1925,16 @@ static Initer* new_initer(Type* ty) {
   return init;
 }
 
+static void skip_excess_initers(Token** tokens) {
+  if (consume_token(tokens, "{")) {
+    skip_excess_initers(tokens);
+    expect_token(tokens, "}");
+    return;
+  }
+
+  expr(tokens);
+}
+
 static void init_initer(Token** tokens, Initer* init) {
   if (init->type->kind != TY_ARRAY) {
     init->expr = assign(tokens);
@@ -1933,14 +1943,18 @@ static void init_initer(Token** tokens, Initer* init) {
 
   expect_token(tokens, "{");
 
-  for (int i = 0; i < init->type->len && !equal_to_token(*tokens, "}"); i++) {
+  for (int i = 0; !consume_token(tokens, "}"); i++) {
     if (i > 0) {
       expect_token(tokens, ",");
     }
-    init_initer(tokens, init->children[i]);
+    if (i < init->type->len) {
+      init_initer(tokens, init->children[i]);
+      continue;
+    }
+    skip_excess_initers(tokens);
   }
 
-  expect_token(tokens, "}");
+  // expect_token(tokens, "}");
 }
 
 static Initer* initer(Token** tokens, Type* ty) {
