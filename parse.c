@@ -445,6 +445,14 @@ static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   return node;
 }
 
+static Node* new_memzero_node(Type* type, Token* token, int offset) {
+  Node* node = new_node(ND_MEMZERO);
+  node->type = type;
+  node->token = token;
+  node->offset = offset;
+  return node;
+}
+
 static Node* new_member_node(Token** tokens, Token* token, Node* lhs) {
   if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
     error_token(*tokens, "expected a struct or union");
@@ -1919,7 +1927,7 @@ static void init_initer(Token** tokens, Initer* init) {
 
   expect_token(tokens, "{");
 
-  for (int i = 0; i < init->type->len; i++) {
+  for (int i = 0; i < init->type->len && !equal_to_token(*tokens, "}"); i++) {
     if (i > 0) {
       expect_token(tokens, ",");
     }
@@ -1948,6 +1956,12 @@ static Node* designated_expr(Token* token, DesignatedIniter* init, int depth) {
 static Node* lvar_init(Token* token, Initer* init,
                        DesignatedIniter* designated) {
   if (init->type->kind != TY_ARRAY) {
+    if (!init->expr) {
+      Node* node = new_node(ND_NULL);
+      node->token = token;
+      return node;
+    }
+
     return new_assign_node(token, designated_expr(token, designated, 0),
                            init->expr);
   }
@@ -1971,7 +1985,8 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
 
   Initer* init = initer(tokens, var->type);
   DesignatedIniter designated = {NULL, 0, var};
-  return lvar_init(start, init, &designated);
+  return new_comma_node(start, new_memzero_node(var->type, start, var->offset),
+                        lvar_init(start, init, &designated));
 }
 
 static Node* lvar_decl(Token** tokens) {

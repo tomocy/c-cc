@@ -228,6 +228,13 @@ static void gen_expr(Node* node) {
       return;
     case ND_NULL:
       return;
+    case ND_MEMZERO:
+      genln("  mov rcx, %d", node->type->size);
+      genln("  mov rdi, rbp");
+      genln("  sub rdi, %d", node->offset);
+      genln("  mov al, 0");
+      genln("  rep stosb");
+      return;
     case ND_STMT_EXPR:
       for (Node* stmt = node->body; stmt; stmt = stmt->next) {
         gen_stmt(stmt);

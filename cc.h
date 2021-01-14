@@ -104,6 +104,7 @@ typedef enum {
   ND_LVAR,
   ND_MEMBER,
   ND_FUNCCALL,
+  ND_MEMZERO,
 } NodeKind;
 
 struct Node {
