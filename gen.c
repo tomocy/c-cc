@@ -202,6 +202,17 @@ static void gen_expr(Node* node) {
       gen_expr(node->lhs);
       genln("  not rax");
       return;
+    case ND_STMT_EXPR:
+      for (Node* stmt = node->body; stmt; stmt = stmt->next) {
+        gen_stmt(stmt);
+      }
+      return;
+    case ND_GVAR:
+    case ND_LVAR:
+    case ND_MEMBER:
+      gen_addr(node);
+      load(node);
+      return;
     case ND_FUNCCALL: {
       int arg_count = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
@@ -217,12 +228,6 @@ static void gen_expr(Node* node) {
       genln("  call %s", node->name);
       return;
     }
-    case ND_GVAR:
-    case ND_LVAR:
-    case ND_MEMBER:
-      gen_addr(node);
-      load(node);
-      return;
     case ND_NUM:
       genln("  mov rax, %ld", node->val);
       return;
@@ -234,11 +239,6 @@ static void gen_expr(Node* node) {
       genln("  sub rdi, %d", node->offset);
       genln("  mov al, 0");
       genln("  rep stosb");
-      return;
-    case ND_STMT_EXPR:
-      for (Node* stmt = node->body; stmt; stmt = stmt->next) {
-        gen_stmt(stmt);
-      }
       return;
     case ND_OR:
     case ND_AND:

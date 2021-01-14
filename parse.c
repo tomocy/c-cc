@@ -445,38 +445,6 @@ static Node* new_binary_node(NodeKind kind, Node* lhs, Node* rhs) {
   return node;
 }
 
-static Node* new_memzero_node(Type* type, Token* token, int offset) {
-  Node* node = new_node(ND_MEMZERO);
-  node->type = type;
-  node->token = token;
-  node->offset = offset;
-  return node;
-}
-
-static Node* new_member_node(Token** tokens, Token* token, Node* lhs) {
-  if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
-    error_token(*tokens, "expected a struct or union");
-  }
-
-  Token* ident = expect_ident(tokens);
-
-  for (Member* mem = lhs->type->members; mem; mem = mem->next) {
-    if (!are_strs_equal_n(mem->name, ident->loc, ident->len)) {
-      continue;
-    }
-
-    Node* node = new_unary_node(ND_MEMBER, lhs);
-    node->type = mem->type;
-    node->token = token;
-    node->name = mem->name;
-    node->offset = mem->offset;
-    return node;
-  }
-
-  error_token(*tokens, "no such member");
-  return NULL;
-}
-
 static Node* new_stmt_expr_node(Token* token, Node* body) {
   Node* last_stmt = NULL;
   Node* stmt = body;
@@ -523,6 +491,30 @@ static Node* new_var_node(Token* token, Obj* obj) {
   }
 }
 
+static Node* new_member_node(Token** tokens, Token* token, Node* lhs) {
+  if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
+    error_token(*tokens, "expected a struct or union");
+  }
+
+  Token* ident = expect_ident(tokens);
+
+  for (Member* mem = lhs->type->members; mem; mem = mem->next) {
+    if (!are_strs_equal_n(mem->name, ident->loc, ident->len)) {
+      continue;
+    }
+
+    Node* node = new_unary_node(ND_MEMBER, lhs);
+    node->type = mem->type;
+    node->token = token;
+    node->name = mem->name;
+    node->offset = mem->offset;
+    return node;
+  }
+
+  error_token(*tokens, "no such member");
+  return NULL;
+}
+
 static Node* new_funccall_node(Type* type, Token* token, char* name,
                                Node* args) {
   Node* node = new_node(ND_FUNCCALL);
@@ -546,6 +538,20 @@ static Node* new_long_node(Token* token, int64_t val) {
   node->type = ty_long;
   node->token = token;
   node->val = val;
+  return node;
+}
+
+static Node* new_null_node(Token* token) {
+  Node* node = new_node(ND_NULL);
+  node->token = token;
+  return node;
+}
+
+static Node* new_memzero_node(Type* type, Token* token, int offset) {
+  Node* node = new_node(ND_MEMZERO);
+  node->type = type;
+  node->token = token;
+  node->offset = offset;
   return node;
 }
 
@@ -1956,18 +1962,13 @@ static Node* designated_expr(Token* token, DesignatedIniter* init, int depth) {
 static Node* lvar_init(Token* token, Initer* init,
                        DesignatedIniter* designated) {
   if (init->type->kind != TY_ARRAY) {
-    if (!init->expr) {
-      Node* node = new_node(ND_NULL);
-      node->token = token;
-      return node;
-    }
-
-    return new_assign_node(token, designated_expr(token, designated, 0),
-                           init->expr);
+    return init->expr
+               ? new_assign_node(token, designated_expr(token, designated, 0),
+                                 init->expr)
+               : new_null_node(token);
   }
 
-  Node* node = new_node(ND_NULL);
-  node->token = token;
+  Node* node = new_null_node(token);
 
   for (int i = 0; i < init->type->len; i++) {
     DesignatedIniter next = {designated, i};
