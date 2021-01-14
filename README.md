@@ -49,7 +49,8 @@ const_expr
 
 lvar = var_decl ";"
 
-var_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" assign)?)*)?
+initer = "{" initer ("," initer)* "}"
+lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer)?)*)?
 
 enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* "}"
 
