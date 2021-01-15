@@ -1935,12 +1935,21 @@ static void skip_excess_initers(Token** tokens) {
   expr(tokens);
 }
 
-static void init_initer(Token** tokens, Initer* init) {
-  if (init->type->kind != TY_ARRAY) {
-    init->expr = assign(tokens);
-    return;
+static void init_initer(Token** tokens, Initer* init);
+
+static void init_string_initer(Token** tokens, Initer* init) {
+  int len = strlen((*tokens)->str_val);
+  if (init->type->len < len) {
+    len = init->type->len;
   }
 
+  for (int i = 0; i <= len; i++) {
+    init->children[i]->expr = new_int_node(*tokens, (*tokens)->str_val[i]);
+  }
+  *tokens = (*tokens)->next;
+}
+
+static void init_array_initer(Token** tokens, Initer* init) {
   expect_token(tokens, "{");
 
   for (int i = 0; !consume_token(tokens, "}"); i++) {
@@ -1953,8 +1962,20 @@ static void init_initer(Token** tokens, Initer* init) {
     }
     skip_excess_initers(tokens);
   }
+}
 
-  // expect_token(tokens, "}");
+static void init_initer(Token** tokens, Initer* init) {
+  if (init->type->kind == TY_ARRAY && (*tokens)->kind == TK_STR) {
+    init_string_initer(tokens, init);
+    return;
+  }
+
+  if (init->type->kind == TY_ARRAY) {
+    init_array_initer(tokens, init);
+    return;
+  }
+
+  init->expr = assign(tokens);
 }
 
 static Initer* initer(Token** tokens, Type* ty) {

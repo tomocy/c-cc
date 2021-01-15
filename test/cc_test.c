@@ -2194,5 +2194,34 @@ int main() {
            x[0][1];
          }));
 
+  ASSERT('a', ({
+           char x[4] = "abc";
+           x[0];
+         }));
+  ASSERT('c', ({
+           char x[4] = "abc";
+           x[2];
+         }));
+  ASSERT(0, ({
+           char x[4] = "abc";
+           x[3];
+         }));
+  ASSERT('a', ({
+           char x[2][4] = {"abc", "def"};
+           x[0][0];
+         }));
+  ASSERT(0, ({
+           char x[2][4] = {"abc", "def"};
+           x[0][3];
+         }));
+  ASSERT('d', ({
+           char x[2][4] = {"abc", "def"};
+           x[1][0];
+         }));
+  ASSERT('f', ({
+           char x[2][4] = {"abc", "def"};
+           x[1][2];
+         }));
+
   ok();
 }
