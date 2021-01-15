@@ -26,6 +26,7 @@ struct Initer {
   Initer* next;
   Type* type;
   Token* token;
+  bool is_flexible;
   Node* expr;
   Initer** children;
 };
@@ -293,13 +294,21 @@ static Obj* new_str(char* name, char* val) {
   return str;
 }
 
+static void change_lvar_type(Obj* vars, Obj* var, Type* type) {
+  if (var->kind != OJ_LVAR) {
+    error("expected a local var");
+  }
+
+  var->type = type;
+  var->offset = align(vars ? vars->offset + var->type->size : var->type->size,
+                      var->type->alignment);
+}
+
 static Obj* new_lvar(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
-  var->offset =
-      align((current_lvars) ? current_lvars->offset + type->size : type->size,
-            type->alignment);
+  change_lvar_type(current_lvars, var, type);
   add_lvar(var);
   return var;
 }
@@ -1918,6 +1927,11 @@ static Initer* new_initer(Type* ty) {
     return init;
   }
 
+  if (init->type->size < 0) {
+    init->is_flexible = true;
+    return init;
+  }
+
   init->children = calloc(init->type->size, sizeof(Initer*));
   for (int i = 0; i < init->type->size; i++) {
     init->children[i] = new_initer(init->type->base);
@@ -1938,19 +1952,42 @@ static void skip_excess_initers(Token** tokens) {
 static void init_initer(Token** tokens, Initer* init);
 
 static void init_string_initer(Token** tokens, Initer* init) {
-  int len = strlen((*tokens)->str_val);
+  int len = strlen((*tokens)->str_val) + 1;
+
+  if (init->is_flexible) {
+    *init = *new_initer(new_array_type(init->type->base, len));
+  }
+
   if (init->type->len < len) {
     len = init->type->len;
   }
 
-  for (int i = 0; i <= len; i++) {
+  for (int i = 0; i < len; i++) {
     init->children[i]->expr = new_int_node(*tokens, (*tokens)->str_val[i]);
   }
   *tokens = (*tokens)->next;
 }
 
+static int count_initers(Token* token, Type* ty) {
+  Initer* ignored = new_initer(ty);
+
+  int i = 0;
+  for (; !consume_token(&token, "}"); i++) {
+    if (i > 0) {
+      expect_token(&token, ",");
+    }
+    init_initer(&token, ignored);
+  }
+  return i;
+}
+
 static void init_array_initer(Token** tokens, Initer* init) {
   expect_token(tokens, "{");
+
+  if (init->is_flexible) {
+    int len = count_initers(*tokens, init->type->base);
+    *init = *new_initer(new_array_type(init->type->base, len));
+  }
 
   for (int i = 0; !consume_token(tokens, "}"); i++) {
     if (i > 0) {
@@ -1978,18 +2015,19 @@ static void init_initer(Token** tokens, Initer* init) {
   init->expr = assign(tokens);
 }
 
-static Initer* initer(Token** tokens, Type* ty) {
-  Initer* init = new_initer(ty);
+static Initer* initer(Token** tokens, Type** ty) {
+  Initer* init = new_initer(*ty);
   init_initer(tokens, init);
+  *ty = init->type;
   return init;
 }
 
-static Node* designated_expr(Token* token, DesignatedIniter* init, int depth) {
+static Node* designated_expr(Token* token, DesignatedIniter* init) {
   if (init->var) {
     return new_var_node(token, init->var);
   }
 
-  Node* lhs = designated_expr(token, init->next, ++depth);
+  Node* lhs = designated_expr(token, init->next);
   Node* rhs = new_int_node(token, init->i);
   return new_deref_node(token, new_add_node(token, lhs, rhs));
 }
@@ -1998,7 +2036,7 @@ static Node* lvar_init(Token* token, Initer* init,
                        DesignatedIniter* designated) {
   if (init->type->kind != TY_ARRAY) {
     return init->expr
-               ? new_assign_node(token, designated_expr(token, designated, 0),
+               ? new_assign_node(token, designated_expr(token, designated),
                                  init->expr)
                : new_null_node(token);
   }
@@ -2019,7 +2057,10 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
 
   expect_token(tokens, "=");
 
-  Initer* init = initer(tokens, var->type);
+  Type* type = var->type;
+  Initer* init = initer(tokens, &type);
+  change_lvar_type(var->next, var, type);
+
   DesignatedIniter designated = {NULL, 0, var};
   return new_comma_node(start, new_memzero_node(var->type, start, var->offset),
                         lvar_init(start, init, &designated));
@@ -2038,15 +2079,15 @@ static Node* lvar_decl(Token** tokens) {
     }
 
     Decl* decl = declarator(tokens, spec);
-    if (decl->type->size < 0) {
-      error_token(decl->ident, "variable has imcomplete type");
-    }
 
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(decl->ident, var);
 
     if (equal_to_token(*tokens, "=")) {
       node = lvar_initer(tokens, var);
+    }
+    if (var->type->size < 0) {
+      error_token(decl->ident, "variable has imcomplete type");
     }
 
     cur->next = node;
