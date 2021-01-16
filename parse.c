@@ -2052,6 +2052,14 @@ static void init_initer(Token** tokens, Initer* init) {
   }
 
   if (init->type->kind == TY_STRUCT) {
+    if (!equal_to_token(*tokens, "{")) {
+      Node* expr = assign(tokens);
+      if (expr->type->kind == TY_STRUCT) {
+        init->expr = expr;
+        return;
+      }
+    }
+
     init_struct_initer(tokens, init);
     return;
   }
@@ -2100,7 +2108,7 @@ static Node* lvar_init(Token* token, Initer* init,
     return node;
   }
 
-  if (init->type->kind == TY_STRUCT) {
+  if (init->type->kind == TY_STRUCT && !init->expr) {
     Node* node = new_null_node(token);
 
     int i = 0;
