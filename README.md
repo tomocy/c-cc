@@ -49,7 +49,10 @@ const_expr
 
 lvar = var_decl ";"
 
-initer = "{" initer ("," initer)* "}"
+initer = string_initer | struct_initer | array_initer | assign
+string_initer = str
+struct_initer = "{" initer ("," initer)* "}"
+array_initer = "{" initer ("," initer)* "}"
 lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer)?)*)?
 
 enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* "}"

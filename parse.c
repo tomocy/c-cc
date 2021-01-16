@@ -33,8 +33,9 @@ struct Initer {
 
 struct DesignatedIniter {
   DesignatedIniter* next;
-  int i;
   Obj* var;
+  int i;
+  Member* mem;
 };
 
 static Obj* codes;
@@ -500,28 +501,13 @@ static Node* new_var_node(Token* token, Obj* obj) {
   }
 }
 
-static Node* new_member_node(Token** tokens, Token* token, Node* lhs) {
-  if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
-    error_token(*tokens, "expected a struct or union");
-  }
-
-  Token* ident = expect_ident(tokens);
-
-  for (Member* mem = lhs->type->members; mem; mem = mem->next) {
-    if (!are_strs_equal_n(mem->name, ident->loc, ident->len)) {
-      continue;
-    }
-
-    Node* node = new_unary_node(ND_MEMBER, lhs);
-    node->type = mem->type;
-    node->token = token;
-    node->name = mem->name;
-    node->offset = mem->offset;
-    return node;
-  }
-
-  error_token(*tokens, "no such member");
-  return NULL;
+static Node* new_member_node(Token* token, Node* lhs, Member* mem) {
+  Node* node = new_unary_node(ND_MEMBER, lhs);
+  node->type = mem->type;
+  node->token = token;
+  node->name = mem->name;
+  node->offset = mem->offset;
+  return node;
 }
 
 static Node* new_funccall_node(Type* type, Token* token, char* name,
@@ -1748,6 +1734,25 @@ static Node* increment(Node* node, int delta) {
       new_add_node(node->token, inc, new_int_node(node->token, -delta)));
 }
 
+static Node* member(Token** tokens, Token* token, Node* lhs) {
+  if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
+    error_token(*tokens, "expected a struct or union");
+  }
+
+  Token* ident = expect_ident(tokens);
+
+  for (Member* mem = lhs->type->members; mem; mem = mem->next) {
+    if (!are_strs_equal_n(mem->name, ident->loc, ident->len)) {
+      continue;
+    }
+
+    return new_member_node(token, lhs, mem);
+  }
+
+  error_token(*tokens, "no such member");
+  return NULL;
+}
+
 static Node* postfix(Token** tokens) {
   Node* node = primary(tokens);
 
@@ -1762,13 +1767,13 @@ static Node* postfix(Token** tokens) {
     }
 
     if (consume_token(tokens, ".")) {
-      node = new_member_node(tokens, start, node);
+      node = member(tokens, start, node);
       continue;
     }
 
     if (consume_token(tokens, "->")) {
       node = new_deref_node(start, node);
-      node = new_member_node(tokens, start, node);
+      node = member(tokens, start, node);
       continue;
     }
 
@@ -1923,19 +1928,35 @@ static Node* lvar(Token** tokens) {
 static Initer* new_initer(Type* ty) {
   Initer* init = calloc(1, sizeof(Initer));
   init->type = ty;
-  if (init->type->kind != TY_ARRAY) {
+
+  if (init->type->kind == TY_ARRAY) {
+    if (init->type->size < 0) {
+      init->is_flexible = true;
+      return init;
+    }
+
+    init->children = calloc(init->type->size, sizeof(Initer*));
+    for (int i = 0; i < init->type->size; i++) {
+      init->children[i] = new_initer(init->type->base);
+    }
     return init;
   }
 
-  if (init->type->size < 0) {
-    init->is_flexible = true;
+  if (init->type->kind == TY_STRUCT) {
+    int mems = 0;
+    for (Member* mem = init->type->members; mem; mem = mem->next) {
+      mems++;
+    }
+
+    init->children = calloc(mems, sizeof(Initer*));
+    int i = 0;
+    for (Member* mem = init->type->members; mem; mem = mem->next) {
+      init->children[i] = new_initer(mem->type);
+      i++;
+    }
     return init;
   }
 
-  init->children = calloc(init->type->size, sizeof(Initer*));
-  for (int i = 0; i < init->type->size; i++) {
-    init->children[i] = new_initer(init->type->base);
-  }
   return init;
 }
 
@@ -1968,6 +1989,27 @@ static void init_string_initer(Token** tokens, Initer* init) {
   *tokens = (*tokens)->next;
 }
 
+static void init_struct_initer(Token** tokens, Initer* init) {
+  expect_token(tokens, "{");
+
+  int i = 0;
+  Member* mem = init->type->members;
+  while (!consume_token(tokens, "}")) {
+    if (i > 0) {
+      expect_token(tokens, ",");
+    }
+
+    if (mem) {
+      init_initer(tokens, init->children[i]);
+      i++;
+      mem = mem->next;
+      continue;
+    }
+
+    skip_excess_initers(tokens);
+  }
+}
+
 static int count_initers(Token* token, Type* ty) {
   Initer* ignored = new_initer(ty);
 
@@ -1993,10 +2035,12 @@ static void init_array_initer(Token** tokens, Initer* init) {
     if (i > 0) {
       expect_token(tokens, ",");
     }
+
     if (i < init->type->len) {
       init_initer(tokens, init->children[i]);
       continue;
     }
+
     skip_excess_initers(tokens);
   }
 }
@@ -2004,6 +2048,11 @@ static void init_array_initer(Token** tokens, Initer* init) {
 static void init_initer(Token** tokens, Initer* init) {
   if (init->type->kind == TY_ARRAY && (*tokens)->kind == TK_STR) {
     init_string_initer(tokens, init);
+    return;
+  }
+
+  if (init->type->kind == TY_STRUCT) {
+    init_struct_initer(tokens, init);
     return;
   }
 
@@ -2027,6 +2076,11 @@ static Node* designated_expr(Token* token, DesignatedIniter* init) {
     return new_var_node(token, init->var);
   }
 
+  if (init->mem) {
+    return new_member_node(token, designated_expr(token, init->next),
+                           init->mem);
+  }
+
   Node* lhs = designated_expr(token, init->next);
   Node* rhs = new_int_node(token, init->i);
   return new_deref_node(token, new_add_node(token, lhs, rhs));
@@ -2034,22 +2088,35 @@ static Node* designated_expr(Token* token, DesignatedIniter* init) {
 
 static Node* lvar_init(Token* token, Initer* init,
                        DesignatedIniter* designated) {
-  if (init->type->kind != TY_ARRAY) {
-    return init->expr
-               ? new_assign_node(token, designated_expr(token, designated),
-                                 init->expr)
-               : new_null_node(token);
+  if (init->type->kind == TY_ARRAY) {
+    Node* node = new_null_node(token);
+
+    for (int i = 0; i < init->type->len; i++) {
+      DesignatedIniter next = {designated, NULL, i};
+      node = new_comma_node(token, node,
+                            lvar_init(token, init->children[i], &next));
+    }
+
+    return node;
   }
 
-  Node* node = new_null_node(token);
+  if (init->type->kind == TY_STRUCT) {
+    Node* node = new_null_node(token);
 
-  for (int i = 0; i < init->type->len; i++) {
-    DesignatedIniter next = {designated, i};
-    node =
-        new_comma_node(token, node, lvar_init(token, init->children[i], &next));
+    int i = 0;
+    for (Member* mem = init->type->members; mem; mem = mem->next) {
+      DesignatedIniter next = {designated, NULL, 0, mem};
+      node = new_comma_node(token, node,
+                            lvar_init(token, init->children[i], &next));
+      i++;
+    }
+
+    return node;
   }
 
-  return node;
+  return init->expr ? new_assign_node(token, designated_expr(token, designated),
+                                      init->expr)
+                    : new_null_node(token);
 }
 
 static Node* lvar_initer(Token** tokens, Obj* var) {
@@ -2061,7 +2128,7 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
   Initer* init = initer(tokens, &type);
   change_lvar_type(var->next, var, type);
 
-  DesignatedIniter designated = {NULL, 0, var};
+  DesignatedIniter designated = {NULL, var};
   return new_comma_node(start, new_memzero_node(var->type, start, var->offset),
                         lvar_init(start, init, &designated));
 }
