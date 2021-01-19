@@ -999,6 +999,14 @@ static void write_data(char* data, int size, int64_t val) {
 }
 
 static void write_gvar_data(char* data, int offset, Initer* init) {
+  if (init->type->kind == TY_STRUCT) {
+    int i = 0;
+    for (Member* mem = init->type->members; mem; mem = mem->next) {
+      write_gvar_data(data, offset + mem->offset, init->children[i]);
+      i++;
+    }
+  }
+
   if (init->type->kind == TY_ARRAY) {
     int size = init->type->base->size;
     for (int i = 0; i < init->type->len; i++) {
