@@ -288,9 +288,9 @@ static Obj* new_gvar(Type* type, char* name) {
 }
 
 static Obj* new_str(char* name, char* val) {
-  Type* ty = new_array_type(ty_char, strlen(val) + 1);
-  Obj* str = new_gvar(ty, name);
-  str->str_val = strdup(val);
+  Type* type = new_array_type(ty_char, strlen(val) + 1);
+  Obj* str = new_gvar(type, name);
+  str->val = strdup(val);
   add_code(str);
   return str;
 }
@@ -317,7 +317,7 @@ static Obj* new_lvar(Type* type, char* name) {
 static Obj* new_enum(char* name, int64_t val) {
   Obj* enu = new_obj(OJ_ENUM);
   enu->name = name;
-  enu->int_val = val;
+  enu->val = (char*)val;
   add_enum(enu);
   return enu;
 }
@@ -873,6 +873,8 @@ static Type* type_suffix(Token** tokens, Type* type);
 static Type* array_dimensions(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Node* params);
 static int64_t const_expr(Token** tokens);
+static int64_t eval(Node* node);
+static Initer* initer(Token** tokens, Type** type);
 
 bool is_func(Token* tokens) {
   consume_token(&tokens, "static");
@@ -930,14 +932,14 @@ static void resolve_goto_labels() {
 static void func(Token** tokens) {
   bool is_static = consume_token(tokens, "static");
 
-  Type* ty = decl_specifier(tokens);
+  Type* type = decl_specifier(tokens);
 
   Token* ident = expect_ident(tokens);
 
   Obj* func = new_obj(OJ_FUNC);
   current_func = func;
   add_code(func);
-  func->type = ty;
+  func->type = type;
   func->name = strndup(ident->loc, ident->len);
   func->is_static = is_static;
 
@@ -979,6 +981,47 @@ static void func(Token** tokens) {
   current_func = NULL;
 }
 
+static void write_data(char* data, int size, int64_t val) {
+  switch (size) {
+    case 1:
+      *data = val;
+      return;
+    case 2:
+      *(uint16_t*)data = val;
+      return;
+    case 4:
+      *(uint32_t*)data = val;
+      return;
+    default:
+      *(uint64_t*)data = val;
+      return;
+  }
+}
+
+static void write_gvar_data(char* data, int offset, Initer* init) {
+  if (init->type->kind == TY_ARRAY) {
+    int size = init->type->size;
+    for (int i = 0; i < init->type->len; i++) {
+      write_gvar_data(data, offset + size * i, init->children[i]);
+    }
+  }
+
+  if (!init->expr) {
+    return;
+  }
+
+  write_data(data + offset, init->type->size, eval(init->expr));
+}
+
+static void gvar_initer(Token** tokens, Obj* var) {
+  expect_token(tokens, "=");
+
+  Initer* init = initer(tokens, &var->type);
+  char* data = calloc(1, var->type->size);
+  write_gvar_data(data, 0, init);
+  var->val = data;
+}
+
 static void gvar(Token** tokens) {
   Type* spec = decl_specifier(tokens);
 
@@ -997,8 +1040,9 @@ static void gvar(Token** tokens) {
     Obj* var = new_gvar(decl->type, decl->name);
     add_code(var);
 
-    if (consume_token(tokens, "=")) {
-      var->int_val = const_expr(tokens);
+    if (equal_to_token(*tokens, "=")) {
+      // var->int_val = const_expr(tokens);
+      gvar_initer(tokens, var);
     }
   }
 }
@@ -1825,7 +1869,7 @@ static Node* primary(Token** tokens) {
     }
 
     Node* node = var_or_enum->kind == OJ_ENUM
-                     ? new_int_node(ident, var_or_enum->int_val)
+                     ? new_int_node(ident, (int64_t)var_or_enum->val)
                      : new_var_node(ident, var_or_enum);
     return node;
   }
@@ -1925,9 +1969,9 @@ static Node* lvar(Token** tokens) {
   return node;
 }
 
-static Initer* new_initer(Type* ty) {
+static Initer* new_initer(Type* type) {
   Initer* init = calloc(1, sizeof(Initer));
-  init->type = ty;
+  init->type = type;
 
   if (init->type->kind == TY_STRUCT || init->type->kind == TY_UNION) {
     int mems = 0;
@@ -2016,8 +2060,8 @@ static void init_union_initer(Token** tokens, Initer* init) {
   expect_token(tokens, "}");
 }
 
-static int count_initers(Token* token, Type* ty) {
-  Initer* ignored = new_initer(ty);
+static int count_initers(Token* token, Type* type) {
+  Initer* ignored = new_initer(type);
 
   int i = 0;
   for (; !consume_token(&token, "}"); i++) {
@@ -2366,7 +2410,7 @@ static Member* members(Token** tokens) {
 }
 
 static Type* decl_specifier(Token** tokens) {
-  Type* ty = ty_int;
+  Type* type = ty_int;
   int counter = 0;
 
   enum {
@@ -2389,7 +2433,7 @@ static Type* decl_specifier(Token** tokens) {
       }
 
       counter += OTHER;
-      ty = def_type->type;
+      type = def_type->type;
       *tokens = (*tokens)->next;
       continue;
     }
@@ -2400,7 +2444,7 @@ static Type* decl_specifier(Token** tokens) {
       }
 
       counter += OTHER;
-      ty = struct_decl(tokens);
+      type = struct_decl(tokens);
       continue;
     }
 
@@ -2410,7 +2454,7 @@ static Type* decl_specifier(Token** tokens) {
       }
 
       counter += OTHER;
-      ty = union_decl(tokens);
+      type = union_decl(tokens);
       continue;
     }
 
@@ -2420,7 +2464,7 @@ static Type* decl_specifier(Token** tokens) {
       }
 
       counter += OTHER;
-      ty = enum_specifier(tokens);
+      type = enum_specifier(tokens);
       continue;
     }
 
@@ -2450,33 +2494,33 @@ static Type* decl_specifier(Token** tokens) {
 
     switch (counter) {
       case VOID:
-        ty = ty_void;
+        type = ty_void;
         break;
       case BOOL:
-        ty = ty_bool;
+        type = ty_bool;
         break;
       case CHAR:
-        ty = ty_char;
+        type = ty_char;
         break;
       case SHORT:
       case SHORT + INT:
-        ty = ty_short;
+        type = ty_short;
         break;
       case INT:
-        ty = ty_int;
+        type = ty_int;
         break;
       case LONG:
       case LONG + INT:
       case LONG + LONG:
       case LONG + LONG + INT:
-        ty = ty_long;
+        type = ty_long;
         break;
       default:
         error_token(start, "expected a typename");
     }
   }
 
-  return ty;
+  return type;
 }
 
 static Decl* declarator(Token** tokens, Type* type) {

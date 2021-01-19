@@ -88,6 +88,11 @@ static int static_fn() { return 3; }
 
 int param_decay(int x[]) { return x[0]; }
 
+char g3 = 3;
+short g4 = 4;
+int g5 = 5;
+long g6 = 6;
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -2407,6 +2412,11 @@ int main() {
            } x = {{4, 3, 2, 1}};
            x.f;
          }));
+
+  ASSERT(3, g3);
+  ASSERT(4, g4);
+  ASSERT(5, g5);
+  ASSERT(6, g6);
 
   ok();
 }

@@ -155,8 +155,7 @@ struct Obj {
   Node* body;
   int stack_size;
   int offset;
-  char* str_val;
-  int int_val;
+  char* val;
 };
 
 extern char* input_filename;

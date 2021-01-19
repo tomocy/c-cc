@@ -468,15 +468,10 @@ static void gen_data(Obj* codes) {
     genln(".global %s", var->name);
     genln("%s:", var->name);
 
-    if (var->str_val) {
-      for (int i = 0; i < var->type->len; i++) {
-        genln("  .byte %d", var->str_val[i]);
+    if (var->val) {
+      for (int i = 0; i < var->type->size; i++) {
+        genln("  .byte %d", var->val[i]);
       }
-      continue;
-    }
-
-    if (var->int_val != 0) {
-      genln("  .long %d", var->int_val);
       continue;
     }
 
