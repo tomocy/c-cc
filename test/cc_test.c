@@ -92,6 +92,7 @@ char g3 = 3;
 short g4 = 4;
 int g5 = 5;
 long g6 = 6;
+int g9[3] = {0, 1, 2};
 
 int main() {
   ASSERT(0, 0);
@@ -2417,6 +2418,10 @@ int main() {
   ASSERT(4, g4);
   ASSERT(5, g5);
   ASSERT(6, g6);
+
+  ASSERT(0, g9[0]);
+  ASSERT(1, g9[1]);
+  ASSERT(2, g9[2]);
 
   ok();
 }

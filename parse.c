@@ -1000,10 +1000,11 @@ static void write_data(char* data, int size, int64_t val) {
 
 static void write_gvar_data(char* data, int offset, Initer* init) {
   if (init->type->kind == TY_ARRAY) {
-    int size = init->type->size;
+    int size = init->type->base->size;
     for (int i = 0; i < init->type->len; i++) {
       write_gvar_data(data, offset + size * i, init->children[i]);
     }
+    return;
   }
 
   if (!init->expr) {
