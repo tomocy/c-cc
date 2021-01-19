@@ -878,12 +878,9 @@ static Initer* initer(Token** tokens, Type** type);
 
 bool is_func(Token* tokens) {
   consume_token(&tokens, "static");
-  decl_specifier(&tokens);
 
-  if (tokens->kind != TK_IDENT) {
-    error_token(tokens, "expected an ident");
-  }
-  tokens = tokens->next;
+  declarator(&tokens, decl_specifier(&tokens));
+
   return equal_to_token(tokens, "(");
 }
 
@@ -1042,16 +1039,15 @@ static void gvar(Token** tokens) {
     is_first = false;
 
     Decl* decl = declarator(tokens, spec);
-    if (decl->type->size < 0) {
-      error_token(decl->ident, "variable has imcomplete type");
-    }
 
     Obj* var = new_gvar(decl->type, decl->name);
     add_code(var);
 
     if (equal_to_token(*tokens, "=")) {
-      // var->int_val = const_expr(tokens);
       gvar_initer(tokens, var);
+    }
+    if (var->type->size < 0) {
+      error_token(decl->ident, "variable has imcomplete type");
     }
   }
 }
@@ -2223,6 +2219,9 @@ static Node* lvar_decl(Token** tokens) {
     }
 
     Decl* decl = declarator(tokens, spec);
+    if (decl->type == ty_void) {
+      error_token(decl->ident, "variable declared void");
+    }
 
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(decl->ident, var);
@@ -2402,6 +2401,9 @@ static Member* members(Token** tokens) {
       is_first = false;
 
       Decl* decl = declarator(tokens, spec);
+      if (decl->type == ty_void) {
+        error_token(decl->ident, "variable declared void");
+      }
       if (decl->type->size < 0) {
         error_token(decl->ident, "variable has imcomplete type");
       }
@@ -2549,9 +2551,6 @@ static Decl* declarator(Token** tokens, Type* type) {
   Token* ident = expect_ident(tokens);
 
   type = type_suffix(tokens, type);
-  if (type == ty_void) {
-    error_token(ident, "variable declared void");
-  }
 
   Decl* decl = calloc(1, sizeof(Decl));
   decl->type = type;

@@ -4,8 +4,8 @@
 ```
 program = (func | gvar | tydef)*
 
-func = decl_specifier ident "(" (decl_specifier declarator (, decl_specifier declarator)*)? ")" bloc_stmt
-gvar = decl_specifier (declarator ("=" const_expr)? ("," declarator ("=" const_expr)?)*)? ";"
+func = declarator "(" (decl_specifier declarator (, decl_specifier declarator)*)? ")" bloc_stmt
+gvar = declarator ("=" const_expr)? ("," declarator ("=" const_expr)?)* ";"
 tydef = "typedef" decl_specifier declarator ";"
 
 bloc_stmt = "{" stmt* "}"
