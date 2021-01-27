@@ -1012,6 +1012,10 @@ static Relocation* write_gvar_data(char* data, int offset, Initer* init,
     return reloc;
   }
 
+  if (init->type->kind == TY_UNION) {
+    return write_gvar_data(data, offset, init->children[0], reloc);
+  }
+
   if (init->type->kind == TY_ARRAY) {
     int size = init->type->base->size;
     for (int i = 0; i < init->type->len; i++) {

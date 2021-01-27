@@ -126,6 +126,11 @@ struct {
 } g30 = {{{1, 2, 3}}};
 int* g31 = g30.a.a;
 
+union {
+  int a;
+  char b[8];
+} g32[2] = {{0x01020304}, {0x05060708}};
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -2484,6 +2489,11 @@ int main() {
   ASSERT(1, g31[0]);
   ASSERT(2, g31[1]);
   ASSERT(3, g31[2]);
+
+  ASSERT(4, g32[0].b[0]);
+  ASSERT(3, g32[0].b[1]);
+  ASSERT(8, g32[1].b[0]);
+  ASSERT(7, g32[1].b[1]);
 
   ok();
 }
