@@ -12,6 +12,7 @@
 typedef struct Token Token;
 typedef struct Node Node;
 typedef struct Obj Obj;
+typedef struct Relocation Relocation;
 typedef struct Type Type;
 typedef struct Member Member;
 
@@ -155,7 +156,15 @@ struct Obj {
   Node* body;
   int stack_size;
   int offset;
+  Relocation* relocs;
   char* val;
+};
+
+struct Relocation {
+  Relocation* next;
+  char* label;
+  int offset;
+  long addend;
 };
 
 extern char* input_filename;

@@ -469,10 +469,18 @@ static void gen_data(Obj* codes) {
     genln("%s:", var->name);
 
     if (var->val) {
-      for (int i = 0; i < var->type->size; i++) {
-        genln("  .byte %d", var->val[i]);
+      Relocation* reloc = var->relocs;
+      int offset = 0;
+      while (offset < var->type->size) {
+        if (reloc && offset == reloc->offset) {
+          genln("  .quad %s%+ld", reloc->label, reloc->addend);
+          reloc = reloc->next;
+          offset += 8;
+          continue;
+        }
+
+        genln("  .byte %d", var->val[offset++]);
       }
-      continue;
     }
 
     genln("  .zero %d", var->type->size);
