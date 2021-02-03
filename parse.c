@@ -2093,6 +2093,31 @@ static void skip_excess_initers(Token** tokens) {
   expr(tokens);
 }
 
+static bool equal_to_initer_end(Token* token) {
+  return equal_to_token(token, "}") ||
+         (equal_to_token(token, ",") && equal_to_token(token->next, "}"));
+}
+
+static bool consume_initer_end(Token** tokens) {
+  if (consume_token(tokens, "}")) {
+    return true;
+  }
+
+  if (equal_to_token(*tokens, ",") && equal_to_token((*tokens)->next, "}")) {
+    expect_token(tokens, ",");
+    expect_token(tokens, "}");
+    return true;
+  }
+
+  return false;
+}
+
+static void expect_initer_end(Token** tokens) {
+  if (!consume_initer_end(tokens)) {
+    error_token(*tokens, "expected an end of initialier");
+  }
+}
+
 static void init_initer(Token** tokens, Initer* init);
 
 static void init_string_initer(Token** tokens, Initer* init) {
@@ -2117,7 +2142,7 @@ static void init_struct_initer(Token** tokens, Initer* init) {
 
   int i = 0;
   Member* mem = init->type->members;
-  while (!consume_token(tokens, "}")) {
+  while (!consume_initer_end(tokens)) {
     if (i > 0) {
       expect_token(tokens, ",");
     }
@@ -2135,7 +2160,7 @@ static void init_struct_initer(Token** tokens, Initer* init) {
 
 static void init_direct_struct_initer(Token** tokens, Initer* init) {
   int i = 0;
-  for (Member* mem = init->type->members; mem && !equal_to_token(*tokens, "}");
+  for (Member* mem = init->type->members; mem && !equal_to_initer_end(*tokens);
        mem = mem->next) {
     if (i > 0) {
       expect_token(tokens, ",");
@@ -2149,7 +2174,7 @@ static void init_direct_struct_initer(Token** tokens, Initer* init) {
 static void init_union_initer(Token** tokens, Initer* init) {
   if (consume_token(tokens, "{")) {
     init_initer(tokens, init->children[0]);
-    expect_token(tokens, "}");
+    expect_initer_end(tokens);
   } else {
     init_initer(tokens, init->children[0]);
   }
@@ -2159,7 +2184,7 @@ static int count_initers(Token* token, Type* type) {
   Initer* ignored = new_initer(type);
 
   int i = 0;
-  for (; !consume_token(&token, "}"); i++) {
+  for (; !consume_initer_end(&token); i++) {
     if (i > 0) {
       expect_token(&token, ",");
     }
@@ -2176,7 +2201,7 @@ static void init_array_initer(Token** tokens, Initer* init) {
     *init = *new_initer(new_array_type(init->type->base, len));
   }
 
-  for (int i = 0; !consume_token(tokens, "}"); i++) {
+  for (int i = 0; !consume_initer_end(tokens); i++) {
     if (i > 0) {
       expect_token(tokens, ",");
     }
@@ -2196,7 +2221,7 @@ static void init_direct_array_initer(Token** tokens, Initer* init) {
     *init = *new_initer(new_array_type(init->type->base, len));
   }
 
-  for (int i = 0; i < init->type->len && !equal_to_token(*tokens, "}"); i++) {
+  for (int i = 0; i < init->type->len && !equal_to_initer_end(*tokens); i++) {
     if (i > 0) {
       expect_token(tokens, ",");
     }
@@ -2385,7 +2410,7 @@ static Type* enum_specifier(Token** tokens) {
 
   bool is_first = true;
   int val = 0;
-  while (!consume_token(tokens, "}")) {
+  while (!consume_initer_end(tokens)) {
     if (!is_first) {
       expect_token(tokens, ",");
     }

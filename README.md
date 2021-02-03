@@ -57,14 +57,14 @@ initer = string_initer |
     "{" assign "}" |
     assign
 string_initer = str
-struct_initer = "{" initer ("," initer)* "}"
+struct_initer = "{" initer ("," initer)* ","? "}"
 direct_struct_initer = initer ("," initer)*
-union_initer = "{" initer "}"
-array_initer = "{" initer ("," initer)* "}"
+union_initer = "{" initer ","? "}"
+array_initer = "{" initer ("," initer)* ","? "}"
 direct_array_initer = initer ("," initer)*
 lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer)?)*)?
 
-enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* "}"
+enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* ","? "}"
 
 struct_decl = "struct" ident? "{" member* "}"
 union_decl = "union" ident? "{" member* "}"
