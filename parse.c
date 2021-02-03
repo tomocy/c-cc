@@ -2459,6 +2459,17 @@ static Type* struct_decl(Token** tokens) {
   int offset = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
+    if (mem->type == ty_void) {
+      error_token(mem->token, "variable declared void");
+    }
+    if (mem->type->size < 0) {
+      if (mem->next) {
+        error_token(mem->token, "variable has imcomplete type");
+      }
+
+      mem->type = new_array_type(mem->type->base, 0);
+    }
+
     offset = align(offset, mem->type->alignment);
     mem->offset = offset;
     offset += mem->type->size;
@@ -2509,6 +2520,13 @@ static Type* union_decl(Token** tokens) {
   int size = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
+    if (mem->type == ty_void) {
+      error_token(mem->token, "variable declared void");
+    }
+    if (mem->type->size < 0) {
+      error_token(mem->token, "variable has imcomplete type");
+    }
+
     mem->offset = 0;
     if (size < mem->type->size) {
       size = mem->type->size;
@@ -2548,20 +2566,19 @@ static Member* members(Token** tokens) {
       is_first = false;
 
       Decl* decl = declarator(tokens, spec);
-      if (decl->type == ty_void) {
-        error_token(decl->ident, "variable declared void");
-      }
-      if (decl->type->size < 0) {
-        error_token(decl->ident, "variable has imcomplete type");
-      }
 
       Member* mem = calloc(1, sizeof(Member));
       mem->type = decl->type;
+      mem->token = decl->ident;
       mem->name = decl->name;
 
       cur->next = mem;
       cur = cur->next;
     }
+  }
+
+  if (cur != &head && cur->type->kind == TY_ARRAY && cur->type->size < 0) {
+    cur->type = new_array_type(cur->type->base, 0);
   }
 
   return head.next;

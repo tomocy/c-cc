@@ -38,6 +38,7 @@ struct Token {
 struct Member {
   Member* next;
   Type* type;
+  Token* token;
   char* name;
   int offset;
 };
