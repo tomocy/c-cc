@@ -2133,10 +2133,26 @@ static void init_struct_initer(Token** tokens, Initer* init) {
   }
 }
 
+static void init_direct_struct_initer(Token** tokens, Initer* init) {
+  int i = 0;
+  for (Member* mem = init->type->members; mem && !equal_to_token(*tokens, "}");
+       mem = mem->next) {
+    if (i > 0) {
+      expect_token(tokens, ",");
+    }
+
+    init_initer(tokens, init->children[i]);
+    i++;
+  }
+}
+
 static void init_union_initer(Token** tokens, Initer* init) {
-  expect_token(tokens, "{");
-  init_initer(tokens, init->children[0]);
-  expect_token(tokens, "}");
+  if (consume_token(tokens, "{")) {
+    init_initer(tokens, init->children[0]);
+    expect_token(tokens, "}");
+  } else {
+    init_initer(tokens, init->children[0]);
+  }
 }
 
 static int count_initers(Token* token, Type* type) {
@@ -2174,6 +2190,21 @@ static void init_array_initer(Token** tokens, Initer* init) {
   }
 }
 
+static void init_direct_array_initer(Token** tokens, Initer* init) {
+  if (init->is_flexible) {
+    int len = count_initers(*tokens, init->type->base);
+    *init = *new_initer(new_array_type(init->type->base, len));
+  }
+
+  for (int i = 0; i < init->type->len && !equal_to_token(*tokens, "}"); i++) {
+    if (i > 0) {
+      expect_token(tokens, ",");
+    }
+
+    init_initer(tokens, init->children[i]);
+  }
+}
+
 static void init_initer(Token** tokens, Initer* init) {
   if (init->type->kind == TY_ARRAY && (*tokens)->kind == TK_STR) {
     init_string_initer(tokens, init);
@@ -2181,15 +2212,22 @@ static void init_initer(Token** tokens, Initer* init) {
   }
 
   if (init->type->kind == TY_STRUCT) {
-    if (!equal_to_token(*tokens, "{")) {
-      Node* expr = assign(tokens);
-      if (expr->type->kind == TY_STRUCT) {
-        init->expr = expr;
-        return;
-      }
+    if (equal_to_token(*tokens, "{")) {
+      init_struct_initer(tokens, init);
+      return;
     }
 
-    init_struct_initer(tokens, init);
+    Token* start = *tokens;
+
+    Node* expr = assign(tokens);
+    if (expr->type->kind == TY_STRUCT) {
+      init->expr = expr;
+      return;
+    }
+
+    *tokens = start;
+
+    init_direct_struct_initer(tokens, init);
     return;
   }
 
@@ -2199,7 +2237,11 @@ static void init_initer(Token** tokens, Initer* init) {
   }
 
   if (init->type->kind == TY_ARRAY) {
-    init_array_initer(tokens, init);
+    if (equal_to_token(*tokens, "{")) {
+      init_array_initer(tokens, init);
+    } else {
+      init_direct_array_initer(tokens, init);
+    }
     return;
   }
 

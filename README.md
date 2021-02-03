@@ -1,6 +1,7 @@
 # c-cc
 
 ## Production rule
+
 ```
 program = (func | gvar | tydef)*
 
@@ -49,11 +50,17 @@ const_expr
 
 lvar = var_decl ";"
 
-initer = string_initer | struct_initer | union_initer | array_initer | assign
+initer = string_initer |
+    struct_initer | direct_struct_initer |
+    union_initer |
+    array_initer | direct_array_initer |
+    assign
 string_initer = str
 struct_initer = "{" initer ("," initer)* "}"
+direct_struct_initer = initer ("," initer)*
 union_initer = "{" initer "}"
 array_initer = "{" initer ("," initer)* "}"
+direct_array_initer = initer ("," initer)*
 lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer)?)*)?
 
 enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* "}"
@@ -76,6 +83,7 @@ func_args = "(" (assign (, assign)*)? ")"
 ```
 
 ## Build and Run docker image
+
 ```
 make build-docker-container
 make run-docker-container
