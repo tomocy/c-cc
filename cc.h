@@ -61,6 +61,7 @@ struct Type {
   int size;
   int alignment;
   Member* members;
+  bool is_flexible;
   Type* base;
   int len;
 };

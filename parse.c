@@ -2062,6 +2062,10 @@ static Initer* new_initer(Type* type) {
     int i = 0;
     for (Member* mem = init->type->members; mem; mem = mem->next) {
       init->children[i] = new_initer(mem->type);
+      if (!mem->next && type->is_flexible) {
+        init->children[i]->is_flexible = true;
+      }
+
       i++;
     }
     return init;
@@ -2150,6 +2154,7 @@ static void init_struct_initer(Token** tokens, Initer* init) {
     if (mem) {
       init_initer(tokens, init->children[i]);
       i++;
+
       mem = mem->next;
       continue;
     }
@@ -2199,6 +2204,7 @@ static void init_array_initer(Token** tokens, Initer* init) {
   if (init->is_flexible) {
     int len = count_initers(*tokens, init->type->base);
     *init = *new_initer(new_array_type(init->type->base, len));
+    init->is_flexible = true;
   }
 
   for (int i = 0; !consume_initer_end(tokens); i++) {
@@ -2219,13 +2225,13 @@ static void init_direct_array_initer(Token** tokens, Initer* init) {
   if (init->is_flexible) {
     int len = count_initers(*tokens, init->type->base);
     *init = *new_initer(new_array_type(init->type->base, len));
+    init->is_flexible = true;
   }
 
   for (int i = 0; i < init->type->len && !equal_to_initer_end(*tokens); i++) {
     if (i > 0) {
       expect_token(tokens, ",");
     }
-
     init_initer(tokens, init->children[i]);
   }
 }
@@ -2279,9 +2285,38 @@ static void init_initer(Token** tokens, Initer* init) {
   init->expr = assign(tokens);
 }
 
+static Type* copy_struct_type(Type* type) {
+  Member head = {};
+  Member* cur = &head;
+  for (Member* mem = type->members; mem; mem = mem->next) {
+    Member* copied = calloc(1, sizeof(Member));
+    *copied = *mem;
+    cur = cur->next = copied;
+  }
+
+  return new_struct_type(type->size, type->alignment, head.next);
+}
+
 static Initer* initer(Token** tokens, Type** ty) {
   Initer* init = new_initer(*ty);
   init_initer(tokens, init);
+
+  if (init->type->kind == TY_STRUCT && init->type->is_flexible) {
+    Type* copied = copy_struct_type(*ty);
+
+    int i = 0;
+    Member* mem = copied->members;
+    while (mem->next) {
+      i++;
+      mem = mem->next;
+    }
+    mem->type = init->children[i]->type;
+    copied->size += mem->type->size;
+
+    *ty = copied;
+    return init;
+  }
+
   *ty = init->type;
   return init;
 }
@@ -2456,6 +2491,7 @@ static Type* struct_decl(Token** tokens) {
   expect_token(tokens, "{");
 
   Member* mems = members(tokens);
+  bool is_flexible = true;
   int offset = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
@@ -2468,6 +2504,7 @@ static Type* struct_decl(Token** tokens) {
       }
 
       mem->type = new_array_type(mem->type->base, 0);
+      is_flexible = true;
     }
 
     offset = align(offset, mem->type->alignment);
@@ -2480,6 +2517,7 @@ static Type* struct_decl(Token** tokens) {
   }
 
   Type* struc = new_struct_type(offset, alignment, mems);
+  struc->is_flexible = is_flexible;
 
   if (!tag) {
     return struc;
