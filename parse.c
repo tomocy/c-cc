@@ -287,8 +287,8 @@ static Obj* new_gvar(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_str(char* name, char* val) {
-  Type* type = new_array_type(ty_char, strlen(val) + 1);
+static Obj* new_str(char* name, char* val, int len) {
+  Type* type = new_array_type(ty_char, len + 1);
   Obj* str = new_gvar(type, name);
   str->val = strdup(val);
   add_code(str);
@@ -1916,7 +1916,7 @@ static Node* primary(Token** tokens) {
 
   if ((*tokens)->kind == TK_STR) {
     char* name = new_id();
-    Obj* str = new_str(name, (*tokens)->str_val);
+    Obj* str = new_str(name, (*tokens)->str_val, (*tokens)->str_val_len);
     Node* node = new_var_node(*tokens, str);
     *tokens = (*tokens)->next;
     return node;

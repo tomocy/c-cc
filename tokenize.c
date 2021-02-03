@@ -474,18 +474,19 @@ static bool consume_str(Token** dst, char** c) {
   char* end = (*c)++;
 
   char* val = calloc(1, end - start);
-  int i = 0;
+  int val_len = 0;
   for (char* c = start + 1; c < end;) {
     if (*c == '\\') {
       c++;
-      val[i++] = read_escaped_char(&c);
+      val[val_len++] = read_escaped_char(&c);
       continue;
     }
-    val[i++] = *c++;
+    val[val_len++] = *c++;
   }
 
   Token* token = new_token(TK_STR, start + 1, end - start - 1);
   token->str_val = val;
+  token->str_val_len = val_len;
   *dst = token;
   return true;
 }

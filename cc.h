@@ -32,6 +32,7 @@ struct Token {
   int len;
   int64_t int_val;
   char* str_val;
+  int str_val_len;
 };
 
 struct Member {

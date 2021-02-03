@@ -481,6 +481,8 @@ static void gen_data(Obj* codes) {
 
         genln("  .byte %d", var->val[offset++]);
       }
+
+      continue;
     }
 
     genln("  .zero %d", var->type->size);
