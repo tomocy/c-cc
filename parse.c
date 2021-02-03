@@ -2245,6 +2245,12 @@ static void init_initer(Token** tokens, Initer* init) {
     return;
   }
 
+  if (consume_token(tokens, "{")) {
+    init->expr = assign(tokens);
+    expect_token(tokens, "}");
+    return;
+  }
+
   init->expr = assign(tokens);
 }
 

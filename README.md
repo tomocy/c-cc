@@ -54,6 +54,7 @@ initer = string_initer |
     struct_initer | direct_struct_initer |
     union_initer |
     array_initer | direct_array_initer |
+    "{" assign "}" |
     assign
 string_initer = str
 struct_initer = "{" initer ("," initer)* "}"
