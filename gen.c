@@ -464,11 +464,12 @@ static void gen_data(Obj* codes) {
       continue;
     }
 
-    genln(".data");
     genln(".global %s", var->name);
-    genln("%s:", var->name);
 
     if (var->val) {
+      genln(".data");
+      genln("%s:", var->name);
+
       Relocation* reloc = var->relocs;
       int offset = 0;
       while (offset < var->type->size) {
@@ -485,6 +486,8 @@ static void gen_data(Obj* codes) {
       continue;
     }
 
+    genln(".bss");
+    genln("%s:", var->name);
     genln("  .zero %d", var->type->size);
   }
 }
