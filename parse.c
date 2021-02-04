@@ -931,22 +931,14 @@ static void resolve_goto_labels() {
   current_gotos = NULL;
 }
 
-static void func(Token** tokens) {
-  bool is_static = consume_token(tokens, "static");
-
-  Type* type = decl_specifier(tokens);
-
-  Token* ident = expect_ident(tokens);
-
-  Obj* func = new_obj(OJ_FUNC);
-  current_func = func;
-  add_code(func);
-  func->type = type;
-  func->name = strndup(ident->loc, ident->len);
-  func->is_static = is_static;
-
+static Node* func_params(Token** tokens) {
   expect_token(tokens, "(");
-  enter_scope();
+
+  if (equal_to_token(*tokens, "void") && equal_to_token((*tokens)->next, ")")) {
+    expect_token(tokens, "void");
+    expect_token(tokens, ")");
+    return NULL;
+  }
 
   Node head = {};
   Node* cur = &head;
@@ -965,10 +957,31 @@ static void func(Token** tokens) {
     cur->next = param;
     cur = cur->next;
   }
-  func->params = head.next;
+
+  return head.next;
+}
+
+static void func(Token** tokens) {
+  bool is_static = consume_token(tokens, "static");
+
+  Type* type = decl_specifier(tokens);
+
+  Token* ident = expect_ident(tokens);
+
+  Obj* func = new_obj(OJ_FUNC);
+  current_func = func;
+  add_code(func);
+  func->type = type;
+  func->name = strndup(ident->loc, ident->len);
+  func->is_static = is_static;
+
+  enter_scope();
+
+  func->params = func_params(tokens);
 
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
+    leave_scope();
     return;
   }
 
