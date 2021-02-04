@@ -465,6 +465,7 @@ static void gen_data(Obj* codes) {
     }
 
     genln(".global %s", var->name);
+    genln(".align %d", var->type->alignment);
 
     if (var->val) {
       genln(".data");
