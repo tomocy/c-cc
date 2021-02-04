@@ -5,12 +5,6 @@ typedef struct Scope Scope;
 typedef struct Initer Initer;
 typedef struct DesignatedIniter DesignatedIniter;
 
-typedef struct Decl {
-  Type* type;
-  Token* ident;
-  char* name;
-} Decl;
-
 struct ScopedObj {
   ScopedObj* next;
   Obj* obj;
@@ -21,6 +15,16 @@ struct Scope {
   ScopedObj* first_class_objs;
   ScopedObj* second_class_objs;
 };
+
+typedef struct VarAttr {
+  bool is_static;
+} VarAttr;
+
+typedef struct Decl {
+  Type* type;
+  Token* ident;
+  char* name;
+} Decl;
 
 struct Initer {
   Initer* next;
@@ -404,9 +408,9 @@ static Obj* find_tag(char* name, int len) {
   return NULL;
 }
 
-bool equal_to_type_name(Token* token) {
-  static char* names[] = {"void", "_Bool",  "char",  "short", "int",
-                          "long", "struct", "union", "enum"};
+bool equal_to_decl_specifier(Token* token) {
+  static char* names[] = {"static", "void", "_Bool",  "char",  "short",
+                          "int",    "long", "struct", "union", "enum"};
   int len = sizeof(names) / sizeof(char*);
   for (int i = 0; i < len; i++) {
     if (equal_to_token(token, names[i])) {
@@ -870,7 +874,7 @@ static Type* enum_specifier(Token** tokens);
 static Type* struct_decl(Token** tokens);
 static Type* union_decl(Token** tokens);
 static Member* members(Token** tokens);
-static Type* decl_specifier(Token** tokens);
+static Type* decl_specifier(Token** tokens, VarAttr* attr);
 static Decl* declarator(Token** tokens, Type* type);
 static Decl* abstract_declarator(Token** tokens, Type* type);
 static Type* type_suffix(Token** tokens, Type* type);
@@ -882,9 +886,8 @@ static int64_t eval_reloc(Node* node, char** label);
 static Initer* initer(Token** tokens, Type** type);
 
 bool is_func(Token* tokens) {
-  consume_token(&tokens, "static");
-
-  declarator(&tokens, decl_specifier(&tokens));
+  VarAttr attr = {};
+  declarator(&tokens, decl_specifier(&tokens, &attr));
 
   return equal_to_token(tokens, "(");
 }
@@ -947,7 +950,7 @@ static Node* func_params(Token** tokens) {
       expect_token(tokens, ",");
     }
 
-    Decl* decl = declarator(tokens, decl_specifier(tokens));
+    Decl* decl = declarator(tokens, decl_specifier(tokens, NULL));
     if (decl->type->kind == TY_ARRAY) {
       decl->type = new_ptr_type(decl->type->base);
     }
@@ -962,9 +965,8 @@ static Node* func_params(Token** tokens) {
 }
 
 static void func(Token** tokens) {
-  bool is_static = consume_token(tokens, "static");
-
-  Type* type = decl_specifier(tokens);
+  VarAttr attr = {};
+  Type* type = decl_specifier(tokens, &attr);
 
   Token* ident = expect_ident(tokens);
 
@@ -973,7 +975,7 @@ static void func(Token** tokens) {
   add_code(func);
   func->type = type;
   func->name = strndup(ident->loc, ident->len);
-  func->is_static = is_static;
+  func->is_static = attr.is_static;
 
   enter_scope();
 
@@ -1071,7 +1073,7 @@ static void gvar_initer(Token** tokens, Obj* var) {
 }
 
 static void gvar(Token** tokens) {
-  Type* spec = decl_specifier(tokens);
+  Type* spec = decl_specifier(tokens, NULL);
 
   bool is_first = true;
   while (!consume_token(tokens, ";")) {
@@ -1097,7 +1099,7 @@ static void gvar(Token** tokens) {
 static void tydef(Token** tokens) {
   expect_token(tokens, "typedef");
 
-  Type* spec = decl_specifier(tokens);
+  Type* spec = decl_specifier(tokens, NULL);
 
   bool is_first = true;
   while (!consume_token(tokens, ";")) {
@@ -1270,7 +1272,7 @@ static Node* for_stmt(Token** tokens) {
   node->continue_label_id = current_continue_label_id = new_id();
 
   if (!consume_token(tokens, ";")) {
-    if (equal_to_type_name(*tokens)) {
+    if (equal_to_decl_specifier(*tokens)) {
       node->init = lvar_decl(tokens);
     } else {
       node->init = expr(tokens);
@@ -1411,7 +1413,7 @@ static Node* stmt(Token** tokens) {
     return continue_stmt(tokens);
   }
 
-  if (equal_to_type_name(*tokens)) {
+  if (equal_to_decl_specifier(*tokens)) {
     return lvar(tokens);
   }
 
@@ -1754,10 +1756,11 @@ static Node* mul(Token** tokens) {
 }
 
 static Node* cast(Token** tokens) {
-  if (equal_to_token(*tokens, "(") && equal_to_type_name((*tokens)->next)) {
+  if (equal_to_token(*tokens, "(") &&
+      equal_to_decl_specifier((*tokens)->next)) {
     Token* start = *tokens;
     expect_token(tokens, "(");
-    Decl* decl = abstract_declarator(tokens, decl_specifier(tokens));
+    Decl* decl = abstract_declarator(tokens, decl_specifier(tokens, NULL));
     expect_token(tokens, ")");
     return new_cast_node(decl->type, start, cast(tokens));
   }
@@ -1803,9 +1806,10 @@ static Node* unary(Token** tokens) {
   }
 
   if (consume_token(tokens, "sizeof")) {
-    if (equal_to_token(*tokens, "(") && equal_to_type_name((*tokens)->next)) {
+    if (equal_to_token(*tokens, "(") &&
+        equal_to_decl_specifier((*tokens)->next)) {
       expect_token(tokens, "(");
-      Decl* decl = abstract_declarator(tokens, decl_specifier(tokens));
+      Decl* decl = abstract_declarator(tokens, decl_specifier(tokens, NULL));
       expect_token(tokens, ")");
       return new_int_node(start, decl->type->size);
     }
@@ -2404,7 +2408,7 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
 static Node* lvar_decl(Token** tokens) {
   Token* start = *tokens;
 
-  Type* spec = decl_specifier(tokens);
+  Type* spec = decl_specifier(tokens, NULL);
 
   Node head = {};
   Node* cur = &head;
@@ -2607,7 +2611,7 @@ static Member* members(Token** tokens) {
   Member head = {};
   Member* cur = &head;
   while (!consume_token(tokens, "}")) {
-    Type* spec = decl_specifier(tokens);
+    Type* spec = decl_specifier(tokens, NULL);
 
     bool is_first = true;
     while (!consume_token(tokens, ";")) {
@@ -2635,7 +2639,7 @@ static Member* members(Token** tokens) {
   return head.next;
 }
 
-static Type* decl_specifier(Token** tokens) {
+static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   Type* type = ty_int;
   int counter = 0;
 
@@ -2649,8 +2653,19 @@ static Type* decl_specifier(Token** tokens) {
     OTHER = 1 << 12,
   };
 
-  while (equal_to_type_name(*tokens)) {
+  while (equal_to_decl_specifier(*tokens)) {
     Token* start = *tokens;
+
+    if (consume_token(tokens, "static")) {
+      if (!attr) {
+        error_token(*tokens,
+                    "storage class specifier is not allowed in this context");
+      }
+
+      attr->is_static = true;
+
+      continue;
+    }
 
     Obj* def_type = find_def_type((*tokens)->loc, (*tokens)->len);
     if (def_type) {

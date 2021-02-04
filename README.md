@@ -5,8 +5,8 @@
 ```
 program = (func | gvar | tydef)*
 
-func = declarator "(" (decl_specifier declarator (, decl_specifier declarator)*)? ")" bloc_stmt
-gvar = declarator ("=" const_expr)? ("," declarator ("=" const_expr)?)* ";"
+func = decl_specifier declarator "(" (decl_specifier declarator (, decl_specifier declarator)*)? ")" bloc_stmt
+gvar = decl_specifier declarator ("=" const_expr)? ("," declarator ("=" const_expr)?)* ";"
 tydef = "typedef" decl_specifier declarator ";"
 
 bloc_stmt = "{" stmt* "}"
@@ -73,7 +73,8 @@ member = decl_specifier (declarator ("," declarator)*)? ";"
 decl_specifier = (
     "void" | "_Bool" | "char" |
     "short" | "int" | "long" |
-    struct_decl | union_decl | defined_type
+    struct_decl | union_decl | defined_type |
+    "static"
 )*
 declarator = "*"* ("(" declarator ")" | ident) type_suffix
 abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix
