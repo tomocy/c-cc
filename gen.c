@@ -463,6 +463,9 @@ static void gen_data(Obj* codes) {
     if (var->kind != OJ_GVAR) {
       continue;
     }
+    if (!var->is_definition) {
+      continue;
+    }
 
     genln(".global %s", var->name);
     genln(".align %d", var->type->alignment);

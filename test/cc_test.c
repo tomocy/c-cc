@@ -156,6 +156,9 @@ T65 g66 = {'f', 'o', 'o', 'b', 'a', 'r', 0};
 
 int func_no_params(void) { return 1; }
 
+extern int ext1;
+extern int* ext2;
+
 int main() {
   ASSERT(0, 0);
   ASSERT(42, 42);
@@ -2601,6 +2604,9 @@ int main() {
   ASSERT(0, strcmp(g66.b, "oobar"));
 
   ASSERT(1, func_no_params());
+
+  ASSERT(5, ext1);
+  ASSERT(5, *ext2);
 
   ok();
 }

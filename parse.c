@@ -17,6 +17,7 @@ struct Scope {
 };
 
 typedef struct VarAttr {
+  bool is_extern;
   bool is_static;
 } VarAttr;
 
@@ -287,6 +288,7 @@ static Obj* new_gvar(Type* type, char* name) {
   Obj* var = new_obj(OJ_GVAR);
   var->type = type;
   var->name = name;
+  var->is_definition = true;
   add_gvar(var);
   return var;
 }
@@ -409,14 +411,17 @@ static Obj* find_tag(char* name, int len) {
 }
 
 bool equal_to_decl_specifier(Token* token) {
-  static char* names[] = {"static", "void", "_Bool",  "char",  "short",
-                          "int",    "long", "struct", "union", "enum"};
-  int len = sizeof(names) / sizeof(char*);
+  static char* names[] = {"extern", "static", "void", "_Bool",
+                          "char",   "short",  "int",  "long",
+                          "struct", "union",  "enum"};
+  static int len = sizeof(names) / sizeof(char*);
+
   for (int i = 0; i < len; i++) {
     if (equal_to_token(token, names[i])) {
       return true;
     }
   }
+
   return find_def_type(token->loc, token->len) != NULL;
 }
 
@@ -1073,7 +1078,8 @@ static void gvar_initer(Token** tokens, Obj* var) {
 }
 
 static void gvar(Token** tokens) {
-  Type* spec = decl_specifier(tokens, NULL);
+  VarAttr attr = {};
+  Type* spec = decl_specifier(tokens, &attr);
 
   bool is_first = true;
   while (!consume_token(tokens, ";")) {
@@ -1085,6 +1091,7 @@ static void gvar(Token** tokens) {
     Decl* decl = declarator(tokens, spec);
 
     Obj* var = new_gvar(decl->type, decl->name);
+    var->is_definition = !attr.is_extern;
     add_code(var);
 
     if (equal_to_token(*tokens, "=")) {
@@ -2656,14 +2663,17 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   while (equal_to_decl_specifier(*tokens)) {
     Token* start = *tokens;
 
-    if (consume_token(tokens, "static")) {
+    if (equal_to_token(*tokens, "extern") ||
+        equal_to_token(*tokens, "static")) {
       if (!attr) {
         error_token(*tokens,
                     "storage class specifier is not allowed in this context");
       }
 
-      attr->is_static = true;
+      attr->is_extern = equal_to_token(*tokens, "extern");
+      attr->is_static = equal_to_token(*tokens, "static");
 
+      *tokens = (*tokens)->next;
       continue;
     }
 

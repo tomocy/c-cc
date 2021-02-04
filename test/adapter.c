@@ -38,3 +38,6 @@ void alloc(int** p, int a, int b, int c, int d) {
 }
 
 static int static_fn() { return 5; }
+
+int ext1 = 5;
+int* ext2 = &ext1;
