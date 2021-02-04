@@ -17,7 +17,7 @@ static bool consume_number(Token** dst, char** c);
 static bool consume_char(Token** dst, char** c);
 static bool consume_str(Token** dst, char** c);
 
-Token* tokenize() {
+Token* tokenize(void) {
   read_file(&user_input);
   char* c = user_input;
 

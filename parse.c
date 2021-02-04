@@ -80,7 +80,7 @@ static Type* ty_long = &(Type){
     8,
 };
 
-static char* new_id() {
+static char* new_id(void) {
   static int id = 0;
   char* name = calloc(20, sizeof(char));
   sprintf(name, ".L%d", id++);
@@ -152,13 +152,13 @@ static bool is_pointable(Type* type) {
   return type->kind == TY_PTR || type->kind == TY_ARRAY;
 }
 
-static void enter_scope() {
+static void enter_scope(void) {
   Scope* next = calloc(1, sizeof(Scope));
   next->next = current_scope;
   current_scope = next;
 }
 
-static void leave_scope() {
+static void leave_scope(void) {
   if (!current_scope) {
     error("no scope to leave");
   }
@@ -911,7 +911,7 @@ Obj* parse(Token* tokens) {
   return codes;
 }
 
-static void resolve_goto_labels() {
+static void resolve_goto_labels(void) {
   for (Node* g = current_gotos; g; g = g->gotos) {
     for (Node* l = current_labels; l; l = l->labels) {
       if (!are_strs_equal(g->label, l->label)) {

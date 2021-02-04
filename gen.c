@@ -25,7 +25,7 @@ static void pop(char* reg) {
   depth--;
 }
 
-static int count_label() {
+static int count_label(void) {
   static int count = 0;
   return count++;
 }
@@ -537,7 +537,7 @@ static void gen_text(Obj* codes) {
   }
 }
 
-static void open_output_file() {
+static void open_output_file(void) {
   if (!output_filename || strcmp(output_filename, "-") == 0) {
     output_file = stdout;
     return;

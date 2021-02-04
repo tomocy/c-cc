@@ -15,7 +15,7 @@ void assert(char* name, int expected, int actual) {
 
 #define ASSERT(x, y) assert(#y, x, y)
 
-void ok() {
+void ok(void) {
   printf("OK\n");
   exit(0);
 }
