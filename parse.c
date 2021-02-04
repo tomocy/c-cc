@@ -890,11 +890,20 @@ static int64_t eval(Node* node);
 static int64_t eval_reloc(Node* node, char** label);
 static Initer* initer(Token** tokens, Type** type);
 
-bool is_func(Token* tokens) {
-  VarAttr attr = {};
-  declarator(&tokens, decl_specifier(&tokens, &attr));
+bool is_func_declarator(Token* tokens, Type* spec) {
+  if (equal_to_token(tokens, ";")) {
+    return false;
+  }
+
+  declarator(&tokens, spec);
 
   return equal_to_token(tokens, "(");
+}
+
+bool is_func(Token* tokens) {
+  VarAttr attr = {};
+  Type* spec = decl_specifier(&tokens, &attr);
+  return is_func_declarator(tokens, spec);
 }
 
 Obj* parse(Token* tokens) {
@@ -1131,6 +1140,28 @@ static Node* block_stmt(Token** tokens) {
   while (!consume_token(tokens, "}")) {
     if (equal_to_token(*tokens, "typedef")) {
       tydef(tokens);
+      continue;
+    }
+
+    if (equal_to_decl_specifier(*tokens) &&
+        !equal_to_token((*tokens)->next, ":")) {
+      Token* ignored = *tokens;
+
+      VarAttr attr = {};
+      Type* spec = decl_specifier(&ignored, &attr);
+
+      if (is_func_declarator(ignored, spec)) {
+        func(tokens);
+        continue;
+      }
+
+      if (attr.is_extern) {
+        gvar(tokens);
+        continue;
+      }
+
+      curr->next = lvar(tokens);
+      curr = curr->next;
       continue;
     }
 

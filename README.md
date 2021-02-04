@@ -10,7 +10,10 @@ gvar = decl_specifier declarator ("=" const_expr)? ("," declarator ("=" const_ex
 tydef = "typedef" decl_specifier declarator ";"
 
 bloc_stmt = "{" stmt* "}"
-stmt = "if" "(" expr ")" stmt ("else" stmt)? |
+stmt = func |
+    gvar |
+    tydef |
+    "if" "(" expr ")" stmt ("else" stmt)? |
     "switch" "(" expr ")" stmt |
     "case" ":" const_expr |
     "default" ":" |
