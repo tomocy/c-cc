@@ -41,6 +41,7 @@ struct Member {
   Token* token;
   char* name;
   int offset;
+  int alignment;
 };
 
 typedef enum {
@@ -159,6 +160,7 @@ struct Obj {
   Node* body;
   int stack_size;
   int offset;
+  int alignment;
   Relocation* relocs;
   char* val;
 };

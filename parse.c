@@ -19,6 +19,8 @@ struct Scope {
 typedef struct VarAttr {
   bool is_extern;
   bool is_static;
+
+  int alignment;
 } VarAttr;
 
 typedef struct Decl {
@@ -145,6 +147,13 @@ static Type* new_type(TypeKind kind, int size, int alignment) {
   type->size = size;
   type->alignment = alignment;
   return type;
+}
+
+static Type* copy_type_with_alignment(Type* src, int alignment) {
+  Type* copied = calloc(1, sizeof(Type));
+  *copied = *src;
+  copied->alignment = alignment;
+  return copied;
 }
 
 bool is_numable(Type* type) {
@@ -289,6 +298,7 @@ static Obj* new_gvar(Type* type, char* name) {
   var->type = type;
   var->name = name;
   var->is_definition = true;
+  var->alignment = type->alignment;
   add_gvar(var);
   return var;
 }
@@ -308,13 +318,14 @@ static void change_lvar_type(Obj* vars, Obj* var, Type* type) {
 
   var->type = type;
   var->offset = align(vars ? vars->offset + var->type->size : var->type->size,
-                      var->type->alignment);
+                      var->alignment);
 }
 
 static Obj* new_lvar(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
+  var->alignment = type->alignment;
   change_lvar_type(current_lvars, var, type);
   add_lvar(var);
   return var;
@@ -411,9 +422,10 @@ static Obj* find_tag(char* name, int len) {
 }
 
 bool equal_to_decl_specifier(Token* token) {
-  static char* names[] = {"extern", "static", "void", "_Bool",
-                          "char",   "short",  "int",  "long",
-                          "struct", "union",  "enum"};
+  static char* names[] = {
+      "extern", "static", "void",   "_Bool", "char", "short",
+      "int",    "long",   "struct", "union", "enum", "_Alignas",
+  };
   static int len = sizeof(names) / sizeof(char*);
 
   for (int i = 0; i < len; i++) {
@@ -1098,6 +1110,9 @@ static void gvar(Token** tokens) {
     is_first = false;
 
     Decl* decl = declarator(tokens, spec);
+    if (attr.alignment) {
+      decl->type = copy_type_with_alignment(decl->type, attr.alignment);
+    }
 
     Obj* var = new_gvar(decl->type, decl->name);
     var->is_definition = !attr.is_extern;
@@ -1856,6 +1871,13 @@ static Node* unary(Token** tokens) {
     return new_int_node(start, node->type->size);
   }
 
+  if (consume_token(tokens, "_Alignof")) {
+    expect_token(tokens, "(");
+    Decl* decl = abstract_declarator(tokens, decl_specifier(tokens, NULL));
+    expect_token(tokens, ")");
+    return new_int_node(start, decl->type->alignment);
+  }
+
   return postfix(tokens);
 }
 
@@ -2446,7 +2468,8 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
 static Node* lvar_decl(Token** tokens) {
   Token* start = *tokens;
 
-  Type* spec = decl_specifier(tokens, NULL);
+  VarAttr attr = {};
+  Type* spec = decl_specifier(tokens, &attr);
 
   Node head = {};
   Node* cur = &head;
@@ -2458,6 +2481,9 @@ static Node* lvar_decl(Token** tokens) {
     Decl* decl = declarator(tokens, spec);
     if (decl->type == ty_void) {
       error_token(decl->ident, "variable declared void");
+    }
+    if (attr.alignment) {
+      decl->type = copy_type_with_alignment(decl->type, attr.alignment);
     }
 
     Obj* var = new_lvar(decl->type, decl->name);
@@ -2562,12 +2588,12 @@ static Type* struct_decl(Token** tokens) {
       is_flexible = true;
     }
 
-    offset = align(offset, mem->type->alignment);
+    offset = align(offset, mem->alignment);
     mem->offset = offset;
     offset += mem->type->size;
 
-    if (alignment < mem->type->alignment) {
-      alignment = mem->type->alignment;
+    if (alignment < mem->alignment) {
+      alignment = mem->alignment;
     }
   }
 
@@ -2624,8 +2650,8 @@ static Type* union_decl(Token** tokens) {
     if (size < mem->type->size) {
       size = mem->type->size;
     }
-    if (alignment < mem->type->alignment) {
-      alignment = mem->type->alignment;
+    if (alignment < mem->alignment) {
+      alignment = mem->alignment;
     }
   }
 
@@ -2649,7 +2675,8 @@ static Member* members(Token** tokens) {
   Member head = {};
   Member* cur = &head;
   while (!consume_token(tokens, "}")) {
-    Type* spec = decl_specifier(tokens, NULL);
+    VarAttr attr = {};
+    Type* spec = decl_specifier(tokens, &attr);
 
     bool is_first = true;
     while (!consume_token(tokens, ";")) {
@@ -2664,6 +2691,7 @@ static Member* members(Token** tokens) {
       mem->type = decl->type;
       mem->token = decl->ident;
       mem->name = decl->name;
+      mem->alignment = attr.alignment ? attr.alignment : decl->type->alignment;
 
       cur->next = mem;
       cur = cur->next;
@@ -2705,6 +2733,23 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       attr->is_static = equal_to_token(*tokens, "static");
 
       *tokens = (*tokens)->next;
+      continue;
+    }
+
+    if (equal_to_token(*tokens, "_Alignas")) {
+      if (!attr) {
+        error_token(*tokens, "_Alignas is not allowed in this context");
+      }
+
+      expect_token(tokens, "_Alignas");
+      expect_token(tokens, "(");
+      if (equal_to_decl_specifier(*tokens)) {
+        Decl* decl = abstract_declarator(tokens, decl_specifier(tokens, NULL));
+        attr->alignment = decl->type->alignment;
+      } else {
+        attr->alignment = const_expr(tokens);
+      }
+      expect_token(tokens, ")");
       continue;
     }
 

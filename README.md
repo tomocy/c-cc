@@ -45,9 +45,14 @@ unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     ("++" | "--") unary |
     "sizeof" cast |
     "sizeof" "(" abstract_declarator ")" |
+    "_Alignof" "(" type-name ")" |
     postifx
 postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
-primary = "(" "{" stmt+ "}" ")" | "(" expr ")" | ident func_args? | num | str
+primary = "(" "{" stmt+ "}" ")" |
+    "(" expr ")" |
+    ident func_args? |
+    num |
+    str
 num = ("0x" | "0X") hexadecimal | decimal | "0" octal | ("0b | "0B") binary
 const_expr
 
@@ -77,7 +82,7 @@ decl_specifier = (
     "void" | "_Bool" | "char" |
     "short" | "int" | "long" |
     struct_decl | union_decl | defined_type |
-    "extern" | "static"
+    "extern" | "static" | "_Alignas"
 )*
 declarator = "*"* ("(" declarator ")" | ident) type_suffix
 abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix

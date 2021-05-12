@@ -468,10 +468,10 @@ static void gen_data(Obj* codes) {
     }
 
     genln(".global %s", var->name);
-    genln(".align %d", var->type->alignment);
 
     if (var->val) {
       genln(".data");
+      genln(".align %d", var->alignment);
       genln("%s:", var->name);
 
       Relocation* reloc = var->relocs;
@@ -491,6 +491,7 @@ static void gen_data(Obj* codes) {
     }
 
     genln(".bss");
+    genln(".align %d", var->alignment);
     genln("%s:", var->name);
     genln("  .zero %d", var->type->size);
   }

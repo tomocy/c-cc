@@ -154,6 +154,13 @@ typedef struct {
 T65 g65 = {'f', 'o', 'o', 0};
 T65 g66 = {'f', 'o', 'o', 'b', 'a', 'r', 0};
 
+int _Alignas(512) g71;
+int _Alignas(512) g72;
+char g73;
+int g74;
+long g75;
+char g76;
+
 int func_no_params(void) { return 1; }
 
 extern int ext1;
@@ -2614,6 +2621,56 @@ int main() {
   ASSERT(5, ext_fn1(5));
   extern int ext_fn2(int x);
   ASSERT(8, ext_fn2(8));
+
+  ASSERT(1, _Alignof(char));
+  ASSERT(2, _Alignof(short));
+  ASSERT(4, _Alignof(int));
+  ASSERT(8, _Alignof(long));
+  ASSERT(8, _Alignof(long long));
+  ASSERT(1, _Alignof(char[3]));
+  ASSERT(4, _Alignof(int[3]));
+  ASSERT(1, _Alignof(struct {
+           char a;
+           char b;
+         }[2]));
+  ASSERT(8, _Alignof(struct {
+           char a;
+           long b;
+         }[2]));
+
+  ASSERT(1, ({
+           _Alignas(char) char x, y;
+           &x - &y;
+         }));
+  ASSERT(8, ({
+           _Alignas(long) char x, y;
+           &x - &y;
+         }));
+  ASSERT(32, ({
+           _Alignas(32) char x, y;
+           &x - &y;
+         }));
+  ASSERT(32, ({
+           _Alignas(32) int *x, *y;
+           ((char*)&x) - ((char*)&y);
+         }));
+  ASSERT(16, ({
+           struct {
+             _Alignas(16) char x, y;
+           } a;
+           &a.y - &a.x;
+         }));
+  ASSERT(8, ({
+           struct T {
+             _Alignas(8) char a;
+           };
+           _Alignof(struct T);
+         }));
+
+  ASSERT(0, (long)(char*)&g71 % (long)512);
+  ASSERT(0, (long)(char*)&g72 % 512);
+  ASSERT(0, (long)(char*)&g74 % 4);
+  ASSERT(0, (long)(char*)&g75 % 8);
 
   ok();
 }
