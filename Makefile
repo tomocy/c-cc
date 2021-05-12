@@ -4,43 +4,33 @@ SRCS=$(wildcard *.c)
 OBJS=$(SRCS:.c=.o)
 
 TEST_DIR=test
-TMP_TEST_PREFIX=tmp_
-TEST_SRCS=$(filter-out $(wildcard $(TEST_DIR)/$(TMP_TEST_PREFIX)*.c), $(wildcard $(TEST_DIR)/*_test.c))
-TMP_TEST_SRCS=$(subst $(TEST_DIR)/,$(TEST_DIR)/$(TMP_TEST_PREFIX),$(TEST_SRCS))
-TEST_ASMS=$(TMP_TEST_SRCS:.c=.s)
-TEST_ADAPTER_SRCS=$(filter-out $(TMP_TEST_SRCS), $(filter-out $(TEST_SRCS), $(wildcard $(TEST_DIR)/*.c)))
-TEST_ADAPTER_OBJS=$(TEST_ADAPTER_SRCS:.c=.o)
+TEST_SRCS=$(wildcard $(TEST_DIR)/*_test.c)
+TEST_ASMS=$(TEST_SRCS:.c=.s)
+TESTS=$(TEST_SRCS:.c=)
 
 cc: $(OBJS)
 	$(CC) -o cc $^ $(LDFLAGS)
 
 $(OBJS): cc.h
 
-cc_test: $(TEST_ASMS) $(TEST_ADAPTER_OBJS)
-	$(CC) -o cc_test $^
-
-$(TEST_ASMS): cc $(TMP_TEST_SRCS)
-	./cc $(@:.s=.c) -o $@
-
-$(TMP_TEST_SRCS): $(TEST_SRCS)
-	$(CC) -o $@ -P -E $(subst $(TMP_TEST_PREFIX),,$@)
-
-$(TEST_ADAPTER_OBJS): $(TEST_ADAPTER_SRCS)
+test/%: cc test/adapter.c test/%.c
+	$(CC) -o - -E -P -C test/$*.c | ./cc - -o test/$*.s
+	$(CC) -o $@ test/adapter.c test/$*.s
 
 .PHONY: test
-test: cc_test
-	./test/cli_test.sh
-	./cc_test
+test: $(TESTS)
+	./test/cli_test.sh; echo;
+	for i in $^; do echo $$i; ./$$i || exit 1; echo; done;
 	make clean
 
 .PHONY: clean
-clean: cc
-	rm -f cc cc_test *~ *.o test/*.o tmp* test/tmp*
+clean:
+	rm -f cc $(TEST_ASMS) $(TESTS)
 
-.PHONY: build-docker-container
-build-docker-container: Dockerfile
+.PHONY: build-container
+build-container: Dockerfile
 	docker build -t c-cc .
 
-.PHONY: run-docker-container
-run-docker-container:
+.PHONY: run-container
+run-container:
 	docker run -it --rm -v $(PWD):/home/cc/cc --name c-cc c-cc /bin/bash
