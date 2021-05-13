@@ -7,6 +7,7 @@ typedef struct DesignatedIniter DesignatedIniter;
 
 struct ScopedObj {
   ScopedObj* next;
+  char* key;
   Obj* obj;
 };
 
@@ -187,59 +188,61 @@ static void add_code(Obj* code) {
   codes = code;
 }
 
-static void add_first_class_obj_to_scope(Scope* scope, Obj* obj) {
+static void add_first_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
   if (obj->kind != OJ_GVAR && obj->kind != OJ_LVAR && obj->kind != OJ_ENUM &&
       obj->kind != OJ_DEF_TYPE) {
     error("expected a first class object");
   }
 
   ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
+  scoped->key = key;
   scoped->obj = obj;
   scoped->next = scope->first_class_objs;
   scope->first_class_objs = scoped;
 }
 
-static void add_second_class_obj_to_scope(Scope* scope, Obj* obj) {
+static void add_second_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
   if (obj->kind != OJ_TAG) {
     error("expected a second class object");
   }
 
   ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
+  scoped->key = key;
   scoped->obj = obj;
   scoped->next = scope->second_class_objs;
   scope->second_class_objs = scoped;
 }
 
-static void add_var_to_scope(Scope* scope, Obj* var) {
+static void add_var_to_scope(Scope* scope, char* key, Obj* var) {
   if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
     error("expected a variable");
   }
 
-  add_first_class_obj_to_scope(scope, var);
+  add_first_class_obj_to_scope(scope, key, var);
 }
 
-static void add_enum_to_scope(Scope* scope, Obj* enu) {
+static void add_enum_to_scope(Scope* scope, char* key, Obj* enu) {
   if (enu->kind != OJ_ENUM) {
     error("expected an enum");
   }
 
-  add_first_class_obj_to_scope(scope, enu);
+  add_first_class_obj_to_scope(scope, key, enu);
 }
 
-static void add_def_type_to_scope(Scope* scope, Obj* def_type) {
+static void add_def_type_to_scope(Scope* scope, char* key, Obj* def_type) {
   if (def_type->kind != OJ_DEF_TYPE) {
     error("expected a defined type");
   }
 
-  add_first_class_obj_to_scope(scope, def_type);
+  add_first_class_obj_to_scope(scope, key, def_type);
 }
 
-static void add_tag_to_scope(Scope* scope, Obj* tag) {
+static void add_tag_to_scope(Scope* scope, char* key, Obj* tag) {
   if (tag->kind != OJ_TAG) {
     error("expected a tag");
   }
 
-  add_second_class_obj_to_scope(scope, tag);
+  add_second_class_obj_to_scope(scope, key, tag);
 }
 
 static bool is_gscope(Scope* scope) { return !scope->next; }
@@ -251,40 +254,50 @@ static void add_gvar(Obj* var) {
   if (!is_gscope(gscope)) {
     error("expected a global scope");
   }
-  add_var_to_scope(gscope, var);
+
+  add_var_to_scope(gscope, var->name, var);
+}
+
+static void add_var_to_current_local_scope(char* key, Obj* var) {
+  if (is_gscope(current_scope)) {
+    error("expected a local scope");
+  }
+
+  var->next = current_lvars;
+  current_lvars = var;
+  add_var_to_scope(current_scope, key, var);
 }
 
 static void add_lvar(Obj* var) {
   if (var->kind != OJ_LVAR) {
     error("expected a local var");
   }
-  if (is_gscope(current_scope)) {
-    error("expected a local scope");
-  }
-  var->next = current_lvars;
-  current_lvars = var;
-  add_var_to_scope(current_scope, var);
+
+  add_var_to_current_local_scope(var->name, var);
 }
 
 static void add_tag(Obj* tag) {
   if (tag->kind != OJ_TAG) {
     error("expected a tag");
   }
-  add_tag_to_scope(current_scope, tag);
+
+  add_tag_to_scope(current_scope, tag->name, tag);
 }
 
 static void add_def_type(Obj* def_type) {
   if (def_type->kind != OJ_DEF_TYPE) {
     error("expected a defined type");
   }
-  add_def_type_to_scope(current_scope, def_type);
+
+  add_def_type_to_scope(current_scope, def_type->name, def_type);
 }
 
 static void add_enum(Obj* enu) {
   if (enu->kind != OJ_ENUM) {
     error("expected an enum");
   }
-  add_enum_to_scope(current_scope, enu);
+
+  add_enum_to_scope(current_scope, enu->name, enu);
 }
 
 static Obj* new_obj(ObjKind kind) {
@@ -369,7 +382,7 @@ static Obj* find_func(char* name, int len) {
 static Obj* find_var_or_enum(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
-      if (!are_strs_equal_n(var->obj->name, name, len)) {
+      if (!are_strs_equal_n(var->key, name, len)) {
         continue;
       }
 
@@ -386,7 +399,7 @@ static Obj* find_def_type(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* def_type = s->first_class_objs; def_type;
          def_type = def_type->next) {
-      if (!are_strs_equal_n(def_type->obj->name, name, len)) {
+      if (!are_strs_equal_n(def_type->key, name, len)) {
         continue;
       }
 
@@ -399,7 +412,7 @@ static Obj* find_def_type(char* name, int len) {
 static Obj* find_tag_in_current_scope(char* name, int len) {
   for (ScopedObj* tag = current_scope->second_class_objs; tag;
        tag = tag->next) {
-    if (!are_strs_equal_n(tag->obj->name, name, len)) {
+    if (!are_strs_equal_n(tag->key, name, len)) {
       continue;
     }
 
@@ -411,7 +424,7 @@ static Obj* find_tag_in_current_scope(char* name, int len) {
 static Obj* find_tag(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* tag = s->second_class_objs; tag; tag = tag->next) {
-      if (!are_strs_equal_n(tag->obj->name, name, len)) {
+      if (!are_strs_equal_n(tag->key, name, len)) {
         continue;
       }
 
