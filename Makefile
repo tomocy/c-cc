@@ -25,12 +25,4 @@ test: $(TESTS)
 
 .PHONY: clean
 clean:
-	rm -f cc $(TEST_ASMS) $(TESTS)
-
-.PHONY: build-container
-build-container: Dockerfile
-	docker build -t c-cc .
-
-.PHONY: run-container
-run-container:
-	docker run -it --rm -v $(PWD):/home/cc/cc --name c-cc c-cc /bin/bash
+	rm -f cc *.o $(TEST_ASMS) $(TESTS)
