@@ -324,6 +324,12 @@ static Obj* new_str(char* name, char* val, int len) {
   return str;
 }
 
+static Obj* new_static_lvar(Type* type, char* name) {
+  Obj* var = new_gvar(type, new_id());
+  add_var_to_current_local_scope(name, var);
+  return var;
+}
+
 static void change_lvar_type(Obj* vars, Obj* var, Type* type) {
   if (var->kind != OJ_LVAR) {
     error("expected a local var");
@@ -2498,6 +2504,15 @@ static Node* lvar_decl(Token** tokens) {
     Decl* decl = declarator(tokens, spec);
     if (decl->type == ty_void) {
       error_token(decl->ident, "variable declared void");
+    }
+
+    if (attr.is_static) {
+      Obj* var = new_static_lvar(decl->type, decl->name);
+      add_code(var);
+      if (equal_to_token(*tokens, "=")) {
+        gvar_initer(tokens, var);
+      }
+      continue;
     }
     if (attr.alignment) {
       decl->type = copy_type_with_alignment(decl->type, attr.alignment);
