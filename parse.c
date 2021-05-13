@@ -692,18 +692,21 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
 }
 
 static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
+  // num - ptr
   if (is_numable(lhs->type) && is_pointable(rhs->type)) {
     error_token(token, "invalid operands");
   }
 
+  // ptr - ptr
   if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->token = token;
-    sub->type = sub->lhs->type;
+    sub->type = ty_int;
     return new_div_node(sub->token, sub,
                         new_int_node(lhs->token, sub->lhs->type->base->size));
   }
 
+  // num - num
   if (is_numable(lhs->type) && is_numable(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
@@ -712,6 +715,7 @@ static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
     return sub;
   }
 
+  // ptr - num
   rhs = new_mul_node(rhs->token, rhs,
                      new_long_node(rhs->token, lhs->type->base->size));
   Node* sub = new_binary_node(ND_SUB, lhs, rhs);
@@ -992,15 +996,15 @@ static Node* func_params(Token** tokens) {
 
 static void func(Token** tokens) {
   VarAttr attr = {};
-  Type* type = decl_specifier(tokens, &attr);
+  Decl* decl = declarator(tokens, decl_specifier(tokens, &attr));
 
-  Token* ident = expect_ident(tokens);
+  // Token* ident = expect_ident(tokens);
 
   Obj* func = new_obj(OJ_FUNC);
   current_func = func;
   add_code(func);
-  func->type = type;
-  func->name = strndup(ident->loc, ident->len);
+  func->type = decl->type;
+  func->name = strndup(decl->ident->loc, decl->ident->len);
   func->is_static = attr.is_static;
 
   enter_scope();

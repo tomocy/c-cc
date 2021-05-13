@@ -21,22 +21,22 @@ int main() {
              x = 3;
            x;
          }));
-  // ASSERT(2, ({
-  //          int x;
-  //          if (1)
-  //            x = 2;
-  //          else
-  //            x = 3;
-  //          x;
-  //        }));
-  // ASSERT(2, ({
-  //          int x;
-  //          if (2 - 1)
-  //            x = 2;
-  //          else
-  //            x = 3;
-  //          x;
-  //        }));
+  ASSERT(2, ({
+           int x;
+           if (1)
+             x = 2;
+           else
+             x = 3;
+           x;
+         }));
+  ASSERT(2, ({
+           int x;
+           if (2 - 1)
+             x = 2;
+           else
+             x = 3;
+           x;
+         }));
 
   ASSERT(55, ({
            int i = 0;
@@ -79,16 +79,16 @@ int main() {
          }));
 
   ASSERT(3, (1, 2, 3));
-  // ASSERT(5, ({
-  //          int i = 2, j = 3;
-  //          (i = 5, j) = 6;
-  //          i;
-  //        }));
-  // ASSERT(6, ({
-  //          int i = 2, j = 3;
-  //          (i = 5, j) = 6;
-  //          j;
-  //        }));
+  ASSERT(5, ({
+           int i = 2, j = 3;
+           (i = 5, j) = 6;
+           i;
+         }));
+  ASSERT(6, ({
+           int i = 2, j = 3;
+           (i = 5, j) = 6;
+           j;
+         }));
 
   ASSERT(55, ({
            int j = 0;

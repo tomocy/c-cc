@@ -35,15 +35,19 @@ static void gen_stmt(Node* node);
 
 static void gen_addr(Node* node) {
   switch (node->kind) {
+    case ND_COMMA:
+      gen_expr(node->lhs);
+      gen_addr(node->rhs);
+      break;
+    case ND_DEREF:
+      gen_expr(node->lhs);
+      break;
     case ND_GVAR:
       genln("  lea rax, %s[rip]", node->name);
       break;
     case ND_LVAR:
       genln("  mov rax, rbp");
       genln("  sub rax, %d", node->offset);
-      break;
-    case ND_DEREF:
-      gen_expr(node->lhs);
       break;
     case ND_MEMBER:
       gen_addr(node->lhs);
@@ -170,10 +174,13 @@ static void gen_expr(Node* node) {
       gen_expr(node->cond);
       genln("  cmp rax, 0");
       genln("  je .Lelse%d", label);
+
       gen_expr(node->then);
       genln("  jmp .Lend%d", label);
+
       genln(".Lelse%d:", label);
       gen_expr(node->els);
+
       genln(".Lend%d:", label);
       return;
     }
@@ -386,11 +393,15 @@ static void gen_stmt(Node* node) {
       int lend = count_label();
       genln("  cmp rax, 0");
       genln("  je .Lelse%d", lelse);
+
       gen_stmt(node->then);
+      genln("  jmp .Lend%d", lend);
+
       genln(".Lelse%d:", lelse);
       if (node->els) {
         gen_stmt(node->els);
       }
+
       genln(".Lend%d:", lend);
       return;
     }
