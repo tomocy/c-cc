@@ -336,6 +336,8 @@ static Obj* new_gvar(Type* type, char* name) {
   return var;
 }
 
+static Obj* new_anon_gvar(Type* type) { return new_gvar(type, new_id()); }
+
 static Obj* new_str(char* val, int len) {
   Type* type = new_array_type(ty_char, len + 1);
   Obj* str = new_stray_gvar(type, new_id());
@@ -949,6 +951,7 @@ static Node* mul(Token** tokens);
 static Node* cast(Token** tokens);
 static Node* unary(Token** tokens);
 static Node* postfix(Token** tokens);
+static Node* compound_literal(Token** tokens);
 static Node* primary(Token** tokens);
 static Node* lvar(Token** tokens);
 static Node* lvar_decl(Token** tokens);
@@ -967,6 +970,8 @@ static Node* func_args(Token** tokens, Node* params);
 static int64_t const_expr(Token** tokens);
 static int64_t eval(Node* node);
 static int64_t eval_reloc(Node* node, char** label);
+static void gvar_initer(Token** tokens, Obj* var);
+static Node* lvar_initer(Token** tokens, Obj* var);
 static Initer* initer(Token** tokens, Type** type);
 
 bool is_func_declarator(Token* tokens, Type* spec) {
@@ -1154,8 +1159,6 @@ static Relocation* write_gvar_data(char* data, int offset, Initer* init,
 }
 
 static void gvar_initer(Token** tokens, Obj* var) {
-  expect_token(tokens, "=");
-
   Initer* init = initer(tokens, &var->type);
   Relocation relocs = {};
   char* data = calloc(1, var->type->size);
@@ -1183,7 +1186,7 @@ static void gvar(Token** tokens) {
     Obj* var = new_gvar(decl->type, decl->name);
     var->is_definition = !attr.is_extern;
 
-    if (equal_to_token(*tokens, "=")) {
+    if (consume_token(tokens, "=")) {
       gvar_initer(tokens, var);
     }
     if (var->type->size < 0) {
@@ -1869,6 +1872,13 @@ static Node* cast(Token** tokens) {
     expect_token(tokens, "(");
     Decl* decl = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
+
+    // compound literals
+    if (equal_to_token(*tokens, "{")) {
+      *tokens = start;
+      return unary(tokens);
+    }
+
     return new_cast_node(decl->type, start, cast(tokens));
   }
 
@@ -1962,6 +1972,10 @@ static Node* member(Token** tokens, Token* token, Node* lhs) {
 }
 
 static Node* postfix(Token** tokens) {
+  if (equal_to_abstract_decl_start(*tokens)) {
+    return compound_literal(tokens);
+  }
+
   Node* node = primary(tokens);
 
   for (;;) {
@@ -1997,6 +2011,25 @@ static Node* postfix(Token** tokens) {
 
     return node;
   }
+}
+
+static Node* compound_literal(Token** tokens) {
+  expect_token(tokens, "(");
+
+  VarAttr attr = {};
+  Decl* decl = abstract_decl(tokens, &attr);
+
+  expect_token(tokens, ")");
+
+  if (is_gscope(current_scope)) {
+    Obj* var = new_anon_gvar(decl->type);
+    gvar_initer(tokens, var);
+    return new_var_node(*tokens, var);
+  }
+
+  Obj* var = new_lvar(decl->type, "");
+  Node* assign = lvar_initer(tokens, var);
+  return new_comma_node(*tokens, assign, new_var_node(*tokens, var));
 }
 
 static Node* primary(Token** tokens) {
@@ -2506,8 +2539,6 @@ static Node* lvar_init(Token* token, Initer* init,
 static Node* lvar_initer(Token** tokens, Obj* var) {
   Token* start = *tokens;
 
-  expect_token(tokens, "=");
-
   Type* type = var->type;
   Initer* init = initer(tokens, &type);
   change_lvar_type(var->next, var, type);
@@ -2537,7 +2568,7 @@ static Node* lvar_decl(Token** tokens) {
 
     if (attr.is_static) {
       Obj* var = new_static_lvar(decl->type, decl->name);
-      if (equal_to_token(*tokens, "=")) {
+      if (consume_token(tokens, "=")) {
         gvar_initer(tokens, var);
       }
       continue;
@@ -2549,7 +2580,7 @@ static Node* lvar_decl(Token** tokens) {
     Obj* var = new_lvar(decl->type, decl->name);
     Node* node = new_var_node(decl->ident, var);
 
-    if (equal_to_token(*tokens, "=")) {
+    if (consume_token(tokens, "=")) {
       node = lvar_initer(tokens, var);
     }
     if (var->type->size < 0) {
@@ -2949,12 +2980,7 @@ static Decl* abstract_declarator(Token** tokens, Type* type) {
     return abstract_declarator(&start, type);
   }
 
-  Token* start = *tokens;
-
   type = type_suffix(tokens, type);
-  if (type->size < 0) {
-    error_token(start, "variable has imcomplete type");
-  }
 
   Decl* decl = calloc(1, sizeof(Decl));
   decl->type = type;

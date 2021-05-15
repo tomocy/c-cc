@@ -5,9 +5,9 @@
 ```
 program = (func | gvar | tydef)*
 
-func = decl_specifier declarator "(" (decl_specifier declarator (, decl_specifier declarator)*)? ")" bloc_stmt
-gvar = decl_specifier declarator ("=" const_expr)? ("," declarator ("=" const_expr)?)* ";"
-tydef = "typedef" decl_specifier declarator ";"
+func = decl "(" (decl (, decl)*)? ")" bloc_stmt
+gvar = decl ("=" const_expr)? ("," declarator ("=" const_expr)?)* ";"
+tydef = "typedef" decl ";"
 
 bloc_stmt = "{" stmt* "}"
 stmt = func |
@@ -48,6 +48,7 @@ unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     "_Alignof" "(" type-name ")" |
     postifx
 postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
+compound_literal = "(" abstract_decl ")" initer
 primary = "(" "{" stmt+ "}" ")" |
     "(" expr ")" |
     ident func_args? |
@@ -86,6 +87,8 @@ decl_specifier = (
 )*
 declarator = "*"* ("(" declarator ")" | ident) type_suffix
 abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix
+decl = decl_specifier declarator
+abstract_decl = decl_specifier abstract_declarator
 type_suffix = array_dimensions | ε
 array_dimensions = "[" const_expr? "]" type_suffix
 
