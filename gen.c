@@ -232,7 +232,13 @@ static void gen_expr(Node* node) {
       }
 
       genln("  mov rax, 0");
-      genln("  call %s", node->name);
+      if (depth % 2 == 0) {
+        genln("  call %s", node->name);
+      } else {
+        genln("  sub rsp, 8");
+        genln("  call %s", node->name);
+        genln("  add rsp, 8");
+      }
       return;
     }
     case ND_NUM:
