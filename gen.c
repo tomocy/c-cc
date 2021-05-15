@@ -451,7 +451,9 @@ static void gen_stmt(Node* node) {
       return;
     }
     case ND_RETURN:
-      gen_expr(node->lhs);
+      if (node->lhs) {
+        gen_expr(node->lhs);
+      }
       genln("  jmp .Lreturn%d", func_count);
       return;
     case ND_LABEL:

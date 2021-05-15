@@ -1423,6 +1423,12 @@ static Node* return_stmt(Token** tokens) {
 
   expect_token(tokens, "return");
 
+  if (consume_token(tokens, ";")) {
+    Node* node = new_node(ND_RETURN);
+    node->token = start;
+    return node;
+  }
+
   Node* node = new_unary_node(
       ND_RETURN, new_cast_node(current_func->type, *tokens, expr(tokens)));
   node->token = start;
