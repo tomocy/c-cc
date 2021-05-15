@@ -239,6 +239,21 @@ static void gen_expr(Node* node) {
         genln("  call %s", node->name);
         genln("  add rsp, 8");
       }
+
+      switch (node->type->kind) {
+        case TY_BOOL:
+          genln("  movzx eax, al");
+          break;
+        case TY_CHAR:
+          genln("  movsbl eax, al");
+          break;
+        case TY_SHORT:
+          genln("  movswl eax, ax");
+          break;
+        default: {
+        }
+      }
+
       return;
     }
     case ND_NUM:
