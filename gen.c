@@ -480,7 +480,11 @@ static void gen_data(Obj* codes) {
       continue;
     }
 
-    genln(".global %s", var->name);
+    if (var->is_static) {
+      genln(".local %s", var->name);
+    } else {
+      genln(".global %s", var->name);
+    }
 
     if (var->val) {
       genln(".data");

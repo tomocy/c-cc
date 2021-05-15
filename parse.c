@@ -1184,6 +1184,7 @@ static void gvar(Token** tokens) {
     }
 
     Obj* var = new_gvar(decl->type, decl->name);
+    var->is_static = attr.is_static;
     var->is_definition = !attr.is_extern;
 
     if (consume_token(tokens, "=")) {
