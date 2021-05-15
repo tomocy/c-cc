@@ -19,6 +19,7 @@ stmt = func |
     "default" ":" |
     "for" "(" (expr | var_decl)? ";" expr? ";" expr? ";" ")" stmt |
     "while" "(" expr ")" stmt |
+    "do" stmt "while" "(" expr ")" ";" |
     "return" expr? ";" |
     ident ":" stmt |
     "goto" ident ";" |

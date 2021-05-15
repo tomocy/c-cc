@@ -271,11 +271,11 @@ static bool can_be_as_keyward(char* kw, char* c) {
 
 static bool consume_keyword(Token** dst, char** c) {
   static char* kws[] = {
-      "if",      "else",   "for",     "while",    "return",
-      "sizeof",  "void",   "_Bool",   "char",     "short",
-      "int",     "long",   "struct",  "union",    "enum",
-      "typedef", "static", "goto",    "break",    "continue",
-      "switch",  "case",   "default", "_Alignof", "_Alignas",
+      "if",       "else",     "for",      "while",  "do",      "return",
+      "sizeof",   "void",     "_Bool",    "char",   "short",   "int",
+      "long",     "struct",   "union",    "enum",   "typedef", "static",
+      "goto",     "break",    "continue", "switch", "case",    "default",
+      "_Alignof", "_Alignas",
   };
   static int klen = sizeof(kws) / sizeof(char*);
 
