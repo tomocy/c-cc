@@ -115,6 +115,20 @@ static bool are_strs_equal(char* a, char* b) {
   return are_strs_equal_n(a, b, strlen(b));
 }
 
+static char* renew_label_id(char** current, char** next) {
+  char* prev = *current;
+  *next = *current = new_id();
+  return prev;
+}
+
+static char* renew_break_label_id(char** next) {
+  return renew_label_id(&current_break_label_id, next);
+}
+
+static char* renew_continue_label_id(char** next) {
+  return renew_label_id(&current_continue_label_id, next);
+}
+
 static Type* new_type(TypeKind kind, int size, int alignment);
 
 static Type* new_ptr_type(Type* base) {
@@ -1290,8 +1304,7 @@ static Node* switch_stmt(Token** tokens) {
   Node* node = current_switch = new_node(ND_SWITCH);
   node->token = start;
 
-  char* prev_break_label_id = current_break_label_id;
-  node->break_label_id = current_break_label_id = new_id();
+  char* prev_break_label_id = renew_break_label_id(&node->break_label_id);
 
   node->cond = expr(tokens);
 
@@ -1359,10 +1372,9 @@ static Node* for_stmt(Token** tokens) {
 
   enter_scope();
 
-  char* prev_break_label_id = current_break_label_id;
-  node->break_label_id = current_break_label_id = new_id();
-  char* prev_continue_label_id = current_continue_label_id;
-  node->continue_label_id = current_continue_label_id = new_id();
+  char* prev_break_label_id = renew_break_label_id(&node->break_label_id);
+  char* prev_continue_label_id =
+      renew_continue_label_id(&node->continue_label_id);
 
   if (!consume_token(tokens, ";")) {
     if (equal_to_decl_specifier(*tokens)) {
@@ -1402,10 +1414,9 @@ static Node* while_stmt(Token** tokens) {
   Node* node = new_node(ND_FOR);
   node->token = start;
 
-  char* prev_break_label_id = current_break_label_id;
-  node->break_label_id = current_break_label_id = new_id();
-  char* prev_continue_label_id = current_continue_label_id;
-  node->continue_label_id = current_continue_label_id = new_id();
+  char* prev_break_label_id = renew_break_label_id(&node->break_label_id);
+  char* prev_continue_label_id =
+      renew_continue_label_id(&node->continue_label_id);
 
   node->cond = expr(tokens);
 
@@ -1427,10 +1438,9 @@ static Node* do_stmt(Token** tokens) {
   Node* node = new_node(ND_FOR);
   node->token = start;
 
-  char* prev_break_label_id = current_break_label_id;
-  node->break_label_id = current_break_label_id = new_id();
-  char* prev_continue_label_id = current_continue_label_id;
-  node->continue_label_id = current_continue_label_id = new_id();
+  char* prev_break_label_id = renew_break_label_id(&node->break_label_id);
+  char* prev_continue_label_id =
+      renew_continue_label_id(&node->continue_label_id);
 
   node->then = stmt(tokens);
 
