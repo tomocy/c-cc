@@ -1,6 +1,7 @@
 #include "cc.h"
 
 static FILE* output_file;
+static int depth_outside_frame = 0;
 static int depth = 0;
 static int func_count = 0;
 static char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
@@ -15,15 +16,25 @@ static void genln(char* fmt, ...) {
   fprintf(output_file, "\n");
 }
 
-static void push(char* reg) {
+static void do_push(char* reg, int* count) {
   genln("  push %s", reg);
-  depth++;
+  (*count)++;
 }
 
-static void pop(char* reg) {
+static void do_pop(char* reg, int* count) {
   genln("  pop %s", reg);
-  depth--;
+  (*count)--;
 }
+
+static void push_outside_frame(char* reg) {
+  do_push(reg, &depth_outside_frame);
+}
+
+static void pop_outside_frame(char* reg) { do_pop(reg, &depth_outside_frame); }
+
+static void push(char* reg) { do_push(reg, &depth); }
+
+static void pop(char* reg) { do_pop(reg, &depth); }
 
 static int count_label(void) {
   static int count = 0;
@@ -548,7 +559,7 @@ static void gen_text(Obj* codes) {
       genln(".global %s", func->name);
     }
     genln("%s:", func->name);
-    push("rbp");
+    push_outside_frame("rbp");
     genln("  mov rbp, rsp");
     genln("  sub rsp, %d", func->stack_size);
 
@@ -575,7 +586,7 @@ static void gen_text(Obj* codes) {
 
     genln(".Lreturn%d:", func_count++);
     genln("  mov rsp, rbp");
-    pop("rbp");
+    pop_outside_frame("rbp");
     genln("  ret");
   }
 }
@@ -592,6 +603,12 @@ static void open_output_file(void) {
   }
 }
 
+static void assert_depth_offset(char* name, int d) {
+  if (d != 0) {
+    error("%s: push and pop do not offset each other: %d", name, d);
+  }
+}
+
 void gen(Obj* codes) {
   open_output_file();
 
@@ -599,7 +616,7 @@ void gen(Obj* codes) {
   genln(".file 1 \"%s\"", input_filename);
   gen_data(codes);
   gen_text(codes);
-  if (depth != 0) {
-    error("push and pop do not offset each other: depth %d", depth);
-  }
+
+  assert_depth_offset("depth_outside_frame", depth_outside_frame);
+  assert_depth_offset("depth", depth);
 }

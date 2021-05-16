@@ -104,5 +104,11 @@ int main() {
   ASSERT(3, char_fn());
   ASSERT(5, short_fn());
 
+  ASSERT(0, ({
+           char buf[100];
+           sprintf(buf, "%d %d %s", 1, 2, "foo");
+           strcmp("1 2 foo", buf);
+         }));
+
   ok();
 }
