@@ -5,4 +5,4 @@ void ok();
 
 int strcmp(char* p, char* q);
 int memcmp(char* p, char* q, long n);
-int sprintf();
+int sprintf(char* buf, char* fmt, ...);

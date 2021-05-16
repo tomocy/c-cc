@@ -53,6 +53,8 @@ _Bool false_fn();
 char char_fn();
 short short_fn();
 
+int add_all(int n, ...);
+
 int main() {
   ASSERT(3, ret3());
   ASSERT(8, add2(3, 5));
@@ -109,6 +111,9 @@ int main() {
            sprintf(buf, "%d %d %s", 1, 2, "foo");
            strcmp("1 2 foo", buf);
          }));
+
+  ASSERT(6, add_all(3, 1, 2, 3));
+  ASSERT(5, add_all(4, 1, 2, 3, -1));
 
   ok();
 }

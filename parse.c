@@ -1062,6 +1062,11 @@ static Node* func_params(Token** tokens) {
       expect_token(tokens, ",");
     }
 
+    if (consume_token(tokens, "...")) {
+      expect_token(tokens, ")");
+      break;
+    }
+
     Decl* dcl = decl(tokens, NULL);
     if (dcl->type->kind == TY_ARRAY) {
       dcl->type = new_ptr_type(dcl->type->base);

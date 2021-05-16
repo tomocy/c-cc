@@ -5,7 +5,7 @@
 ```
 program = (func | gvar | tydef)*
 
-func = decl "(" (decl (, decl)*)? ")" bloc_stmt
+func = decl "(" (decl ("," decl)* ("," "...")?)? ")" bloc_stmt
 gvar = decl ("=" const_expr)? ("," declarator ("=" const_expr)?)* ";"
 tydef = "typedef" decl ";"
 
