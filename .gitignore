@@ -3,4 +3,7 @@
 *.o
 tmp*
 cc
-cc_test
+test/*
+!test/*.c
+!test/*.h
+!test/*.sh
