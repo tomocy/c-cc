@@ -59,12 +59,17 @@ typedef enum {
 
 struct Type {
   TypeKind kind;
+
   int size;
   int alignment;
+
   Member* members;
+
   bool is_flexible;
   Type* base;
   int len;
+
+  bool is_variadic;
 };
 
 typedef enum {
@@ -156,6 +161,7 @@ struct Obj {
   bool is_static;
   bool is_definition;
   Obj* lvars;
+  Obj* va_area;
   Node* params;
   Node* body;
   int stack_size;

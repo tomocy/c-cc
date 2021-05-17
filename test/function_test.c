@@ -13,7 +13,7 @@ int add6(int a, int b, int c, int d, int e, int f) {
   return a + b + c + d + e + f;
 }
 
-int addx(int *x, int y) { return *x + y; }
+int addx(int* x, int y) { return *x + y; }
 
 int sub_char(char a, char b, char c) { return a - b - c; }
 
@@ -28,7 +28,7 @@ int sub_short(short a, short b, short c) { return a - b - c; }
 
 int g1;
 
-int *g1_ptr(void) { return &g1; }
+int* g1_ptr(void) { return &g1; }
 char int_to_char(int x) { return x; }
 
 int div_long(long a, long b) { return a / b; }
@@ -54,6 +54,24 @@ char char_fn();
 short short_fn();
 
 int add_all(int n, ...);
+
+typedef struct {
+  int gp_offset;
+  int fp_offset;
+  void* overflow_arg_area;
+  void* reg_save_area;
+} __va_elem;
+
+typedef __va_elem va_list[1];
+
+int vsprintf(char* buf, char* fmt, va_list ap);
+
+char* fmt(char* buf, char* fmt, ...) {
+  va_list ap;
+  // __var_area__ is declared implicitly when function is variadic
+  *ap = *(__va_elem*)__va_area__;
+  vsprintf(buf, fmt, ap);
+}
 
 int main() {
   ASSERT(3, ret3());
@@ -114,6 +132,18 @@ int main() {
 
   ASSERT(6, add_all(3, 1, 2, 3));
   ASSERT(5, add_all(4, 1, 2, 3, -1));
+
+  {
+    char buf[100];
+    fmt(buf, "%d %d %s", 1, 2, "foo");
+    printf("%s\n", buf);
+  }
+
+  ASSERT(0, ({
+           char buf[100];
+           fmt(buf, "%d %d %s", 1, 2, "foo");
+           strcmp("1 2 foo", buf);
+         }));
 
   ok();
 }

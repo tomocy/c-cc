@@ -1046,7 +1046,7 @@ static void resolve_goto_labels(void) {
   current_gotos = NULL;
 }
 
-static Node* func_params(Token** tokens) {
+static Node* func_params(Token** tokens, Type* type) {
   expect_token(tokens, "(");
 
   if (equal_to_token(*tokens, "void") && equal_to_token((*tokens)->next, ")")) {
@@ -1057,6 +1057,7 @@ static Node* func_params(Token** tokens) {
 
   Node head = {};
   Node* cur = &head;
+  type->is_variadic = false;
   while (!consume_token(tokens, ")")) {
     if (cur != &head) {
       expect_token(tokens, ",");
@@ -1064,6 +1065,7 @@ static Node* func_params(Token** tokens) {
 
     if (consume_token(tokens, "...")) {
       expect_token(tokens, ")");
+      type->is_variadic = true;
       break;
     }
 
@@ -1092,12 +1094,16 @@ static void func(Token** tokens) {
 
   enter_scope();
 
-  func->params = func_params(tokens);
+  func->params = func_params(tokens, func->type);
 
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
     leave_scope();
     return;
+  }
+
+  if (func->type->is_variadic) {
+    func->va_area = new_lvar(new_array_type(ty_char, 136), "__va_area__");
   }
 
   func->body = block_stmt(tokens);
