@@ -21,9 +21,13 @@ void ok(void) {
   exit(0);
 }
 
-int add(int a, int b) { return a + b; }
+int add(int a, int b) {
+  return a + b;
+}
 
-int addmul(int a, int b, int c) { return a + b * c; }
+int addmul(int a, int b, int c) {
+  return a + b * c;
+}
 
 int sum(int a, int b, int c, int d, int e, int f) {
   return a + b + c + d + e + f;
@@ -38,25 +42,41 @@ void alloc(int** p, int a, int b, int c, int d) {
   *p = vs;
 }
 
-static int static_fn() { return 5; }
+static int static_fn() {
+  return 5;
+}
 
 int ext1 = 5;
 int* ext2 = &ext1;
 
 int ext3 = 7;
-int ext_fn1(int x) { return x; }
-int ext_fn2(int x) { return x; }
+int ext_fn1(int x) {
+  return x;
+}
+int ext_fn2(int x) {
+  return x;
+}
 
-int false_fn() { return 512; }
-int true_fn() { return 513; }
-int char_fn() { return (2 << 8) + 3; }
-int short_fn() { return (2 << 16) + 5; }
+int false_fn() {
+  return 512;
+}
+int true_fn() {
+  return 513;
+}
+int char_fn() {
+  return (2 << 8) + 3;
+}
+int short_fn() {
+  return (2 << 16) + 5;
+}
 
 int add_all(int n, ...) {
   va_list ap;
   va_start(ap, n);
 
   int sum = 0;
-  for (int i = 0; i < n; i++) sum += va_arg(ap, int);
+  for (int i = 0; i < n; i++) {
+    sum += va_arg(ap, int);
+  }
   return sum;
 }

@@ -179,7 +179,9 @@ static void warn_at(int line, char* loc) {
   fprintf(stderr, "\n");
 }
 
-void warn_token(Token* token) { warn_at(token->line, token->loc); }
+void warn_token(Token* token) {
+  warn_at(token->line, token->loc);
+}
 
 static bool starting_with(char* c, char* prefix) {
   return memcmp(c, prefix, strlen(prefix)) == 0;
@@ -271,11 +273,32 @@ static bool can_be_as_keyward(char* kw, char* c) {
 
 static bool consume_keyword(Token** dst, char** c) {
   static char* kws[] = {
-      "if",       "else",     "for",      "while",  "do",      "return",
-      "sizeof",   "void",     "_Bool",    "char",   "short",   "int",
-      "long",     "struct",   "union",    "enum",   "typedef", "static",
-      "goto",     "break",    "continue", "switch", "case",    "default",
-      "_Alignof", "_Alignas",
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "return",
+    "sizeof",
+    "void",
+    "_Bool",
+    "char",
+    "short",
+    "int",
+    "long",
+    "struct",
+    "union",
+    "enum",
+    "typedef",
+    "static",
+    "goto",
+    "break",
+    "continue",
+    "switch",
+    "case",
+    "default",
+    "_Alignof",
+    "_Alignas",
   };
   static int klen = sizeof(kws) / sizeof(char*);
 
@@ -295,11 +318,52 @@ static bool consume_keyword(Token** dst, char** c) {
 
 static bool consume_punct(Token** dst, char** c) {
   static char* puncts[] = {
-      "<<=", ">>=", "...",  // tri
-      "==",  "!=",  "<=",  ">=", "->", "+=", "-=", "*=", "/=", "%=", "|=", "^=",
-      "&=",  "||",  "&&",  "++", "--", "<<", ">>",  // duo
-      "+",   "-",   "*",   "/",  "%",  "(",  ")",  "<",  ">",  "=",  ":",  ";",
-      "{",   "}",   ",",   ".",  "&",  "|",  "^",  "[",  "]",  "!",  "~",  "?",
+    "<<=",
+    ">>=",
+    "...",  // tri
+    "==",
+    "!=",
+    "<=",
+    ">=",
+    "->",
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "%=",
+    "|=",
+    "^=",
+    "&=",
+    "||",
+    "&&",
+    "++",
+    "--",
+    "<<",
+    ">>",  // duo
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "(",
+    ")",
+    "<",
+    ">",
+    "=",
+    ":",
+    ";",
+    "{",
+    "}",
+    ",",
+    ".",
+    "&",
+    "|",
+    "^",
+    "[",
+    "]",
+    "!",
+    "~",
+    "?",
   };
   static int plen = sizeof(puncts) / sizeof(char*);
 

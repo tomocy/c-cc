@@ -18,6 +18,8 @@
 	"extensions": [
         "ms-vscode.cpptools",
         "patbenatar.advanced-new-file",
+        "editorconfig.editorconfig",
+        "llvm-vs-code-extensions.vscode-clangd",
     ],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.

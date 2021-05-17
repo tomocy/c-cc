@@ -30,11 +30,17 @@ static void push_outside_frame(char* reg) {
   do_push(reg, &depth_outside_frame);
 }
 
-static void pop_outside_frame(char* reg) { do_pop(reg, &depth_outside_frame); }
+static void pop_outside_frame(char* reg) {
+  do_pop(reg, &depth_outside_frame);
+}
 
-static void push(char* reg) { do_push(reg, &depth); }
+static void push(char* reg) {
+  do_push(reg, &depth);
+}
 
-static void pop(char* reg) { do_pop(reg, &depth); }
+static void pop(char* reg) {
+  do_pop(reg, &depth);
+}
 
 static int count_label(void) {
   static int count = 0;
@@ -70,8 +76,7 @@ static void gen_addr(Node* node) {
 }
 
 static void load(Node* node) {
-  if (node->type->kind == TY_ARRAY || node->type->kind == TY_STRUCT ||
-      node->type->kind == TY_UNION) {
+  if (node->type->kind == TY_ARRAY || node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
     return;
   }
 
@@ -93,6 +98,7 @@ static void load(Node* node) {
   genln("  mov rax, [rax]");
 }
 
+// NOLINTNEXTLINE
 static void cast(Type* to, Type* from) {
   if (to->kind == TY_VOID) {
     return;
@@ -109,43 +115,38 @@ static void cast(Type* to, Type* from) {
     return;
   }
 
-  if ((from->size == 1 && to->size == 2) ||
-      (from->size == 2 && to->size == 1)) {
+  if ((from->size == 1 && to->size == 2) || (from->size == 2 && to->size == 1)) {
     genln("  movsx ax, al");
     return;
   }
 
-  if ((from->size == 1 && to->size == 4) ||
-      (from->size == 4 && to->size == 1)) {
+  if ((from->size == 1 && to->size == 4) || (from->size == 4 && to->size == 1)) {
     genln("  movsx eax, al");
     return;
   }
 
-  if ((from->size == 1 && to->size == 8) ||
-      (from->size == 8 && to->size == 1)) {
+  if ((from->size == 1 && to->size == 8) || (from->size == 8 && to->size == 1)) {
     genln("  movsx rax, al");
     return;
   }
 
-  if ((from->size == 2 && to->size == 4) ||
-      (from->size == 4 && to->size == 2)) {
+  if ((from->size == 2 && to->size == 4) || (from->size == 4 && to->size == 2)) {
     genln("  movsx eax, ax");
     return;
   }
 
-  if ((from->size == 2 && to->size == 8) ||
-      (from->size == 8 && to->size == 2)) {
+  if ((from->size == 2 && to->size == 8) || (from->size == 8 && to->size == 2)) {
     genln("  movsx rax, ax");
     return;
   }
 
-  if ((from->size == 4 && to->size == 8) ||
-      (from->size == 8 && to->size == 4)) {
+  if ((from->size == 4 && to->size == 8) || (from->size == 8 && to->size == 4)) {
     genln("  movsx rax, eax");
     return;
   }
 }
 
+// NOLINTNEXTLINE
 static void gen_expr(Node* node) {
   genln("  .loc 1 %d", node->token->line);
 
@@ -306,7 +307,8 @@ static void gen_expr(Node* node) {
   genln("  mov rdi, rax");
   pop("rax");
 
-  char *ax, *di;
+  char* ax;
+  char* di;
   if (node->lhs->type->size <= 4 && node->rhs->type->size <= 4) {
     ax = "eax";
     di = "edi ";

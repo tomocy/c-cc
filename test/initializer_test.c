@@ -15,34 +15,42 @@ struct {
 union {
   int a;
   char b[8];
+  // NOLINTNEXTLINE
 } g13[2] = {0x01020304, 0x05060708};
 char g17[] = "foobar";
 char g18[10] = "foobar";
+// NOLINTNEXTLINE
 char g19[3] = "foobar";
-char *g20 = g17 + 0;
-char *g21 = g17 + 3;
-char *g22 = &g17 - 3;
-char *g23[] = {g17 + 0, g17 + 3, g17 - 3};
+char* g20 = g17 + 0;
+char* g21 = g17 + 3;
+// NOLINTNEXTLINE
+char* g22 = &g17 - 3;
+char* g23[] = {g17 + 0, g17 + 3, g17 - 3};
 int g24 = 3;
-int *g25 = &g24;
+int* g25 = &g24;
 int g26[3] = {1, 2, 3};
-int *g27 = g26 + 1;
-int *g28 = &g11[1].a;
+int* g27 = g26 + 1;
+// NOLINTNEXTLINE
+int* g28 = &g11[1].a;
+// NOLINTNEXTLINE
 long g29 = (long)(long)g26;
 struct {
   struct {
     int a[3];
   } a;
 } g30 = {{{1, 2, 3}}};
-int *g31 = g30.a.a;
+int* g31 = g30.a.a;
 struct {
   int a[2];
+  // NOLINTNEXTLINE
 } g40[2] = {{1, 2}, 3, 4};
 struct {
   int a[2];
+  // NOLINTNEXTLINE
 } g41[2] = {1, 2, 3, 4};
+// NOLINTNEXTLINE
 char g43[][4] = {'f', 'o', 'o', 0, 'b', 'a', 'r', 0};
-char *g44 = {"foo"};
+char* g44 = {"foo"};
 
 typedef char T60[];
 T60 g60 = {1, 2, 3};
@@ -51,286 +59,293 @@ T60 g61 = {1, 2, 3, 4, 5, 6};
 typedef struct {
   char a, b[];
 } T65;
+// NOLINTNEXTLINE
 T65 g65 = {'f', 'o', 'o', 0};
+// NOLINTNEXTLINE
 T65 g66 = {'f', 'o', 'o', 'b', 'a', 'r', 0};
 
 int main() {
   ASSERT(1, ({
-           int x[3] = {1, 2, 3};
-           x[0];
-         }));
+    int x[3] = {1, 2, 3};
+    x[0];
+  }));
   ASSERT(2, ({
-           int x[3] = {1, 2, 3};
-           x[1];
-         }));
+    int x[3] = {1, 2, 3};
+    x[1];
+  }));
   ASSERT(3, ({
-           int x[3] = {1, 2, 3};
-           x[2];
-         }));
+    int x[3] = {1, 2, 3};
+    x[2];
+  }));
   ASSERT(3, ({
-           int x[3] = {1, 2, 3};
-           x[2];
-         }));
+    int x[3] = {1, 2, 3};
+    x[2];
+  }));
 
   ASSERT(2, ({
-           int x[2][3] = {{1, 2, 3}, {4, 5, 6}};
-           x[0][1];
-         }));
+    int x[2][3] = {{1, 2, 3}, {4, 5, 6}};
+    x[0][1];
+  }));
   ASSERT(4, ({
-           int x[2][3] = {{1, 2, 3}, {4, 5, 6}};
-           x[1][0];
-         }));
+    int x[2][3] = {{1, 2, 3}, {4, 5, 6}};
+    x[1][0];
+  }));
   ASSERT(6, ({
-           int x[2][3] = {{1, 2, 3}, {4, 5, 6}};
-           x[1][2];
-         }));
+    int x[2][3] = {{1, 2, 3}, {4, 5, 6}};
+    x[1][2];
+  }));
 
   ASSERT(0, ({
-           int x[3] = {};
-           x[0];
-         }));
+    int x[3] = {};
+    x[0];
+  }));
   ASSERT(0, ({
-           int x[3] = {};
-           x[1];
-         }));
+    int x[3] = {};
+    x[1];
+  }));
   ASSERT(0, ({
-           int x[3] = {};
-           x[2];
-         }));
+    int x[3] = {};
+    x[2];
+  }));
 
   ASSERT(2, ({
-           int x[2][3] = {{1, 2}};
-           x[0][1];
-         }));
+    int x[2][3] = {{1, 2}};
+    x[0][1];
+  }));
   ASSERT(0, ({
-           int x[2][3] = {{1, 2}};
-           x[1][0];
-         }));
+    int x[2][3] = {{1, 2}};
+    x[1][0];
+  }));
   ASSERT(0, ({
-           int x[2][3] = {{1, 2}};
-           x[1][2];
-         }));
+    int x[2][3] = {{1, 2}};
+    x[1][2];
+  }));
 
   ASSERT('a', ({
-           char x[4] = "abc";
-           x[0];
-         }));
+    char x[4] = "abc";
+    x[0];
+  }));
   ASSERT('c', ({
-           char x[4] = "abc";
-           x[2];
-         }));
+    char x[4] = "abc";
+    x[2];
+  }));
   ASSERT(0, ({
-           char x[4] = "abc";
-           x[3];
-         }));
+    char x[4] = "abc";
+    x[3];
+  }));
   ASSERT('a', ({
-           char x[2][4] = {"abc", "def"};
-           x[0][0];
-         }));
+    char x[2][4] = {"abc", "def"};
+    x[0][0];
+  }));
   ASSERT(0, ({
-           char x[2][4] = {"abc", "def"};
-           x[0][3];
-         }));
+    char x[2][4] = {"abc", "def"};
+    x[0][3];
+  }));
   ASSERT('d', ({
-           char x[2][4] = {"abc", "def"};
-           x[1][0];
-         }));
+    char x[2][4] = {"abc", "def"};
+    x[1][0];
+  }));
   ASSERT('f', ({
-           char x[2][4] = {"abc", "def"};
-           x[1][2];
-         }));
+    char x[2][4] = {"abc", "def"};
+    x[1][2];
+  }));
 
   ASSERT(4, ({
-           int x[] = {1, 2, 3, 4};
-           x[3];
-         }));
+    int x[] = {1, 2, 3, 4};
+    x[3];
+  }));
   ASSERT(16, ({
-           int x[] = {1, 2, 3, 4};
-           sizeof(x);
-         }));
+    int x[] = {1, 2, 3, 4};
+    sizeof(x);
+  }));
   ASSERT(4, ({
-           char x[] = "foo";
-           sizeof(x);
-         }));
+    char x[] = "foo";
+    sizeof(x);
+  }));
 
   ASSERT(4, ({
-           typedef char T[];
-           T x = "foo";
-           T y = "x";
-           sizeof(x);
-         }));
+    typedef char T[];
+    T x = "foo";
+    // NOLINTNEXTLINE
+    T y = "x";
+    sizeof(x);
+  }));
   ASSERT(2, ({
-           typedef char T[];
-           T x = "foo";
-           T y = "x";
-           sizeof(y);
-         }));
+    typedef char T[];
+    // NOLINTNEXTLINE
+    T x = "foo";
+    T y = "x";
+    sizeof(y);
+  }));
   ASSERT(2, ({
-           typedef char T[];
-           T x = "x";
-           T y = "foo";
-           sizeof(x);
-         }));
+    typedef char T[];
+    T x = "x";
+    // NOLINTNEXTLINE
+    T y = "foo";
+    sizeof(x);
+  }));
   ASSERT(4, ({
-           typedef char T[];
-           T x = "x";
-           T y = "foo";
-           sizeof(y);
-         }));
+    typedef char T[];
+    // NOLINTNEXTLINE
+    T x = "x";
+    T y = "foo";
+    sizeof(y);
+  }));
 
   ASSERT(1, ({
-           struct {
-             int a;
-             int b;
-             int c;
-           } x = {1, 2, 3};
-           x.a;
-         }));
+    struct {
+      int a;
+      int b;
+      int c;
+    } x = {1, 2, 3};
+    x.a;
+  }));
   ASSERT(2, ({
-           struct {
-             int a;
-             int b;
-             int c;
-           } x = {1, 2, 3};
-           x.b;
-         }));
+    struct {
+      int a;
+      int b;
+      int c;
+    } x = {1, 2, 3};
+    x.b;
+  }));
   ASSERT(3, ({
-           struct {
-             int a;
-             int b;
-             int c;
-           } x = {1, 2, 3};
-           x.c;
-         }));
+    struct {
+      int a;
+      int b;
+      int c;
+    } x = {1, 2, 3};
+    x.c;
+  }));
   ASSERT(1, ({
-           struct {
-             int a;
-             int b;
-             int c;
-           } x = {1};
-           x.a;
-         }));
+    struct {
+      int a;
+      int b;
+      int c;
+    } x = {1};
+    x.a;
+  }));
   ASSERT(0, ({
-           struct {
-             int a;
-             int b;
-             int c;
-           } x = {1};
-           x.b;
-         }));
+    struct {
+      int a;
+      int b;
+      int c;
+    } x = {1};
+    x.b;
+  }));
   ASSERT(0, ({
-           struct {
-             int a;
-             int b;
-             int c;
-           } x = {1};
-           x.c;
-         }));
+    struct {
+      int a;
+      int b;
+      int c;
+    } x = {1};
+    x.c;
+  }));
 
   ASSERT(1, ({
-           struct {
-             int a;
-             int b;
-           } x[2] = {{1, 2}, {3, 4}};
-           x[0].a;
-         }));
+    struct {
+      int a;
+      int b;
+    } x[2] = {{1, 2}, {3, 4}};
+    x[0].a;
+  }));
   ASSERT(2, ({
-           struct {
-             int a;
-             int b;
-           } x[2] = {{1, 2}, {3, 4}};
-           x[0].b;
-         }));
+    struct {
+      int a;
+      int b;
+    } x[2] = {{1, 2}, {3, 4}};
+    x[0].b;
+  }));
   ASSERT(3, ({
-           struct {
-             int a;
-             int b;
-           } x[2] = {{1, 2}, {3, 4}};
-           x[1].a;
-         }));
+    struct {
+      int a;
+      int b;
+    } x[2] = {{1, 2}, {3, 4}};
+    x[1].a;
+  }));
   ASSERT(4, ({
-           struct {
-             int a;
-             int b;
-           } x[2] = {{1, 2}, {3, 4}};
-           x[1].b;
-         }));
+    struct {
+      int a;
+      int b;
+    } x[2] = {{1, 2}, {3, 4}};
+    x[1].b;
+  }));
 
   ASSERT(0, ({
-           struct {
-             int a;
-             int b;
-           } x[2] = {{1, 2}};
-           x[1].b;
-         }));
+    struct {
+      int a;
+      int b;
+    } x[2] = {{1, 2}};
+    x[1].b;
+  }));
 
   ASSERT(0, ({
-           struct {
-             int a;
-             int b;
-           } x = {};
-           x.a;
-         }));
+    struct {
+      int a;
+      int b;
+    } x = {};
+    x.a;
+  }));
   ASSERT(0, ({
-           struct {
-             int a;
-             int b;
-           } x = {};
-           x.b;
-         }));
+    struct {
+      int a;
+      int b;
+    } x = {};
+    x.b;
+  }));
 
   ASSERT(5, ({
-           typedef struct {
-             int a, b, c, d, e, f;
-           } T;
-           T x = {1, 2, 3, 4, 5, 6};
-           T y;
-           y = x;
-           y.e;
-         }));
+    typedef struct {
+      int a, b, c, d, e, f;
+    } T;
+    T x = {1, 2, 3, 4, 5, 6};
+    T y;
+    y = x;
+    y.e;
+  }));
   ASSERT(2, ({
-           typedef struct {
-             int a, b;
-           } T;
-           T x = {1, 2};
-           T y, z;
-           z = y = x;
-           z.b;
-         }));
+    typedef struct {
+      int a, b;
+    } T;
+    T x = {1, 2};
+    // NOLINTNEXTLINE
+    T y, z;
+    z = y = x;
+    z.b;
+  }));
 
   ASSERT(1, ({
-           typedef struct {
-             int a, b;
-           } T;
-           T x = {1, 2};
-           T y = x;
-           y.a;
-         }));
+    typedef struct {
+      int a, b;
+    } T;
+    T x = {1, 2};
+    T y = x;
+    y.a;
+  }));
 
   ASSERT(4, ({
-           union {
-             int a;
-             char b[4];
-           } x = {0x01020304};
-           x.b[0];
-         }));
+    union {
+      int a;
+      char b[4];
+    } x = {0x01020304};
+    x.b[0];
+  }));
   ASSERT(3, ({
-           union {
-             int a;
-             char b[4];
-           } x = {0x01020304};
-           x.b[1];
-         }));
+    union {
+      int a;
+      char b[4];
+    } x = {0x01020304};
+    x.b[1];
+  }));
 
   ASSERT(0x01020304, ({
-           union {
-             struct {
-               char a, b, c, d;
-             } e;
-             int f;
-           } x = {{4, 3, 2, 1}};
-           x.f;
-         }));
+    union {
+      struct {
+        char a, b, c, d;
+      } e;
+      int f;
+    } x = {{4, 3, 2, 1}};
+    x.f;
+  }));
 
   ASSERT(3, g3);
   ASSERT(4, g4);
@@ -376,7 +391,8 @@ int main() {
   ASSERT(3, *g25);
   ASSERT(2, *g27);
   ASSERT(3, *g28);
-  ASSERT(1, *(int *)g29);
+  // NOLINTNEXTLINE
+  ASSERT(1, *(int*)g29);
 
   ASSERT(1, g31[0]);
   ASSERT(2, g31[1]);
@@ -393,68 +409,72 @@ int main() {
   ASSERT(4, g41[1].a[1]);
 
   ASSERT(0, ({
-           int x[2][3] = {0, 1, 2, 3, 4, 5};
-           x[0][0];
-         }));
+    // NOLINTNEXTLINE
+    int x[2][3] = {0, 1, 2, 3, 4, 5};
+    x[0][0];
+  }));
   ASSERT(3, ({
-           int x[2][3] = {0, 1, 2, 3, 4, 5};
-           x[1][0];
-         }));
+    // NOLINTNEXTLINE
+    int x[2][3] = {0, 1, 2, 3, 4, 5};
+    x[1][0];
+  }));
 
   ASSERT(0, ({
-           struct {
-             int a;
-             int b;
-           } x[2] = {0, 1, 2, 3};
-           x[0].a;
-         }));
+    struct {
+      int a;
+      int b;
+      // NOLINTNEXTLINE
+    } x[2] = {0, 1, 2, 3};
+    x[0].a;
+  }));
   ASSERT(2, ({
-           struct {
-             int a;
-             int b;
-           } x[2] = {0, 1, 2, 3};
-           x[1].a;
-         }));
+    struct {
+      int a;
+      int b;
+      // NOLINTNEXTLINE
+    } x[2] = {0, 1, 2, 3};
+    x[1].a;
+  }));
 
   ASSERT(0, strcmp(g43[0], "foo"));
   ASSERT(0, strcmp(g43[1], "bar"));
   ASSERT(0, strcmp(g44, "foo"));
 
   ASSERT(3, ({
-           int a[] = {
-               1,
-               2,
-               3,
-           };
-           a[2];
-         }));
+    int a[] = {
+      1,
+      2,
+      3,
+    };
+    a[2];
+  }));
   ASSERT(1, ({
-           struct {
-             int a, b, c;
-           } x = {
-               1,
-               2,
-               3,
-           };
-           x.a;
-         }));
+    struct {
+      int a, b, c;
+    } x = {
+      1,
+      2,
+      3,
+    };
+    x.a;
+  }));
   ASSERT(1, ({
-           union {
-             int a;
-             char b;
-           } x = {
-               1,
-           };
-           x.a;
-         }));
+    union {
+      int a;
+      char b;
+    } x = {
+      1,
+    };
+    x.a;
+  }));
   ASSERT(2, ({
-           enum {
-             x,
-             y,
-             z,
-           };
-           z;
-         }));
+    enum {
+      x,
+      y,
+      z,
+    };
+    z;
+  }));
 
   ASSERT(3, sizeof(g60));
   ASSERT(6, sizeof(g61));

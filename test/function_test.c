@@ -5,40 +5,69 @@ int ret3(void) {
   return 5;
 }
 
-int add2(int x, int y) { return x + y; }
+int add2(int x, int y) {
+  return x + y;
+}
 
-int sub2(int x, int y) { return x - y; }
+int sub2(int x, int y) {
+  return x - y;
+}
 
 int add6(int a, int b, int c, int d, int e, int f) {
   return a + b + c + d + e + f;
 }
 
-int addx(int* x, int y) { return *x + y; }
+// NOLINTNEXTLINE
+int addx(int* x, int y) {
+  return *x + y;
+}
 
-int sub_char(char a, char b, char c) { return a - b - c; }
+int sub_char(char a, char b, char c) {
+  return a - b - c;
+}
 
 int fib(int x) {
-  if (x <= 1) return 1;
+  if (x <= 1) {
+    return 1;
+  }
   return fib(x - 1) + fib(x - 2);
 }
 
-int sub_long(long a, long b, long c) { return a - b - c; }
+int sub_long(long a, long b, long c) {
+  return a - b - c;
+}
 
-int sub_short(short a, short b, short c) { return a - b - c; }
+int sub_short(short a, short b, short c) {
+  return a - b - c;
+}
 
 int g1;
 
-int* g1_ptr(void) { return &g1; }
-char int_to_char(int x) { return x; }
+int* g1_ptr(void) {
+  return &g1;
+}
+char int_to_char(int x) {
+  return x;
+}
 
-int div_long(long a, long b) { return a / b; }
+int div_long(long a, long b) {
+  return a / b;
+}
 
-_Bool bool_fn_add(_Bool x) { return x + 1; }
-_Bool bool_fn_sub(_Bool x) { return x - 1; }
+_Bool bool_fn_add(_Bool x) {
+  return x + 1;
+}
+_Bool bool_fn_sub(_Bool x) {
+  return x - 1;
+}
 
-static int static_fn(void) { return 3; }
+static int static_fn(void) {
+  return 3;
+}
 
-int param_decay(int x[]) { return x[0]; }
+int param_decay(int x[]) {
+  return x[0];
+}
 
 int counter() {
   static int i;
@@ -46,7 +75,10 @@ int counter() {
   return i++ + j++;
 }
 
-void ret_none() { return; }
+void ret_none() {
+  // NOLINTNEXTLINE
+  return;
+}
 
 _Bool true_fn();
 _Bool false_fn();
@@ -64,6 +96,7 @@ typedef struct {
 
 typedef __va_elem va_list[1];
 
+// NOLINTNEXTLINE
 int vsprintf(char* buf, char* fmt, va_list ap);
 
 char* fmt(char* buf, char* fmt, ...) {
@@ -79,8 +112,7 @@ int main() {
   ASSERT(2, sub2(5, 3));
   ASSERT(21, add6(1, 2, 3, 4, 5, 6));
   ASSERT(66, add6(1, 2, add6(3, 4, 5, 6, 7, 8), 9, 10, 11));
-  ASSERT(136, add6(1, 2, add6(3, add6(4, 5, 6, 7, 8, 9), 10, 11, 12, 13), 14,
-                   15, 16));
+  ASSERT(136, add6(1, 2, add6(3, add6(4, 5, 6, 7, 8, 9), 10, 11, 12, 13), 14, 15, 16));
 
   ASSERT(7, add2(3, 4));
   ASSERT(1, sub2(4, 3));
@@ -108,10 +140,10 @@ int main() {
   ASSERT(3, static_fn());
 
   ASSERT(3, ({
-           int x[2];
-           x[0] = 3;
-           param_decay(x);
-         }));
+    int x[2];
+    x[0] = 3;
+    param_decay(x);
+  }));
 
   ASSERT(2, counter());
   ASSERT(4, counter());
@@ -125,10 +157,10 @@ int main() {
   ASSERT(5, short_fn());
 
   ASSERT(0, ({
-           char buf[100];
-           sprintf(buf, "%d %d %s", 1, 2, "foo");
-           strcmp("1 2 foo", buf);
-         }));
+    char buf[100];
+    sprintf(buf, "%d %d %s", 1, 2, "foo");
+    strcmp("1 2 foo", buf);
+  }));
 
   ASSERT(6, add_all(3, 1, 2, 3));
   ASSERT(5, add_all(4, 1, 2, 3, -1));
@@ -140,10 +172,10 @@ int main() {
   }
 
   ASSERT(0, ({
-           char buf[100];
-           fmt(buf, "%d %d %s", 1, 2, "foo");
-           strcmp("1 2 foo", buf);
-         }));
+    char buf[100];
+    fmt(buf, "%d %d %s", 1, 2, "foo");
+    strcmp("1 2 foo", buf);
+  }));
 
   ok();
 }

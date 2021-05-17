@@ -58,34 +58,34 @@ static char* current_continue_label_id;
 static Obj* current_func;
 
 static Type* ty_void = &(Type){
-    TY_VOID,
-    1,
-    1,
+  TY_VOID,
+  1,
+  1,
 };
 static Type* ty_bool = &(Type){
-    TY_BOOL,
-    1,
-    1,
+  TY_BOOL,
+  1,
+  1,
 };
 static Type* ty_char = &(Type){
-    TY_CHAR,
-    1,
-    1,
+  TY_CHAR,
+  1,
+  1,
 };
 static Type* ty_short = &(Type){
-    TY_SHORT,
-    2,
-    2,
+  TY_SHORT,
+  2,
+  2,
 };
 static Type* ty_int = &(Type){
-    TY_INT,
-    4,
-    4,
+  TY_INT,
+  4,
+  4,
 };
 static Type* ty_long = &(Type){
-    TY_LONG,
-    8,
-    8,
+  TY_LONG,
+  8,
+  8,
 };
 
 static char* new_id(void) {
@@ -105,7 +105,9 @@ static Token* expect_ident(Token** tokens) {
   return ident;
 }
 
-static int align(int n, int align) { return (n + align - 1) / align * align; }
+static int align(int n, int align) {
+  return (n + align - 1) / align * align;
+}
 
 static bool are_strs_equal_n(char* a, char* b, int b_len) {
   return strlen(a) == b_len && strncmp(a, b, b_len) == 0;
@@ -172,9 +174,8 @@ static Type* copy_type_with_alignment(Type* src, int alignment) {
 }
 
 bool is_numable(Type* type) {
-  return type->kind == TY_BOOL || type->kind == TY_CHAR ||
-         type->kind == TY_SHORT || type->kind == TY_INT ||
-         type->kind == TY_LONG;
+  return type->kind == TY_BOOL || type->kind == TY_CHAR || type->kind == TY_SHORT || type->kind == TY_INT
+         || type->kind == TY_LONG;
 }
 
 static bool is_pointable(Type* type) {
@@ -204,8 +205,7 @@ static void add_code(Obj* code) {
 }
 
 static void add_first_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
-  if (obj->kind != OJ_GVAR && obj->kind != OJ_LVAR && obj->kind != OJ_ENUM &&
-      obj->kind != OJ_DEF_TYPE) {
+  if (obj->kind != OJ_GVAR && obj->kind != OJ_LVAR && obj->kind != OJ_ENUM && obj->kind != OJ_DEF_TYPE) {
     error("expected a first class object");
   }
 
@@ -260,7 +260,9 @@ static void add_tag_to_scope(Scope* scope, char* key, Obj* tag) {
   add_second_class_obj_to_scope(scope, key, tag);
 }
 
-static bool is_gscope(Scope* scope) { return !scope->next; }
+static bool is_gscope(Scope* scope) {
+  return !scope->next;
+}
 
 static void add_gvar(Obj* var) {
   if (var->kind != OJ_GVAR) {
@@ -350,7 +352,9 @@ static Obj* new_gvar(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_anon_gvar(Type* type) { return new_gvar(type, new_id()); }
+static Obj* new_anon_gvar(Type* type) {
+  return new_gvar(type, new_id());
+}
 
 static Obj* new_str(char* val, int len) {
   Type* type = new_array_type(ty_char, len + 1);
@@ -376,8 +380,7 @@ static void change_lvar_type(Obj* vars, Obj* var, Type* type) {
   }
 
   var->type = type;
-  var->offset = align(vars ? vars->offset + var->type->size : var->type->size,
-                      var->alignment);
+  var->offset = align(vars ? vars->offset + var->type->size : var->type->size, var->alignment);
 }
 
 static Obj* new_lvar(Type* type, char* name) {
@@ -393,6 +396,7 @@ static Obj* new_lvar(Type* type, char* name) {
 static Obj* new_enum(char* name, int64_t val) {
   Obj* enu = new_obj(OJ_ENUM);
   enu->name = name;
+  // NOLINTNEXTLINE
   enu->val = (char*)val;
   add_enum(enu);
   return enu;
@@ -432,10 +436,7 @@ static Obj* find_var_or_enum(char* name, int len) {
         continue;
       }
 
-      return var->obj->kind == OJ_GVAR || var->obj->kind == OJ_LVAR ||
-                     var->obj->kind == OJ_ENUM
-                 ? var->obj
-                 : NULL;
+      return var->obj->kind == OJ_GVAR || var->obj->kind == OJ_LVAR || var->obj->kind == OJ_ENUM ? var->obj : NULL;
     }
   }
   return NULL;
@@ -443,8 +444,7 @@ static Obj* find_var_or_enum(char* name, int len) {
 
 static Obj* find_def_type(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
-    for (ScopedObj* def_type = s->first_class_objs; def_type;
-         def_type = def_type->next) {
+    for (ScopedObj* def_type = s->first_class_objs; def_type; def_type = def_type->next) {
       if (!are_strs_equal_n(def_type->key, name, len)) {
         continue;
       }
@@ -456,8 +456,7 @@ static Obj* find_def_type(char* name, int len) {
 }
 
 static Obj* find_tag_in_current_scope(char* name, int len) {
-  for (ScopedObj* tag = current_scope->second_class_objs; tag;
-       tag = tag->next) {
+  for (ScopedObj* tag = current_scope->second_class_objs; tag; tag = tag->next) {
     if (!are_strs_equal_n(tag->key, name, len)) {
       continue;
     }
@@ -482,8 +481,18 @@ static Obj* find_tag(char* name, int len) {
 
 static bool equal_to_decl_specifier(Token* token) {
   static char* names[] = {
-      "extern", "static", "void",   "_Bool", "char", "short",
-      "int",    "long",   "struct", "union", "enum", "_Alignas",
+    "extern",
+    "static",
+    "void",
+    "_Bool",
+    "char",
+    "short",
+    "int",
+    "long",
+    "struct",
+    "union",
+    "enum",
+    "_Alignas",
   };
   static int len = sizeof(names) / sizeof(char*);
 
@@ -594,8 +603,7 @@ static Node* new_member_node(Token* token, Node* lhs, Member* mem) {
   return node;
 }
 
-static Node* new_funccall_node(Type* type, Token* token, char* name,
-                               Node* args) {
+static Node* new_funccall_node(Type* type, Token* token, char* name, Node* args) {
   Node* node = new_node(ND_FUNCCALL);
   node->type = type;
   node->token = token;
@@ -654,8 +662,7 @@ static Node* new_addr_node(Token* token, Node* lhs) {
 
 static Node* new_deref_node(Token* token, Node* lhs) {
   Node* deref = new_unary_node(ND_DEREF, lhs);
-  deref->type =
-      (deref->lhs->type->base) ? deref->lhs->type->base : deref->lhs->type;
+  deref->type = (deref->lhs->type->base) ? deref->lhs->type->base : deref->lhs->type;
   deref->token = token;
   return deref;
 }
@@ -738,16 +745,14 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
   }
 
   if (is_pointable(lhs->type) && is_numable(rhs->type)) {
-    rhs = new_mul_node(rhs->token, rhs,
-                       new_long_node(rhs->token, lhs->type->base->size));
+    rhs = new_mul_node(rhs->token, rhs, new_long_node(rhs->token, lhs->type->base->size));
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->token = token;
     add->type = add->lhs->type;
     return add;
   }
 
-  lhs = new_mul_node(lhs->token, lhs,
-                     new_long_node(lhs->token, rhs->type->base->size));
+  lhs = new_mul_node(lhs->token, lhs, new_long_node(lhs->token, rhs->type->base->size));
   Node* add = new_binary_node(ND_ADD, lhs, rhs);
   add->token = token;
   add->type = add->rhs->type;
@@ -765,8 +770,7 @@ static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->token = token;
     sub->type = ty_int;
-    return new_div_node(sub->token, sub,
-                        new_int_node(lhs->token, sub->lhs->type->base->size));
+    return new_div_node(sub->token, sub, new_int_node(lhs->token, sub->lhs->type->base->size));
   }
 
   // num - num
@@ -779,8 +783,7 @@ static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   }
 
   // ptr - num
-  rhs = new_mul_node(rhs->token, rhs,
-                     new_long_node(rhs->token, lhs->type->base->size));
+  rhs = new_mul_node(rhs->token, rhs, new_long_node(rhs->token, lhs->type->base->size));
   Node* sub = new_binary_node(ND_SUB, lhs, rhs);
   sub->token = token;
   sub->type = sub->lhs->type;
@@ -1143,13 +1146,11 @@ static Relocation* new_reloc(char* label, int offset, long addend) {
   return reloc;
 }
 
-static Relocation* write_gvar_data(char* data, int offset, Initer* init,
-                                   Relocation* reloc) {
+static Relocation* write_gvar_data(char* data, int offset, Initer* init, Relocation* reloc) {
   if (init->type->kind == TY_STRUCT) {
     int i = 0;
     for (Member* mem = init->type->members; mem; mem = mem->next) {
-      reloc =
-          write_gvar_data(data, offset + mem->offset, init->children[i], reloc);
+      reloc = write_gvar_data(data, offset + mem->offset, init->children[i], reloc);
       i++;
     }
     return reloc;
@@ -1162,8 +1163,7 @@ static Relocation* write_gvar_data(char* data, int offset, Initer* init,
   if (init->type->kind == TY_ARRAY) {
     int size = init->type->base->size;
     for (int i = 0; i < init->type->len; i++) {
-      reloc =
-          write_gvar_data(data, offset + size * i, init->children[i], reloc);
+      reloc = write_gvar_data(data, offset + size * i, init->children[i], reloc);
     }
     return reloc;
   }
@@ -1252,8 +1252,7 @@ static Node* block_stmt(Token** tokens) {
       continue;
     }
 
-    if (equal_to_decl_specifier(*tokens) &&
-        !equal_to_token((*tokens)->next, ":")) {
+    if (equal_to_decl_specifier(*tokens) && !equal_to_token((*tokens)->next, ":")) {
       Token* ignored = *tokens;
 
       VarAttr attr = {};
@@ -1384,8 +1383,7 @@ static Node* for_stmt(Token** tokens) {
   enter_scope();
 
   char* prev_break_label_id = renew_break_label_id(&node->break_label_id);
-  char* prev_continue_label_id =
-      renew_continue_label_id(&node->continue_label_id);
+  char* prev_continue_label_id = renew_continue_label_id(&node->continue_label_id);
 
   if (!consume_token(tokens, ";")) {
     if (equal_to_decl_specifier(*tokens)) {
@@ -1426,8 +1424,7 @@ static Node* while_stmt(Token** tokens) {
   node->token = start;
 
   char* prev_break_label_id = renew_break_label_id(&node->break_label_id);
-  char* prev_continue_label_id =
-      renew_continue_label_id(&node->continue_label_id);
+  char* prev_continue_label_id = renew_continue_label_id(&node->continue_label_id);
 
   node->cond = expr(tokens);
 
@@ -1450,8 +1447,7 @@ static Node* do_stmt(Token** tokens) {
   node->token = start;
 
   char* prev_break_label_id = renew_break_label_id(&node->break_label_id);
-  char* prev_continue_label_id =
-      renew_continue_label_id(&node->continue_label_id);
+  char* prev_continue_label_id = renew_continue_label_id(&node->continue_label_id);
 
   node->then = stmt(tokens);
 
@@ -1484,8 +1480,7 @@ static Node* return_stmt(Token** tokens) {
     return node;
   }
 
-  Node* node = new_unary_node(
-      ND_RETURN, new_cast_node(current_func->type, *tokens, expr(tokens)));
+  Node* node = new_unary_node(ND_RETURN, new_cast_node(current_func->type, *tokens, expr(tokens)));
   node->token = start;
 
   expect_token(tokens, ";");
@@ -1621,18 +1616,14 @@ static Node* expr(Token** tokens) {
   return node;
 }
 
-static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
-                                    Node* rhs) {
+static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
   Obj* tmp_var = new_lvar(new_ptr_type(lhs->type), "");
 
-  Node* tmp_assign =
-      new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var),
-                      new_addr_node(lhs->token, lhs));
+  Node* tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs));
 
-  Node* tmp_deref =
-      new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var));
+  Node* tmp_deref = new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var));
 
-  Node* arith_op;
+  Node* arith_op = NULL;
   switch (op) {
     case ND_BITOR:
       arith_op = new_bitor_node(token, tmp_deref, rhs);
@@ -1668,9 +1659,7 @@ static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs,
       error_token(token, "invalid operation");
   }
 
-  Node* assign = new_assign_node(
-      lhs->token, new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var)),
-      arith_op);
+  Node* assign = new_assign_node(lhs->token, new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var)), arith_op);
 
   return new_comma_node(token, tmp_assign, assign);
 }
@@ -1978,13 +1967,11 @@ static Node* unary(Token** tokens) {
   }
 
   if (consume_token(tokens, "++")) {
-    return convert_to_assign_node(start, ND_ADD, unary(tokens),
-                                  new_int_node(start, 1));
+    return convert_to_assign_node(start, ND_ADD, unary(tokens), new_int_node(start, 1));
   }
 
   if (consume_token(tokens, "--")) {
-    return convert_to_assign_node(start, ND_SUB, unary(tokens),
-                                  new_int_node(start, 1));
+    return convert_to_assign_node(start, ND_SUB, unary(tokens), new_int_node(start, 1));
   }
 
   if (consume_token(tokens, "sizeof")) {
@@ -2010,11 +1997,8 @@ static Node* unary(Token** tokens) {
 }
 
 static Node* increment(Node* node, int delta) {
-  Node* inc = convert_to_assign_node(node->token, ND_ADD, node,
-                                     new_int_node(node->token, delta));
-  return new_cast_node(
-      node->type, node->token,
-      new_add_node(node->token, inc, new_int_node(node->token, -delta)));
+  Node* inc = convert_to_assign_node(node->token, ND_ADD, node, new_int_node(node->token, delta));
+  return new_cast_node(node->type, node->token, new_add_node(node->token, inc, new_int_node(node->token, -delta)));
 }
 
 static Node* member(Token** tokens, Token* token, Node* lhs) {
@@ -2121,8 +2105,7 @@ static Node* primary(Token** tokens) {
         error_token(ident, "implicit declaration of a function");
       }
 
-      return new_funccall_node(func->type, ident, func->name,
-                               func_args(tokens, func->params));
+      return new_funccall_node(func->type, ident, func->name, func_args(tokens, func->params));
     }
 
     Obj* var_or_enum = find_var_or_enum(ident->loc, ident->len);
@@ -2130,9 +2113,8 @@ static Node* primary(Token** tokens) {
       error_token(ident, "undefined ident");
     }
 
-    Node* node = var_or_enum->kind == OJ_ENUM
-                     ? new_int_node(ident, (int64_t)var_or_enum->val)
-                     : new_var_node(ident, var_or_enum);
+    Node* node = var_or_enum->kind == OJ_ENUM ? new_int_node(ident, (int64_t)var_or_enum->val)
+                                              : new_var_node(ident, var_or_enum);
     return node;
   }
 
@@ -2171,15 +2153,16 @@ static int64_t relocate(Node* node, char** label) {
   }
 }
 
-static int64_t eval(Node* node) { return eval_reloc(node, NULL); }
+static int64_t eval(Node* node) {
+  return eval_reloc(node, NULL);
+}
 
 static int64_t eval_reloc(Node* node, char** label) {
   switch (node->kind) {
     case ND_COMMA:
       return eval_reloc(node->rhs, label);
     case ND_COND:
-      return eval(node->cond) ? eval_reloc(node->then, label)
-                              : eval_reloc(node->els, label);
+      return eval(node->cond) ? eval_reloc(node->then, label) : eval_reloc(node->els, label);
     case ND_OR:
       return eval(node->lhs) || eval(node->rhs);
     case ND_AND:
@@ -2325,8 +2308,7 @@ static void skip_excess_initers(Token** tokens) {
 }
 
 static bool equal_to_initer_end(Token* token) {
-  return equal_to_token(token, "}") ||
-         (equal_to_token(token, ",") && equal_to_token(token->next, "}"));
+  return equal_to_token(token, "}") || (equal_to_token(token, ",") && equal_to_token(token->next, "}"));
 }
 
 static bool consume_initer_end(Token** tokens) {
@@ -2392,8 +2374,7 @@ static void init_struct_initer(Token** tokens, Initer* init) {
 
 static void init_direct_struct_initer(Token** tokens, Initer* init) {
   int i = 0;
-  for (Member* mem = init->type->members; mem && !equal_to_initer_end(*tokens);
-       mem = mem->next) {
+  for (Member* mem = init->type->members; mem && !equal_to_initer_end(*tokens); mem = mem->next) {
     if (i > 0) {
       expect_token(tokens, ",");
     }
@@ -2554,8 +2535,7 @@ static Node* designated_expr(Token* token, DesignatedIniter* init) {
   }
 
   if (init->mem) {
-    return new_member_node(token, designated_expr(token, init->next),
-                           init->mem);
+    return new_member_node(token, designated_expr(token, init->next), init->mem);
   }
 
   Node* lhs = designated_expr(token, init->next);
@@ -2563,16 +2543,14 @@ static Node* designated_expr(Token* token, DesignatedIniter* init) {
   return new_deref_node(token, new_add_node(token, lhs, rhs));
 }
 
-static Node* lvar_init(Token* token, Initer* init,
-                       DesignatedIniter* designated) {
+static Node* lvar_init(Token* token, Initer* init, DesignatedIniter* designated) {
   if (init->type->kind == TY_STRUCT && !init->expr) {
     Node* node = new_null_node(token);
 
     int i = 0;
     for (Member* mem = init->type->members; mem; mem = mem->next) {
       DesignatedIniter next = {designated, NULL, 0, mem};
-      node = new_comma_node(token, node,
-                            lvar_init(token, init->children[i], &next));
+      node = new_comma_node(token, node, lvar_init(token, init->children[i], &next));
       i++;
     }
 
@@ -2589,16 +2567,13 @@ static Node* lvar_init(Token* token, Initer* init,
 
     for (int i = 0; i < init->type->len; i++) {
       DesignatedIniter next = {designated, NULL, i};
-      node = new_comma_node(token, node,
-                            lvar_init(token, init->children[i], &next));
+      node = new_comma_node(token, node, lvar_init(token, init->children[i], &next));
     }
 
     return node;
   }
 
-  return init->expr ? new_assign_node(token, designated_expr(token, designated),
-                                      init->expr)
-                    : new_null_node(token);
+  return init->expr ? new_assign_node(token, designated_expr(token, designated), init->expr) : new_null_node(token);
 }
 
 static Node* lvar_initer(Token** tokens, Obj* var) {
@@ -2609,8 +2584,7 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
   change_lvar_type(var->next, var, type);
 
   DesignatedIniter designated = {NULL, var};
-  return new_comma_node(start, new_memzero_node(var->type, start, var->offset),
-                        lvar_init(start, init, &designated));
+  return new_comma_node(start, new_memzero_node(var->type, start, var->offset), lvar_init(start, init, &designated));
 }
 
 static Node* lvar_decl(Token** tokens) {
@@ -2726,7 +2700,8 @@ static Type* struct_decl(Token** tokens) {
 
   Member* mems = members(tokens);
   bool is_flexible = true;
-  int offset = 0, alignment = 1;
+  int offset = 0;
+  int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
     if (mem->type == ty_void) {
       error_token(mem->token, "variable declared void");
@@ -2857,6 +2832,7 @@ static Member* members(Token** tokens) {
   return head.next;
 }
 
+// NOLINTNEXTLINE
 static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   Type* type = ty_int;
   int counter = 0;
@@ -2874,11 +2850,9 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   while (equal_to_decl_specifier(*tokens)) {
     Token* start = *tokens;
 
-    if (equal_to_token(*tokens, "extern") ||
-        equal_to_token(*tokens, "static")) {
+    if (equal_to_token(*tokens, "extern") || equal_to_token(*tokens, "static")) {
       if (!attr) {
-        error_token(*tokens,
-                    "storage class specifier is not allowed in this context");
+        error_token(*tokens, "storage class specifier is not allowed in this context");
       }
 
       attr->is_extern = equal_to_token(*tokens, "extern");

@@ -19,8 +19,11 @@ int main() {
   ASSERT(13, "\r"[0]);
   ASSERT(27, "\e"[0]);
 
+  // NOLINTNEXTLINE
   ASSERT(106, "\j"[0]);
+  // NOLINTNEXTLINE
   ASSERT(107, "\k"[0]);
+  // NOLINTNEXTLINE
   ASSERT(108, "\l"[0]);
 
   ASSERT(7, "\ax\ny"[0]);

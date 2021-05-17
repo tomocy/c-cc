@@ -9,18 +9,18 @@ int main() {
   ASSERT(8, sizeof(long));
   ASSERT(8, sizeof(long int));
   ASSERT(8, sizeof(long int));
-  ASSERT(8, sizeof(char *));
-  ASSERT(8, sizeof(int *));
-  ASSERT(8, sizeof(long *));
-  ASSERT(8, sizeof(int **));
+  ASSERT(8, sizeof(char*));
+  ASSERT(8, sizeof(int*));
+  ASSERT(8, sizeof(long*));
+  ASSERT(8, sizeof(int**));
   ASSERT(8, sizeof(int(*)[4]));
-  ASSERT(32, sizeof(int *[4]));
+  ASSERT(32, sizeof(int* [4]));
   ASSERT(16, sizeof(int[4]));
   ASSERT(48, sizeof(int[3][4]));
   ASSERT(8, sizeof(struct {
-           int a;
-           int b;
-         }));
+    int a;
+    int b;
+  }));
 
   ASSERT(8, sizeof(-10 + (long)5));
   ASSERT(8, sizeof(-10 - (long)5));
@@ -32,13 +32,13 @@ int main() {
   ASSERT(8, sizeof((long)-10 / 5));
 
   ASSERT(1, ({
-           char i;
-           sizeof(++i);
-         }));
+    char i;
+    sizeof(++i);
+  }));
   ASSERT(1, ({
-           char i;
-           sizeof(i++);
-         }));
+    char i;
+    sizeof(i++);
+  }));
 
   ASSERT(8, sizeof(int(*)[10]));
   ASSERT(8, sizeof(int(*)[][10]));
