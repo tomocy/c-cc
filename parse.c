@@ -435,7 +435,7 @@ static Obj* find_func(char* name, int len) {
   return NULL;
 }
 
-static Obj* find_var_or_enum(char* name, int len) {
+static Obj* find_datum(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
       if (!are_strs_equal_n(var->key, name, len)) {
@@ -989,7 +989,7 @@ static Decl* abstract_declarator(Token** tokens, Type* type);
 static Decl* abstract_decl(Token** tokens, VarAttr* attr);
 static Type* type_suffix(Token** tokens, Type* type);
 static Type* array_dimensions(Token** tokens, Type* type);
-static Node* func_args(Token** tokens, Node* params);
+static Node* func_args(Token** tokens, Type* type);
 static int64_t const_expr(Token** tokens);
 static int64_t eval(Node* node);
 static int64_t eval_reloc(Node* node, char** label);
@@ -1090,6 +1090,10 @@ static void func_params(Token** tokens, Type* type) {
   }
 
   type->params = head.next;
+
+  if (cur == &head) {
+    type->is_variadic = true;
+  }
 }
 
 static void func(Token** tokens) {
@@ -2087,41 +2091,49 @@ static Node* compound_literal(Token** tokens) {
   return new_comma_node(*tokens, assign, new_var_node(*tokens, var));
 }
 
+static Node* funccall(Token** tokens) {
+  Token* ident = expect_ident(tokens);
+  Obj* func = find_func(ident->loc, ident->len);
+  if (!func) {
+    error_token(ident, "implicit declaration of a function");
+  }
+
+  return new_funccall_node(func->type->return_type, ident, func->name, func_args(tokens, func->type));
+}
+
+static Node* datum(Token** tokens) {
+  Token* ident = expect_ident(tokens);
+  Obj* datum = find_datum(ident->loc, ident->len);
+  if (!datum) {
+    error_token(ident, "undefined ident");
+  }
+
+  Node* node = datum->kind == OJ_ENUM ? new_int_node(ident, (int64_t)datum->val) : new_var_node(ident, datum);
+  return node;
+}
+
 static Node* primary(Token** tokens) {
   Token* start = *tokens;
 
-  if (consume_token(tokens, "(")) {
-    if (equal_to_token(*tokens, "{")) {
-      Node* node = new_stmt_expr_node(start, block_stmt(tokens)->body);
-      expect_token(tokens, ")");
-      return node;
-    }
+  if (equal_to_token(*tokens, "(") && equal_to_token((*tokens)->next, "{")) {
+    expect_token(tokens, "(");
+    Node* node = new_stmt_expr_node(start, block_stmt(tokens)->body);
+    expect_token(tokens, ")");
+    return node;
+  }
 
+  if (consume_token(tokens, "(")) {
     Node* node = expr(tokens);
     expect_token(tokens, ")");
     return node;
   }
 
+  if ((*tokens)->kind == TK_IDENT && equal_to_token((*tokens)->next, "(")) {
+    return funccall(tokens);
+  }
+
   if ((*tokens)->kind == TK_IDENT) {
-    Token* ident = expect_ident(tokens);
-
-    if (equal_to_token(*tokens, "(")) {
-      Obj* func = find_func(ident->loc, ident->len);
-      if (!func) {
-        error_token(ident, "implicit declaration of a function");
-      }
-
-      return new_funccall_node(func->type->return_type, ident, func->name, func_args(tokens, func->type->params));
-    }
-
-    Obj* var_or_enum = find_var_or_enum(ident->loc, ident->len);
-    if (!var_or_enum) {
-      error_token(ident, "undefined ident");
-    }
-
-    Node* node = var_or_enum->kind == OJ_ENUM ? new_int_node(ident, (int64_t)var_or_enum->val)
-                                              : new_var_node(ident, var_or_enum);
-    return node;
+    return datum(tokens);
   }
 
   if ((*tokens)->kind == TK_NUM) {
@@ -3060,14 +3072,19 @@ static Type* array_dimensions(Token** tokens, Type* type) {
   return new_array_type(type, len);
 }
 
-static Node* func_args(Token** tokens, Node* params) {
+static Node* func_args(Token** tokens, Type* type) {
   expect_token(tokens, "(");
 
   Node head = {};
   Node* cur = &head;
+  Node* params = type->params;
   while (!consume_token(tokens, ")")) {
     if (cur != &head) {
       expect_token(tokens, ",");
+    }
+
+    if (!params && !type->is_variadic) {
+      error_token(*tokens, "too many arguments");
     }
 
     Node* arg = assign(tokens);
@@ -3086,6 +3103,10 @@ static Node* func_args(Token** tokens, Node* params) {
 
     cur->next = arg;
     cur = cur->next;
+  }
+
+  if (params) {
+    error_token(*tokens, "too few arguments");
   }
 
   return head.next;
