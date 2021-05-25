@@ -27,10 +27,14 @@ typedef enum {
 struct Token {
   TokenKind kind;
   Token* next;
+
   int line;
   char* loc;
+
   int len;
+
   int64_t int_val;
+
   char* str_val;
   int str_val_len;
 };
@@ -125,19 +129,28 @@ struct Node {
   NodeKind kind;
   Type* type;
   Token* token;
+
   Node* lhs;
   Node* rhs;
+
   Node* init;
   Node* cond;
-  Node* cases;
   Node* inc;
+
   Node* then;
   Node* els;
-  Node* body;
+
+  Node* cases;
+
   Node* args;
+  Node* body;
+
   char* name;
+
   int offset;
+
   int64_t val;
+
   Node* labels;
   Node* gotos;
   char* label;
@@ -161,15 +174,20 @@ struct Obj {
   ObjKind kind;
   Type* type;
   char* name;
+
   bool is_static;
   bool is_definition;
+
   Obj* lvars;
   Obj* va_area;
   Node* body;
   int stack_size;
+
   int offset;
   int alignment;
+
   Relocation* relocs;
+
   char* val;
 };
 
