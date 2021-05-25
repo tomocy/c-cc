@@ -54,6 +54,7 @@ typedef enum {
   TY_STRUCT,
   TY_UNION,
   TY_PTR,
+  TY_FUNC,
   TY_ARRAY,
 } TypeKind;
 
@@ -69,6 +70,8 @@ struct Type {
   Type* base;
   int len;
 
+  Node* params;
+  Type* return_type;
   bool is_variadic;
 };
 
@@ -162,7 +165,6 @@ struct Obj {
   bool is_definition;
   Obj* lvars;
   Obj* va_area;
-  Node* params;
   Node* body;
   int stack_size;
   int offset;

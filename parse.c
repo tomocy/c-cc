@@ -139,6 +139,12 @@ static Type* new_ptr_type(Type* base) {
   return ptr;
 }
 
+static Type* new_func_type(Type* return_type) {
+  Type* func = new_type(TY_FUNC, 0, 0);
+  func->return_type = return_type;
+  return func;
+}
+
 static Type* new_array_type(Type* base, int len) {
   Type* arr = new_type(TY_ARRAY, base->size * len, base->alignment);
   arr->base = base;
@@ -1049,13 +1055,13 @@ static void resolve_goto_labels(void) {
   current_gotos = NULL;
 }
 
-static Node* func_params(Token** tokens, Type* type) {
+static void func_params(Token** tokens, Type* type) {
   expect_token(tokens, "(");
 
   if (equal_to_token(*tokens, "void") && equal_to_token((*tokens)->next, ")")) {
     expect_token(tokens, "void");
     expect_token(tokens, ")");
-    return NULL;
+    return;
   }
 
   Node head = {};
@@ -1083,21 +1089,21 @@ static Node* func_params(Token** tokens, Type* type) {
     cur = cur->next;
   }
 
-  return head.next;
+  type->params = head.next;
 }
 
 static void func(Token** tokens) {
   VarAttr attr = {};
   Decl* dcl = decl(tokens, &attr);
 
-  Obj* func = new_func(dcl->type, strndup(dcl->ident->loc, dcl->ident->len));
+  Obj* func = new_func(new_func_type(dcl->type), strndup(dcl->ident->loc, dcl->ident->len));
   current_func = func;
 
   func->is_static = attr.is_static;
 
   enter_scope();
 
-  func->params = func_params(tokens, func->type);
+  func_params(tokens, func->type);
 
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
@@ -1480,7 +1486,7 @@ static Node* return_stmt(Token** tokens) {
     return node;
   }
 
-  Node* node = new_unary_node(ND_RETURN, new_cast_node(current_func->type, *tokens, expr(tokens)));
+  Node* node = new_unary_node(ND_RETURN, new_cast_node(current_func->type->return_type, *tokens, expr(tokens)));
   node->token = start;
 
   expect_token(tokens, ";");
@@ -2105,7 +2111,7 @@ static Node* primary(Token** tokens) {
         error_token(ident, "implicit declaration of a function");
       }
 
-      return new_funccall_node(func->type, ident, func->name, func_args(tokens, func->params));
+      return new_funccall_node(func->type->return_type, ident, func->name, func_args(tokens, func->type->params));
     }
 
     Obj* var_or_enum = find_var_or_enum(ident->loc, ident->len);
