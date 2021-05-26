@@ -84,7 +84,7 @@ decl_specifier = (
     "void" | "_Bool" | "char" |
     "short" | "int" | "long" |
     struct_decl | union_decl | defined_type |
-    "extern" | "static" | "_Alignas"
+    "extern" | "static" | "_Alignas" | "signed"
 )*
 declarator = "*"* ("(" declarator ")" | ident) type_suffix
 abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix

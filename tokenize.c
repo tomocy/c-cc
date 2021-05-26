@@ -299,6 +299,7 @@ static bool consume_keyword(Token** dst, char** c) {
     "default",
     "_Alignof",
     "_Alignas",
+    "signed",
   };
   static int klen = sizeof(kws) / sizeof(char*);
 

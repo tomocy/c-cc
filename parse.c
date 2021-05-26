@@ -499,6 +499,7 @@ static bool equal_to_decl_specifier(Token* token) {
     "union",
     "enum",
     "_Alignas",
+    "signed",
   };
   static int len = sizeof(names) / sizeof(char*);
 
@@ -2852,9 +2853,6 @@ static Member* members(Token** tokens) {
 
 // NOLINTNEXTLINE
 static Type* decl_specifier(Token** tokens, VarAttr* attr) {
-  Type* type = ty_int;
-  int counter = 0;
-
   enum {
     VOID = 1 << 0,
     BOOL = 1 << 2,
@@ -2863,7 +2861,11 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
     INT = 1 << 8,
     LONG = 1 << 10,
     OTHER = 1 << 12,
+    SIGNED = 1 << 13,
   };
+
+  Type* type = ty_int;
+  int counter = 0;
 
   while (equal_to_decl_specifier(*tokens)) {
     Token* start = *tokens;
@@ -2963,6 +2965,10 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       counter += LONG;
     }
 
+    if (consume_token(tokens, "signed")) {
+      counter |= SIGNED;
+    }
+
     switch (counter) {
       case VOID:
         type = ty_void;
@@ -2971,23 +2977,33 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
         type = ty_bool;
         break;
       case CHAR:
+      case SIGNED + CHAR:
         type = ty_char;
         break;
       case SHORT:
       case SHORT + INT:
+      case SIGNED + SHORT:
+      case SIGNED + SHORT + INT:
         type = ty_short;
         break;
       case INT:
+      case SIGNED:
+      case SIGNED + INT:
         type = ty_int;
         break;
       case LONG:
       case LONG + INT:
       case LONG + LONG:
       case LONG + LONG + INT:
+      case SIGNED + LONG:
+      case SIGNED + LONG + INT:
+      case SIGNED + LONG + LONG:
+      case SIGNED + LONG + LONG + INT:
         type = ty_long;
         break;
-      default:
+      default: {
         error_token(start, "expected a typename");
+      }
     }
   }
 
