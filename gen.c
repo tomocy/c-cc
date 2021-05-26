@@ -13,18 +13,15 @@ static char* arg_regs16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
 static char* arg_regs32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
 static char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
-static char i8i16[] = "movsx ax, al";
 static char i8i32[] = "movsx eax, al";
-static char i8i64[] = "movsx rax, al";
 static char i16i32[] = "movsx eax, ax";
-static char i16i64[] = "movsx eax, al";
 static char i32i64[] = "movsx rax, eax";
 static char* cast_table[][4] = {
   // to i8,i16,i32,i64
-  {NULL, i8i16, i8i32, i8i64},    // from i8
-  {i8i16, NULL, i16i32, i16i64},  // from i16
+  {NULL, NULL, NULL, i32i64},     // from i8
+  {i8i32, NULL, NULL, i32i64},    // from i16
   {i8i32, i16i32, NULL, i32i64},  // from i32
-  {i8i64, i16i64, i32i64, NULL},  // from i64
+  {i8i32, i16i32, NULL, NULL},    // from i64
 };
 
 enum { I8, I16, I32, I64 };
