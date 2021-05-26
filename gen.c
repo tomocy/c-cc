@@ -1,13 +1,46 @@
+#include <stdio.h>
 #include "cc.h"
 
 static FILE* output_file;
+
 static int depth_outside_frame = 0;
 static int depth = 0;
+
 static int func_count = 0;
+
 static char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
 static char* arg_regs16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
 static char* arg_regs32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
 static char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
+static char i8i16[] = "movsx ax, al";
+static char i8i32[] = "movsx eax, al";
+static char i8i64[] = "movsx rax, al";
+static char i16i32[] = "movsx eax, ax";
+static char i16i64[] = "movsx eax, al";
+static char i32i64[] = "movsx rax, eax";
+static char* cast_table[][4] = {
+  // to i8,i16,i32,i64
+  {NULL, i8i16, i8i32, i8i64},    // from i8
+  {i8i16, NULL, i16i32, i16i64},  // from i16
+  {i8i32, i16i32, NULL, i32i64},  // from i32
+  {i8i64, i16i64, i32i64, NULL},  // from i64
+};
+
+enum { I8, I16, I32, I64 };
+
+static int get_type_id(Type* type) {
+  switch (type->kind) {
+    case TY_CHAR:
+      return I8;
+    case TY_SHORT:
+      return I16;
+    case TY_INT:
+      return I32;
+    default:
+      return I64;
+  }
+}
 
 static void genln(char* fmt, ...) {
   va_list args;
@@ -98,7 +131,6 @@ static void load(Node* node) {
   genln("  mov rax, [rax]");
 }
 
-// NOLINTNEXTLINE
 static void cast(Type* to, Type* from) {
   if (to->kind == TY_VOID) {
     return;
@@ -115,34 +147,11 @@ static void cast(Type* to, Type* from) {
     return;
   }
 
-  if ((from->size == 1 && to->size == 2) || (from->size == 2 && to->size == 1)) {
-    genln("  movsx ax, al");
-    return;
-  }
-
-  if ((from->size == 1 && to->size == 4) || (from->size == 4 && to->size == 1)) {
-    genln("  movsx eax, al");
-    return;
-  }
-
-  if ((from->size == 1 && to->size == 8) || (from->size == 8 && to->size == 1)) {
-    genln("  movsx rax, al");
-    return;
-  }
-
-  if ((from->size == 2 && to->size == 4) || (from->size == 4 && to->size == 2)) {
-    genln("  movsx eax, ax");
-    return;
-  }
-
-  if ((from->size == 2 && to->size == 8) || (from->size == 8 && to->size == 2)) {
-    genln("  movsx rax, ax");
-    return;
-  }
-
-  if ((from->size == 4 && to->size == 8) || (from->size == 8 && to->size == 4)) {
-    genln("  movsx rax, eax");
-    return;
+  int from_id = get_type_id(from);
+  int to_id = get_type_id(to);
+  char* ins = cast_table[from_id][to_id];
+  if (ins) {
+    genln("  %s", ins);
   }
 }
 
