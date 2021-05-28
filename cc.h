@@ -68,6 +68,8 @@ struct Type {
   int size;
   int alignment;
 
+  bool is_unsigned;
+
   Member* members;
 
   bool is_flexible;

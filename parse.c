@@ -87,6 +87,30 @@ static Type* ty_long = &(Type){
   8,
   8,
 };
+static Type* ty_uchar = &(Type){
+  TY_CHAR,
+  1,
+  1,
+  true,
+};
+static Type* ty_ushort = &(Type){
+  TY_SHORT,
+  2,
+  2,
+  true,
+};
+static Type* ty_uint = &(Type){
+  TY_INT,
+  4,
+  4,
+  true,
+};
+static Type* ty_ulong = &(Type){
+  TY_LONG,
+  8,
+  8,
+  true,
+};
 
 static char* new_id(void) {
   static int id = 0;
@@ -500,6 +524,7 @@ static bool equal_to_decl_specifier(Token* token) {
     "enum",
     "_Alignas",
     "signed",
+    "unsigned",
   };
   static int len = sizeof(names) / sizeof(char*);
 
@@ -701,11 +726,21 @@ static Type* get_common_type(Type* a, Type* b) {
     return new_ptr_type(a->base);
   }
 
-  if (a->size == ty_long->size || b->size == ty_long->size) {
-    return ty_long;
+  Type* x = a;
+  Type* y = b;
+
+  if (x->size < 4) {
+    x = ty_int;
+  }
+  if (y->size < 4) {
+    y = ty_int;
   }
 
-  return ty_int;
+  if (x->size != y->size) {
+    return x->size > y->size ? x : y;
+  }
+
+  return y->is_unsigned ? y : x;
 }
 
 static void usual_arith_convert(Node** lhs, Node** rhs) {
@@ -2862,6 +2897,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
     LONG = 1 << 10,
     OTHER = 1 << 12,
     SIGNED = 1 << 13,
+    UNSIGNED = 1 << 14,
   };
 
   Type* type = ty_int;
@@ -2969,6 +3005,10 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       counter |= SIGNED;
     }
 
+    if (consume_token(tokens, "unsigned")) {
+      counter |= UNSIGNED;
+    }
+
     switch (counter) {
       case VOID:
         type = ty_void;
@@ -2980,16 +3020,27 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       case SIGNED + CHAR:
         type = ty_char;
         break;
+      case UNSIGNED + CHAR:
+        type = ty_uchar;
+        break;
       case SHORT:
       case SHORT + INT:
       case SIGNED + SHORT:
       case SIGNED + SHORT + INT:
         type = ty_short;
         break;
+      case UNSIGNED + SHORT:
+      case UNSIGNED + SHORT + INT:
+        type = ty_ushort;
+        break;
       case INT:
       case SIGNED:
       case SIGNED + INT:
         type = ty_int;
+        break;
+      case UNSIGNED:
+      case UNSIGNED + INT:
+        type = ty_uint;
         break;
       case LONG:
       case LONG + INT:
@@ -3000,6 +3051,12 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       case SIGNED + LONG + LONG:
       case SIGNED + LONG + LONG + INT:
         type = ty_long;
+        break;
+      case UNSIGNED + LONG:
+      case UNSIGNED + LONG + INT:
+      case UNSIGNED + LONG + LONG:
+      case UNSIGNED + LONG + LONG + INT:
+        type = ty_ulong;
         break;
       default: {
         error_token(start, "expected a typename");

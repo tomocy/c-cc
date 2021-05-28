@@ -69,6 +69,18 @@ int char_fn() {
 int short_fn() {
   return (2 << 16) + 5;
 }
+int uchar_fn() {
+  return (2 << 10) - 1 - 4;
+}
+int ushort_fn() {
+  return (2 << 20) - 1 - 7;
+}
+int schar_fn() {
+  return (2 << 10) - 1 - 4;
+}
+int sshort_fn() {
+  return (2 << 20) - 1 - 7;
+}
 
 int add_all(int n, ...) {
   va_list ap;

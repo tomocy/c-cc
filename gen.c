@@ -13,29 +13,36 @@ static char* arg_regs16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
 static char* arg_regs32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
 static char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
-static char i8i32[] = "movsx eax, al";
-static char i16i32[] = "movsx eax, ax";
-static char i32i64[] = "movsx rax, eax";
-static char* cast_table[][4] = {
-  // to i8,i16,i32,i64
-  {NULL, NULL, NULL, i32i64},     // from i8
-  {i8i32, NULL, NULL, i32i64},    // from i16
-  {i8i32, i16i32, NULL, i32i64},  // from i32
-  {i8i32, i16i32, NULL, NULL},    // from i64
+static char s8to32[] = "movsx eax, al";
+static char s16to32[] = "movsx eax, ax";
+static char s32to64[] = "movsxd rax, eax";
+static char z8to32[] = "movzx eax, al";
+static char z16to32[] = "movzx eax, ax";
+static char z32to64[] = "mov eax, eax";
+static char* cast_table[][8] = {
+  // to i8, i16, i32, i64, u8, u16, u32, u64
+  {NULL, NULL, NULL, s32to64, z8to32, z16to32, NULL, s32to64},       // from i8
+  {s8to32, NULL, NULL, s32to64, z8to32, z16to32, NULL, s32to64},     // from i16
+  {s8to32, s16to32, NULL, s32to64, z8to32, z16to32, NULL, s32to64},  // from i32
+  {s8to32, s16to32, NULL, NULL, z8to32, z16to32, NULL, NULL},        // from i64
+  {s8to32, NULL, NULL, s32to64, NULL, NULL, NULL, s32to64},          // from u8
+  {s8to32, s16to32, NULL, s32to64, z8to32, NULL, NULL, s32to64},     // from u16
+  {s8to32, s16to32, NULL, z32to64, z8to32, z16to32, NULL, z32to64},  // from u32
+  {s8to32, s16to32, NULL, NULL, z8to32, z16to32, NULL, NULL},        // from u64
 };
 
-enum { I8, I16, I32, I64 };
+enum { I8, I16, I32, I64, U8, U16, U32, U64 };
 
 static int get_type_id(Type* type) {
   switch (type->kind) {
     case TY_CHAR:
-      return I8;
+      return type->is_unsigned ? U8 : I8;
     case TY_SHORT:
-      return I16;
+      return type->is_unsigned ? U16 : I16;
     case TY_INT:
-      return I32;
+      return type->is_unsigned ? U32 : I32;
     default:
-      return I64;
+      return type->is_unsigned ? U64 : I64;
   }
 }
 
@@ -46,30 +53,30 @@ static void genln(char* fmt, ...) {
   fprintf(output_file, "\n");
 }
 
-static void do_push(char* reg, int* count) {
+static void do_push(int* count, char* reg) {
   genln("  push %s", reg);
   (*count)++;
 }
 
-static void do_pop(char* reg, int* count) {
+static void do_pop(int* count, char* reg) {
   genln("  pop %s", reg);
   (*count)--;
 }
 
 static void push_outside_frame(char* reg) {
-  do_push(reg, &depth_outside_frame);
+  do_push(&depth_outside_frame, reg);
 }
 
 static void pop_outside_frame(char* reg) {
-  do_pop(reg, &depth_outside_frame);
+  do_pop(&depth_outside_frame, reg);
 }
 
 static void push(char* reg) {
-  do_push(reg, &depth);
+  do_push(&depth, reg);
 }
 
 static void pop(char* reg) {
-  do_pop(reg, &depth);
+  do_pop(&depth, reg);
 }
 
 static int count_label(void) {
@@ -110,13 +117,15 @@ static void load(Node* node) {
     return;
   }
 
+  char* ins = node->type->is_unsigned ? "movz" : "movs";
+
   if (node->type->size == 1) {
-    genln("  movsx eax, BYTE PTR [rax]");
+    genln("  %sx eax, BYTE PTR [rax]", ins);
     return;
   }
 
   if (node->type->size == 2) {
-    genln("  movsx eax, WORD PTR [rax]");
+    genln("  %sx eax, WORD PTR [rax]", ins);
     return;
   }
 
@@ -258,15 +267,16 @@ static void gen_expr(Node* node) {
         genln("  add rsp, 8");
       }
 
+      char* ins = node->type->is_unsigned ? "movz" : "movs";
       switch (node->type->kind) {
         case TY_BOOL:
           genln("  movzx eax, al");
           break;
         case TY_CHAR:
-          genln("  movsbl eax, al");
+          genln("  %sx eax, al", ins);
           break;
         case TY_SHORT:
-          genln("  movswl eax, ax");
+          genln("  %sx eax, ax", ins);
           break;
         default: {
         }
@@ -315,12 +325,15 @@ static void gen_expr(Node* node) {
 
   char* ax;
   char* di;
+  char* dx;
   if (node->lhs->type->size <= 4 && node->rhs->type->size <= 4) {
     ax = "eax";
-    di = "edi ";
+    di = "edi";
+    dx = "edx";
   } else {
     ax = "rax";
-    di = "rdi ";
+    di = "rdi";
+    dx = "rdx";
   }
 
   switch (node->kind) {
@@ -375,7 +388,11 @@ static void gen_expr(Node* node) {
       return;
     case ND_LT:
       genln("  cmp %s, %s", ax, di);
-      genln("  setl al");
+      if (node->lhs->type->is_unsigned) {
+        genln("  setb al");
+      } else {
+        genln("  setl al");
+      }
       genln("  movzb rax, al");
       return;
     case ND_LE:
@@ -389,7 +406,11 @@ static void gen_expr(Node* node) {
       return;
     case ND_RSHIFT:
       genln("  mov rcx, rdi");
-      genln("  sar %s, cl", ax);
+      if (node->lhs->type->is_unsigned) {
+        genln("  shr %s, cl", ax);
+      } else {
+        genln("  sar %s, cl", ax);
+      }
       return;
     case ND_ADD:
       genln("  add %s, %s", ax, di);
@@ -401,17 +422,32 @@ static void gen_expr(Node* node) {
       genln("  imul %s, %s", ax, di);
       return;
     case ND_DIV:
-    case ND_MOD:
-      if (node->rhs->type->size == 8) {
-        genln("  cqo");
+      if (node->type->is_unsigned) {
+        genln("  mov %s, 0", dx);
+        genln("  div %s", di);
       } else {
-        genln("  cdq");
+        if (node->rhs->type->size == 8) {
+          genln("  cqo");
+        } else {
+          genln("  cdq");
+        }
+        genln("  idiv %s", di);
       }
-      genln("  idiv %s", di);
+      return;
+    case ND_MOD:
+      if (node->type->is_unsigned) {
+        genln("  mov %s, 0", dx);
+        genln("  div %s", di);
+      } else {
+        if (node->rhs->type->size == 8) {
+          genln("  cqo");
+        } else {
+          genln("  cdq");
+        }
+        genln("  idiv %s", di);
+      }
 
-      if (node->kind == ND_MOD) {
-        genln("  mov rax, rdx");
-      }
+      genln("  mov rax, rdx");
       return;
     default:
       error_token(node->token, "expected an expression");

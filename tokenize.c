@@ -300,6 +300,7 @@ static bool consume_keyword(Token** dst, char** c) {
     "_Alignof",
     "_Alignas",
     "signed",
+    "unsigned",
   };
   static int klen = sizeof(kws) / sizeof(char*);
 
