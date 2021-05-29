@@ -45,9 +45,9 @@ cast = "(" abstract_declarator ")" cast | unary
 unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     ("++" | "--") unary |
     "sizeof" "(" abstract_declarator ")" |
-    "sizeof" cast |
+    "sizeof" unary |
     "_Alignof" "(" abstract_declarator ")" |
-    "_Alignof" cast |
+    "_Alignof" unary |
     postifx
 postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 compound_literal = "(" abstract_decl ")" initer

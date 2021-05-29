@@ -616,6 +616,14 @@ static Node* new_long_node(Token* token, int64_t val) {
   return node;
 }
 
+static Node* new_ulong_node(Token* token, int64_t val) {
+  Node* node = new_node(ND_NUM);
+  node->type = ty_ulong;
+  node->token = token;
+  node->val = val;
+  return node;
+}
+
 static Node* new_null_node(Token* token) {
   Node* node = new_node(ND_NULL);
   node->token = token;
@@ -767,7 +775,7 @@ static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->token = token;
-    sub->type = ty_int;
+    sub->type = ty_long;
     return new_div_node(sub->token, sub, new_int_node(lhs->token, sub->lhs->type->base->size));
   }
 
@@ -1981,12 +1989,12 @@ static Node* unary(Token** tokens) {
     expect_token(tokens, "(");
     Decl* decl = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
-    return new_int_node(start, decl->type->size);
+    return new_ulong_node(start, decl->type->size);
   }
 
   if (consume_token(tokens, "sizeof")) {
-    Node* node = cast(tokens);
-    return new_int_node(start, node->type->size);
+    Node* node = unary(tokens);
+    return new_ulong_node(start, node->type->size);
   }
 
   if (equal_to_token(*tokens, "_Alignof") && equal_to_abstract_decl_start((*tokens)->next)) {
@@ -1994,12 +2002,12 @@ static Node* unary(Token** tokens) {
     expect_token(tokens, "(");
     Decl* decl = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
-    return new_int_node(start, decl->type->alignment);
+    return new_ulong_node(start, decl->type->alignment);
   }
 
   if (consume_token(tokens, "_Alignof")) {
-    Node* node = cast(tokens);
-    return new_int_node(start, node->type->size);
+    Node* node = unary(tokens);
+    return new_ulong_node(start, node->type->size);
   }
 
   return postfix(tokens);
