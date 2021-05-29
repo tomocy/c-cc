@@ -85,10 +85,13 @@ decl_specifier = (
     "void" | "_Bool" | "char" |
     "short" | "int" | "long" |
     struct_decl | union_decl | defined_type |
-    "extern" | "static" | "_Alignas" | "signed"
+    "extern" | "static" | "_Alignas" | "signed" |
+    "const" | "volatile" | "auto" | "register" |
+    "restrict" | "__restrict" | "__restrict__" | "_Noreturn"
 )*
-declarator = "*"* ("(" declarator ")" | ident) type_suffix
-abstract_declarator = "*"* "(" abstract_declarator ")" type_suffix
+pointers = ("*" ("const" | "volatile" | "restcit" | "__restrict" | "__restrict__")*)*
+declarator = pointers ("(" declarator ")" | ident) type_suffix
+abstract_declarator = pointers "(" abstract_declarator ")" type_suffix
 decl = decl_specifier declarator
 abstract_decl = decl_specifier abstract_declarator
 type_suffix = array_dimensions | ε

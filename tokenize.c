@@ -309,6 +309,14 @@ static bool consume_keyword(Token** dst, char** c) {
     "_Alignas",
     "signed",
     "unsigned",
+    "const",
+    "volatile",
+    "auto",
+    "register",
+    "restrict",
+    "__restrict",
+    "__restrict__",
+    "_Noreturn",
   };
   static int klen = sizeof(kws) / sizeof(char*);
 

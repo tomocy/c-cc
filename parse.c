@@ -482,6 +482,14 @@ static bool equal_to_decl_specifier(Token* token) {
     "_Alignas",
     "signed",
     "unsigned",
+    "const",
+    "volatile",
+    "auto",
+    "register",
+    "restrict",
+    "__restrict",
+    "__restrict__",
+    "_Noreturn",
   };
   static int len = sizeof(names) / sizeof(char*);
 
@@ -2906,6 +2914,13 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       continue;
     }
 
+    // Ignore those types for now
+    if (consume_token(tokens, "const") || consume_token(tokens, "volatile") || consume_token(tokens, "auto")
+        || consume_token(tokens, "register") || consume_token(tokens, "restrict") || consume_token(tokens, "__restrict")
+        || consume_token(tokens, "__restrict__") || consume_token(tokens, "_Noreturn")) {
+      continue;
+    }
+
     if (equal_to_token(*tokens, "_Alignas")) {
       if (!attr) {
         error_token(*tokens, "_Alignas is not allowed in this context");
@@ -3055,10 +3070,18 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   return type;
 }
 
-static Decl* declarator(Token** tokens, Type* type) {
+static Type* pointers(Token** tokens, Type* type) {
   while (consume_token(tokens, "*")) {
     type = new_ptr_type(type);
+
+    while (consume_token(tokens, "const") || consume_token(tokens, "volatile") || consume_token(tokens, "restrict")
+           || consume_token(tokens, "__restrict") || consume_token(tokens, "__restrict__")) {}
   }
+  return type;
+}
+
+static Decl* declarator(Token** tokens, Type* type) {
+  type = pointers(tokens, type);
 
   if (consume_token(tokens, "(")) {
     Token* start = *tokens;
@@ -3085,9 +3108,7 @@ static Decl* decl(Token** tokens, VarAttr* attr) {
 }
 
 static Decl* abstract_declarator(Token** tokens, Type* type) {
-  while (consume_token(tokens, "*")) {
-    type = new_ptr_type(type);
-  }
+  type = pointers(tokens, type);
 
   if (consume_token(tokens, "(")) {
     Token* start = *tokens;

@@ -11,3 +11,4 @@ int memcmp(char* p, char* q, long n);
 int printf(char* fmt, ...);
 // NOLINTNEXTLINE
 int sprintf(char* buf, char* fmt, ...);
+void exit(int n);
