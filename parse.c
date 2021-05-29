@@ -1976,23 +1976,30 @@ static Node* unary(Token** tokens) {
     return convert_to_assign_node(start, ND_SUB, unary(tokens), new_int_node(start, 1));
   }
 
-  if (consume_token(tokens, "sizeof")) {
-    if (equal_to_abstract_decl_start(*tokens)) {
-      expect_token(tokens, "(");
-      Decl* decl = abstract_decl(tokens, NULL);
-      expect_token(tokens, ")");
-      return new_int_node(start, decl->type->size);
-    }
+  if (equal_to_token(*tokens, "sizeof") && equal_to_abstract_decl_start((*tokens)->next)) {
+    expect_token(tokens, "sizeof");
+    expect_token(tokens, "(");
+    Decl* decl = abstract_decl(tokens, NULL);
+    expect_token(tokens, ")");
+    return new_int_node(start, decl->type->size);
+  }
 
+  if (consume_token(tokens, "sizeof")) {
     Node* node = cast(tokens);
     return new_int_node(start, node->type->size);
   }
 
-  if (consume_token(tokens, "_Alignof")) {
+  if (equal_to_token(*tokens, "_Alignof") && equal_to_abstract_decl_start((*tokens)->next)) {
+    expect_token(tokens, "_Alignof");
     expect_token(tokens, "(");
     Decl* decl = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
     return new_int_node(start, decl->type->alignment);
+  }
+
+  if (consume_token(tokens, "_Alignof")) {
+    Node* node = cast(tokens);
+    return new_int_node(start, node->type->size);
   }
 
   return postfix(tokens);

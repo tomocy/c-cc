@@ -44,9 +44,10 @@ mul = cast ("*" cast | "/" cast | "%" cast)*
 cast = "(" abstract_declarator ")" cast | unary
 unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     ("++" | "--") unary |
-    "sizeof" cast |
     "sizeof" "(" abstract_declarator ")" |
-    "_Alignof" "(" type-name ")" |
+    "sizeof" cast |
+    "_Alignof" "(" abstract_declarator ")" |
+    "_Alignof" cast |
     postifx
 postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 compound_literal = "(" abstract_decl ")" initer

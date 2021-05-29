@@ -62,5 +62,26 @@ int main() {
   ASSERT(0, (long)(char*)&g4 % 4);
   ASSERT(0, (long)(char*)&g5 % 8);
 
+  ASSERT(1, ({
+    char x;
+    // NOLINTNEXTLINE
+    _Alignof(x);
+  }));
+  ASSERT(4, ({
+    int x;
+    // NOLINTNEXTLINE
+    _Alignof(x);
+  }));
+  ASSERT(1, ({
+    char x;
+    // NOLINTNEXTLINE
+    _Alignof x;
+  }));
+  ASSERT(4, ({
+    int x;
+    // NOLINTNEXTLINE
+    _Alignof x;
+  }));
+
   ok();
 }
