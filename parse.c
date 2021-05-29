@@ -57,60 +57,16 @@ static char* current_break_label_id;
 static char* current_continue_label_id;
 static Obj* current_func;
 
-static Type* ty_void = &(Type){
-  TY_VOID,
-  1,
-  1,
-};
-static Type* ty_bool = &(Type){
-  TY_BOOL,
-  1,
-  1,
-};
-static Type* ty_char = &(Type){
-  TY_CHAR,
-  1,
-  1,
-};
-static Type* ty_short = &(Type){
-  TY_SHORT,
-  2,
-  2,
-};
-static Type* ty_int = &(Type){
-  TY_INT,
-  4,
-  4,
-};
-static Type* ty_long = &(Type){
-  TY_LONG,
-  8,
-  8,
-};
-static Type* ty_uchar = &(Type){
-  TY_CHAR,
-  1,
-  1,
-  true,
-};
-static Type* ty_ushort = &(Type){
-  TY_SHORT,
-  2,
-  2,
-  true,
-};
-static Type* ty_uint = &(Type){
-  TY_INT,
-  4,
-  4,
-  true,
-};
-static Type* ty_ulong = &(Type){
-  TY_LONG,
-  8,
-  8,
-  true,
-};
+Type* ty_void = &(Type){TY_VOID, 1, 1};
+Type* ty_bool = &(Type){TY_BOOL, 1, 1};
+Type* ty_char = &(Type){TY_CHAR, 1, 1};
+Type* ty_short = &(Type){TY_SHORT, 2, 2};
+Type* ty_int = &(Type){TY_INT, 4, 4};
+Type* ty_long = &(Type){TY_LONG, 8, 8};
+Type* ty_uchar = &(Type){TY_CHAR, 1, 1, true};
+Type* ty_ushort = &(Type){TY_SHORT, 2, 2, true};
+Type* ty_uint = &(Type){TY_INT, 4, 4, true};
+Type* ty_ulong = &(Type){TY_LONG, 8, 8, true};
 
 static char* new_id(void) {
   static int id = 0;

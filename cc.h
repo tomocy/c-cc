@@ -201,27 +201,30 @@ struct Relocation {
 };
 
 extern char* input_filename;
-
 extern char* output_filename;
 
-void error(char* fmt, ...);
-
-void error_token(Token* token, char* fmt, ...);
-
-void warn_token(Token* token);
-
-bool equal_to_token(Token* token, char* s);
-
-bool consume_token(Token** token, char* s);
-
-void expect_token(Token** token, char* s);
-
-int expect_num(Token** token);
-
-Token* tokenize();
+extern Type* ty_void;
+extern Type* ty_bool;
+extern Type* ty_char;
+extern Type* ty_short;
+extern Type* ty_int;
+extern Type* ty_long;
+extern Type* ty_uchar;
+extern Type* ty_ushort;
+extern Type* ty_uint;
+extern Type* ty_ulong;
 
 bool is_numable(Type* type);
 
-Obj* parse(Token* tokens);
+void error(char* fmt, ...);
+void error_token(Token* token, char* fmt, ...);
+void warn_token(Token* token);
 
+bool equal_to_token(Token* token, char* s);
+bool consume_token(Token** token, char* s);
+void expect_token(Token** token, char* s);
+int expect_num(Token** token);
+
+Token* tokenize();
+Obj* parse(Token* tokens);
 void gen(Obj* codes);
