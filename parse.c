@@ -602,7 +602,7 @@ static Node* new_funccall_node(Type* type, Token* token, char* name, Node* args)
 
 static Node* new_int_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
-  node->type = ty_int;
+  node->type = token->type ? token->type : ty_int;
   node->token = token;
   node->val = val;
   return node;

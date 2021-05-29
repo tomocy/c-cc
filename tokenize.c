@@ -183,8 +183,16 @@ void warn_token(Token* token) {
   warn_at(token->line, token->loc);
 }
 
+static bool isbdigit(char c) {
+  return c == '0' || c == '1';
+}
+
 static bool starting_with(char* c, char* prefix) {
   return memcmp(c, prefix, strlen(prefix)) == 0;
+}
+
+static bool starting_with_insensitive(char* c, char* prefix) {
+  return strncasecmp(c, prefix, strlen(prefix)) == 0;
 }
 
 static bool is_identable1(char c) {
@@ -397,6 +405,7 @@ static bool consume_ident(Token** dst, char** c) {
   return true;
 }
 
+// NOLINTNEXTLINE
 static bool consume_number(Token** dst, char** c) {
   if (!isdigit(**c)) {
     return false;
@@ -405,22 +414,75 @@ static bool consume_number(Token** dst, char** c) {
   char* start = *c;
 
   int base = 10;
-  if (strncasecmp(*c, "0x", 2) == 0 && isalnum((*c)[2])) {
+  if (starting_with_insensitive(*c, "0x") && isxdigit((*c)[2])) {
     *c += 2;
     base = 16;
-  } else if (strncasecmp(*c, "0b", 2) == 0 && isalnum((*c)[2])) {
+  } else if (starting_with_insensitive(*c, "0b") && isbdigit((*c)[2])) {
     *c += 2;
     base = 2;
   } else if (**c == '0') {
     base = 8;
   }
 
-  long val = strtoul(*c, c, base);
+  int64_t val = strtoul(*c, c, base);
+
+  bool l = false;
+  bool u = false;
+  if (starting_with(*c, "LLU") || starting_with(*c, "LLu") || starting_with(*c, "llU") || starting_with(*c, "llu")
+      || starting_with(*c, "ULL") || starting_with(*c, "Ull") || starting_with(*c, "uLL") || starting_with(*c, "ull")) {
+    *c += 3;
+    l = u = true;
+  } else if (starting_with_insensitive(*c, "LU") || starting_with_insensitive(*c, "UL")) {
+    *c += 2;
+    l = u = true;
+  } else if (starting_with(*c, "LL") || starting_with_insensitive(*c, "ll")) {
+    *c += 2;
+    l = true;
+  } else if (starting_with_insensitive(*c, "L")) {
+    (*c)++;
+    l = true;
+  } else if (starting_with_insensitive(*c, "U")) {
+    (*c)++;
+    u = true;
+  }
+
   if (isalnum(**c)) {
     error_at(*c, "invalid digit");
   }
 
+  Type* type = NULL;
+  if (base == 10) {
+    if (l && u) {
+      type = ty_ulong;
+    } else if (l) {
+      type = ty_long;
+    } else if (u) {
+      type = (val >> 32) ? ty_ulong : ty_uint;
+    } else if (val >> 31) {
+      type = ty_long;
+    } else {
+      type = ty_int;
+    }
+  } else {
+    if (l && u) {
+      type = ty_ulong;
+    } else if (l) {
+      type = (val >> 63) ? ty_ulong : ty_long;
+    } else if (u) {
+      type = (val >> 32) ? ty_ulong : ty_uint;
+    } else if (val >> 63) {
+      type = ty_ulong;
+    } else if (val >> 32) {
+      type = ty_long;
+    } else if (val >> 31) {
+      type = ty_uint;
+    } else {
+      type = ty_int;
+    }
+  }
+
   Token* token = new_token(TK_NUM, start, *c - start);
+  token->type = type;
   token->int_val = val;
   *dst = token;
   return true;

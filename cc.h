@@ -25,8 +25,10 @@ typedef enum {
 } TokenKind;
 
 struct Token {
-  TokenKind kind;
   Token* next;
+  TokenKind kind;
+
+  Type* type;
 
   int line;
   char* loc;
