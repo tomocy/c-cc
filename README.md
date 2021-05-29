@@ -95,7 +95,7 @@ abstract_declarator = pointers "(" abstract_declarator ")" type_suffix
 decl = decl_specifier declarator
 abstract_decl = decl_specifier abstract_declarator
 type_suffix = array_dimensions | ε
-array_dimensions = "[" const_expr? "]" type_suffix
+array_dimensions = "[" ("static" | "restrict")* const_expr? "]" type_suffix
 
 func_args = "(" (assign (, assign)*)? ")"
 ```

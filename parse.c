@@ -3141,6 +3141,9 @@ static Type* type_suffix(Token** tokens, Type* type) {
 static Type* array_dimensions(Token** tokens, Type* type) {
   expect_token(tokens, "[");
 
+  // Ignore those for now
+  while (consume_token(tokens, "static") || consume_token(tokens, "restrict")) {}
+
   if (consume_token(tokens, "]")) {
     type = type_suffix(tokens, type);
     return new_array_type(type, -1);
