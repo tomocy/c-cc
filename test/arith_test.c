@@ -326,6 +326,7 @@ int main() {
 
   ASSERT(15, (char*)0xffffffffffffffff - (char*)0xfffffffffffffff0);
   ASSERT(-15, (char*)0xfffffffffffffff0 - (char*)0xffffffffffffffff);
+  ASSERT(1, (void*)0xffffffffffffffff > (void*)0);
 
   ok();
 }

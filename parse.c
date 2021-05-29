@@ -116,6 +116,7 @@ static Type* new_type(TypeKind kind, int size, int alignment);
 static Type* new_ptr_type(Type* base) {
   Type* ptr = new_type(TY_PTR, 8, 8);
   ptr->base = base;
+  ptr->is_unsigned = true;
   return ptr;
 }
 
