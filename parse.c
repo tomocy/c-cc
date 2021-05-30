@@ -133,16 +133,18 @@ static Type* new_array_type(Type* base, int len) {
   return arr;
 }
 
+static Type* new_composite_type(TypeKind kind, int size, int alignment, Member* mems) {
+  Type* type = new_type(kind, align(size, alignment), alignment);
+  type->members = mems;
+  return type;
+}
+
 static Type* new_struct_type(int size, int alignment, Member* mems) {
-  Type* struc = new_type(TY_STRUCT, align(size, alignment), alignment);
-  struc->members = mems;
-  return struc;
+  return new_composite_type(TY_STRUCT, size, alignment, mems);
 }
 
 static Type* new_union_type(int size, int alignment, Member* mems) {
-  Type* uni = new_type(TY_UNION, align(size, alignment), alignment);
-  uni->members = mems;
-  return uni;
+  return new_composite_type(TY_UNION, size, alignment, mems);
 }
 
 static Type* new_type(TypeKind kind, int size, int alignment) {
@@ -153,11 +155,28 @@ static Type* new_type(TypeKind kind, int size, int alignment) {
   return type;
 }
 
-static Type* copy_type_with_alignment(Type* src, int alignment) {
+static Type* copy_type(Type* src) {
   Type* copied = calloc(1, sizeof(Type));
   *copied = *src;
+  return copied;
+}
+
+static Type* copy_type_with_alignment(Type* src, int alignment) {
+  Type* copied = copy_type(src);
   copied->alignment = alignment;
   return copied;
+}
+
+static Type* copy_composite_type(Type* src, TypeKind kind) {
+  Member head = {};
+  Member* cur = &head;
+  for (Member* mem = src->members; mem; mem = mem->next) {
+    Member* copied = calloc(1, sizeof(Member));
+    *copied = *mem;
+    cur = cur->next = copied;
+  }
+
+  return new_composite_type(kind, src->size, src->alignment, head.next);
 }
 
 bool is_numable(Type* type) {
@@ -2543,24 +2562,12 @@ static void init_initer(Token** tokens, Initer* init) {
   init->expr = assign(tokens);
 }
 
-static Type* copy_struct_type(Type* type) {
-  Member head = {};
-  Member* cur = &head;
-  for (Member* mem = type->members; mem; mem = mem->next) {
-    Member* copied = calloc(1, sizeof(Member));
-    *copied = *mem;
-    cur = cur->next = copied;
-  }
-
-  return new_struct_type(type->size, type->alignment, head.next);
-}
-
-static Initer* initer(Token** tokens, Type** ty) {
-  Initer* init = new_initer(*ty);
+static Initer* initer(Token** tokens, Type** type) {
+  Initer* init = new_initer(*type);
   init_initer(tokens, init);
 
   if (init->type->kind == TY_STRUCT && init->type->is_flexible) {
-    Type* copied = copy_struct_type(*ty);
+    Type* copied = copy_composite_type(*type, init->type->kind);
 
     int i = 0;
     Member* mem = copied->members;
@@ -2571,11 +2578,11 @@ static Initer* initer(Token** tokens, Type** ty) {
     mem->type = init->children[i]->type;
     copied->size += mem->type->size;
 
-    *ty = copied;
+    *type = copied;
     return init;
   }
 
-  *ty = init->type;
+  *type = init->type;
   return init;
 }
 
