@@ -1142,6 +1142,9 @@ static Node* new_func_params(Decl* decls) {
 static void func(Token** tokens) {
   VarAttr attr = {};
   Decl* dcl = decl(tokens, &attr);
+  if (!dcl->name) {
+    error_token(dcl->ident, "function name omitted");
+  }
 
   Obj* func = new_func(new_func_type(dcl->type), strndup(dcl->ident->loc, dcl->ident->len));
   current_func = func;
@@ -1259,6 +1262,9 @@ static void gvar(Token** tokens) {
     is_first = false;
 
     Decl* decl = declarator(tokens, spec);
+    if (!decl->name) {
+      error_token(decl->ident, "variable name omitted");
+    }
     if (attr.alignment) {
       decl->type = copy_type_with_alignment(decl->type, attr.alignment);
     }
@@ -1289,6 +1295,9 @@ static void tydef(Token** tokens) {
     is_first = false;
 
     Decl* decl = declarator(tokens, spec);
+    if (!decl->name) {
+      error_token(decl->ident, "typedef name omitted");
+    }
     new_def_type(decl->type, decl->name);
   }
 }
@@ -2675,6 +2684,9 @@ static Node* lvar_decl(Token** tokens) {
     }
 
     Decl* decl = declarator(tokens, spec);
+    if (!decl->name) {
+      error_token(decl->ident, "variable name omitted");
+    }
     if (decl->type == ty_void) {
       error_token(decl->ident, "variable declared void");
     }
@@ -2887,6 +2899,9 @@ static Member* members(Token** tokens) {
       is_first = false;
 
       Decl* decl = declarator(tokens, spec);
+      if (!decl->name) {
+        error_token(decl->ident, "member name omitted");
+      }
 
       Member* mem = calloc(1, sizeof(Member));
       mem->type = decl->type;
@@ -3116,14 +3131,14 @@ static Decl* declarator(Token** tokens, Type* type) {
     return declarator(&start, type);
   }
 
-  Token* ident = expect_ident(tokens);
+  Token* ident = (*tokens)->kind == TK_IDENT ? expect_ident(tokens) : *tokens;
 
   type = type_suffix(tokens, type);
 
   Decl* decl = calloc(1, sizeof(Decl));
   decl->type = type;
   decl->ident = ident;
-  decl->name = strndup(ident->loc, ident->len);
+  decl->name = ident->kind == TK_IDENT ? strndup(ident->loc, ident->len) : NULL;
   return decl;
 }
 

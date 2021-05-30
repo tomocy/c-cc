@@ -90,7 +90,7 @@ decl_specifier = (
     "restrict" | "__restrict" | "__restrict__" | "_Noreturn"
 )*
 pointers = ("*" ("const" | "volatile" | "restcit" | "__restrict" | "__restrict__")*)*
-declarator = pointers ("(" declarator ")" | ident) type_suffix
+declarator = pointers ("(" declarator ")" | ident?) type_suffix
 abstract_declarator = pointers "(" abstract_declarator ")" type_suffix
 decl = decl_specifier declarator
 abstract_decl = decl_specifier abstract_declarator
