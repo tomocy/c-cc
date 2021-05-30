@@ -2,6 +2,7 @@
 
 typedef struct ScopedObj ScopedObj;
 typedef struct Scope Scope;
+typedef struct Decl Decl;
 typedef struct Initer Initer;
 typedef struct DesignatedIniter DesignatedIniter;
 
@@ -25,6 +26,7 @@ typedef struct VarAttr {
 } VarAttr;
 
 typedef struct Decl {
+  Decl* next;
   Type* type;
   Token* ident;
   char* name;
@@ -1083,26 +1085,28 @@ static void resolve_goto_labels(void) {
   current_gotos = NULL;
 }
 
-static void func_params(Token** tokens, Type* type) {
+static Decl* func_params(Token** tokens, Obj* func) {
   expect_token(tokens, "(");
 
   if (equal_to_token(*tokens, "void") && equal_to_token((*tokens)->next, ")")) {
     expect_token(tokens, "void");
     expect_token(tokens, ")");
-    return;
+    return NULL;
   }
 
-  Node head = {};
-  Node* cur = &head;
-  type->is_variadic = false;
+  Decl decl_head = {};
+  Decl* cur_decl = &decl_head;
+  Type type_head = {};
+  Type* cur_type = &type_head;
+  func->type->is_variadic = false;
   while (!consume_token(tokens, ")")) {
-    if (cur != &head) {
+    if (cur_type != &type_head) {
       expect_token(tokens, ",");
     }
 
     if (consume_token(tokens, "...")) {
       expect_token(tokens, ")");
-      type->is_variadic = true;
+      func->type->is_variadic = true;
       break;
     }
 
@@ -1111,17 +1115,28 @@ static void func_params(Token** tokens, Type* type) {
       dcl->type = new_ptr_type(dcl->type->base);
     }
 
-    Obj* var = new_lvar(dcl->type, dcl->name);
-    Node* param = new_var_node(dcl->ident, var);
-    cur->next = param;
-    cur = cur->next;
+    cur_decl = cur_decl->next = dcl;
+    cur_type = cur_type->next = copy_type(dcl->type);
   }
 
-  type->params = head.next;
-
-  if (cur == &head) {
-    type->is_variadic = true;
+  if (cur_type == &type_head) {
+    func->type->is_variadic = true;
   }
+
+  func->type->params = type_head.next;
+
+  return decl_head.next;
+}
+
+static Node* new_func_params(Decl* decls) {
+  Node head = {};
+  Node* cur = &head;
+  for (Decl* decl = decls; decl; decl = decl->next) {
+    Obj* var = new_lvar(decl->type, decl->name);
+    cur = cur->next = new_var_node(decl->ident, var);
+  }
+
+  return head.next;
 }
 
 static void func(Token** tokens) {
@@ -1133,15 +1148,17 @@ static void func(Token** tokens) {
 
   func->is_static = attr.is_static;
 
-  enter_scope();
-
-  func_params(tokens, func->type);
+  Decl* param_decls = func_params(tokens, func);
 
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
-    leave_scope();
+    current_func = NULL;
     return;
   }
+
+  enter_scope();
+
+  func->params = new_func_params(param_decls);
 
   if (func->type->is_variadic) {
     func->va_area = new_lvar(new_array_type(ty_char, 136), "__va_area__");
@@ -3169,35 +3186,35 @@ static Node* func_args(Token** tokens, Type* type) {
 
   Node head = {};
   Node* cur = &head;
-  Node* params = type->params;
+  Type* param = type->params;
   while (!consume_token(tokens, ")")) {
     if (cur != &head) {
       expect_token(tokens, ",");
     }
 
-    if (!params && !type->is_variadic) {
+    if (!param && !type->is_variadic) {
       error_token(*tokens, "too many arguments");
     }
 
     Node* arg = assign(tokens);
 
-    if (params) {
-      if (params->type->kind == TY_STRUCT || params->type->kind == TY_UNION) {
+    if (param) {
+      if (param->kind == TY_STRUCT || param->kind == TY_UNION) {
         error_token(arg->token, "passing struct or union is not supported yet");
       }
 
-      if (is_numable(params->type)) {
-        arg = new_cast_node(params->type, arg->token, arg);
+      if (is_numable(param)) {
+        arg = new_cast_node(param, arg->token, arg);
       }
 
-      params = params->next;
+      param = param->next;
     }
 
     cur->next = arg;
     cur = cur->next;
   }
 
-  if (params) {
+  if (param) {
     error_token(*tokens, "too few arguments");
   }
 

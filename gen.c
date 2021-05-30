@@ -610,7 +610,7 @@ static void gen_text(Obj* codes) {
 
     if (func->va_area) {
       int i = 0;
-      for (Node* param = func->type->params; param; param = param->next) {
+      for (Node* param = func->params; param; param = param->next) {
         i++;
       }
 
@@ -642,7 +642,7 @@ static void gen_text(Obj* codes) {
     }
 
     int i = 0;
-    for (Node* param = func->type->params; param; param = param->next) {
+    for (Node* param = func->params; param; param = param->next) {
       gen_addr(param);
 
       if (param->type->size == 1) {

@@ -78,9 +78,11 @@ struct Type {
   Type* base;
   int len;
 
-  Node* params;
-  Type* return_type;
+  Type* params;
   bool is_variadic;
+  Type* return_type;
+
+  Type* next;
 };
 
 typedef enum {
@@ -182,6 +184,7 @@ struct Obj {
   bool is_static;
   bool is_definition;
 
+  Node* params;
   Obj* lvars;
   Obj* va_area;
   Node* body;
