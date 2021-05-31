@@ -92,5 +92,18 @@ int main() {
   ASSERT(-1, 0x1 << 31 >> 31);
   ASSERT(-1, 0b1 << 31 >> 31);
 
+  0.0;       // NOLINT
+  1.0;       // NOLINT
+  3e+8;      // NOLINT
+  0x10.1p0;  // NOLINT
+  .1E4f;     // NOLINT
+
+  ASSERT(4, sizeof(8f));
+  ASSERT(4, sizeof(0.3F));  // NOLINT
+  ASSERT(8, sizeof(0.));
+  ASSERT(8, sizeof(.0));
+  ASSERT(8, sizeof(5.l));  // NOLINT
+  ASSERT(8, sizeof(2.0L));
+
   ok();
 }

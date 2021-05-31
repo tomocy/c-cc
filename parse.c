@@ -69,6 +69,8 @@ Type* ty_uchar = &(Type){TY_CHAR, 1, 1, true};
 Type* ty_ushort = &(Type){TY_SHORT, 2, 2, true};
 Type* ty_uint = &(Type){TY_INT, 4, 4, true};
 Type* ty_ulong = &(Type){TY_LONG, 8, 8, true};
+Type* ty_float = &(Type){TY_FLOAT, 4, 4};
+Type* ty_double = &(Type){TY_DOUBLE, 8, 8};
 
 static char* new_id(void) {
   static int id = 0;
@@ -634,7 +636,7 @@ static Node* new_int_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
   node->type = token->type ? token->type : ty_int;
   node->token = token;
-  node->val = val;
+  node->int_val = val;
   return node;
 }
 
@@ -642,7 +644,7 @@ static Node* new_long_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
   node->type = ty_long;
   node->token = token;
-  node->val = val;
+  node->int_val = val;
   return node;
 }
 
@@ -650,7 +652,15 @@ static Node* new_ulong_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
   node->type = ty_ulong;
   node->token = token;
-  node->val = val;
+  node->int_val = val;
+  return node;
+}
+
+static Node* new_float_node(Token* token, double val) {
+  Node* node = new_node(ND_NUM);
+  node->type = token->type ? token->type : ty_double;
+  node->token = token;
+  node->float_val = val;
   return node;
 }
 
@@ -1405,7 +1415,7 @@ static Node* case_stmt(Token** tokens) {
   node->token = start;
   node->label_id = new_id();
 
-  node->val = const_expr(tokens);
+  node->int_val = const_expr(tokens);
   expect_token(tokens, ":");
 
   node->lhs = stmt(tokens);
@@ -2198,7 +2208,9 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_NUM) {
-    Node* node = new_int_node(*tokens, (*tokens)->int_val);
+    Node* node = (*tokens)->type->kind == TY_FLOAT || (*tokens)->type->kind == TY_DOUBLE
+                   ? new_float_node(*tokens, (*tokens)->float_val)
+                   : new_int_node(*tokens, (*tokens)->int_val);
     *tokens = (*tokens)->next;
     return node;
   }
@@ -2335,7 +2347,7 @@ static int64_t eval_reloc(Node* node, char** label) {
 
       return relocate(node->lhs, label) + node->offset;
     case ND_NUM:
-      return node->val;
+      return node->int_val;
     default:
       error_token(node->token, "not a compile-time constant");
       return 0;

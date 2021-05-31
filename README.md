@@ -56,7 +56,7 @@ primary = "(" "{" stmt+ "}" ")" |
     ident func_args? |
     num |
     str
-num = ("0x" | "0X") hexadecimal | decimal | "0" octal | ("0b | "0B") binary
+num = ("0x" | "0X") hexadecimal | decimal | "0" octal | ("0b | "0B") binary | float
 const_expr
 
 lvar = var_decl ";"

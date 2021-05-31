@@ -36,6 +36,7 @@ struct Token {
   int len;
 
   int64_t int_val;
+  double float_val;
 
   char* str_val;
   int str_val_len;
@@ -57,6 +58,8 @@ typedef enum {
   TY_SHORT,
   TY_INT,
   TY_LONG,
+  TY_FLOAT,
+  TY_DOUBLE,
   TY_STRUCT,
   TY_UNION,
   TY_PTR,
@@ -155,7 +158,8 @@ struct Node {
 
   int offset;
 
-  int64_t val;
+  int64_t int_val;
+  double float_val;
 
   Node* labels;
   Node* gotos;
@@ -218,6 +222,8 @@ extern Type* ty_uchar;
 extern Type* ty_ushort;
 extern Type* ty_uint;
 extern Type* ty_ulong;
+extern Type* ty_float;
+extern Type* ty_double;
 
 bool is_numable(Type* type);
 

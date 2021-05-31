@@ -34,21 +34,6 @@ Token* tokenize(void) {
       continue;
     }
 
-    if (consume_keyword(&cur->next, &c)) {
-      cur = cur->next;
-      continue;
-    }
-
-    if (consume_punct(&cur->next, &c)) {
-      cur = cur->next;
-      continue;
-    }
-
-    if (consume_ident(&cur->next, &c)) {
-      cur = cur->next;
-      continue;
-    }
-
     if (consume_number(&cur->next, &c)) {
       cur = cur->next;
       continue;
@@ -60,6 +45,21 @@ Token* tokenize(void) {
     }
 
     if (consume_str(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    if (consume_keyword(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    if (consume_ident(&cur->next, &c)) {
+      cur = cur->next;
+      continue;
+    }
+
+    if (consume_punct(&cur->next, &c)) {
       cur = cur->next;
       continue;
     }
@@ -414,11 +414,7 @@ static bool consume_ident(Token** dst, char** c) {
 }
 
 // NOLINTNEXTLINE
-static bool consume_number(Token** dst, char** c) {
-  if (!isdigit(**c)) {
-    return false;
-  }
-
+static Token* read_int(char** c) {
   char* start = *c;
 
   int base = 10;
@@ -452,10 +448,6 @@ static bool consume_number(Token** dst, char** c) {
   } else if (starting_with_insensitive(*c, "U")) {
     (*c)++;
     u = true;
-  }
-
-  if (isalnum(**c)) {
-    error_at(*c, "invalid digit");
   }
 
   Type* type = NULL;
@@ -492,6 +484,46 @@ static bool consume_number(Token** dst, char** c) {
   Token* token = new_token(TK_NUM, start, *c - start);
   token->type = type;
   token->int_val = val;
+  return token;
+}
+
+static Token* read_float(char** c) {
+  char* start = *c;
+
+  double val = strtod(start, c);
+
+  Type* type = NULL;
+  if (starting_with_insensitive(*c, "F")) {
+    type = ty_float;
+    (*c)++;
+  } else if (starting_with_insensitive(*c, "L")) {
+    type = ty_double;
+    (*c)++;
+  } else {
+    type = ty_double;
+  }
+
+  Token* token = new_token(TK_NUM, start, *c - start);
+  token->type = type;
+  token->float_val = val;
+  return token;
+}
+
+// NOLINTNEXTLINE
+static bool consume_number(Token** dst, char** c) {
+  if (!isdigit(**c) && !(**c == '.' && isdigit((*c)[1]))) {
+    return false;
+  }
+
+  char* peeked = *c;
+  Token* token = read_int(&peeked);
+  if (!strchr(".EeFf", *peeked)) {
+    *c = peeked;
+    *dst = token;
+    return true;
+  }
+
+  token = read_float(c);
   *dst = token;
   return true;
 }
@@ -588,6 +620,7 @@ static bool consume_char(Token** dst, char** c) {
   }
 
   Token* token = new_token(TK_NUM, start + 1, end - start - 1);
+  token->type = ty_int;
   token->int_val = read;
   *dst = token;
   return true;

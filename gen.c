@@ -284,9 +284,30 @@ static void gen_expr(Node* node) {
 
       return;
     }
-    case ND_NUM:
-      genln("  mov rax, %ld", node->val);
-      return;
+    case ND_NUM: {
+      union {
+        float f32;
+        double f64;
+        uint32_t u32;
+        uint64_t u64;
+      } val;
+
+      switch (node->type->kind) {
+        case TY_FLOAT:
+          val.f32 = node->float_val;
+          genln("  mov eax, %u # float %f", val.u32, val.f32);
+          genln("  movq xmm0, rax");
+          return;
+        case TY_DOUBLE:
+          val.f64 = node->float_val;
+          genln("  mov rax, %lu # double %f", val.u64, val.f64);
+          genln("  movq xmm0, rax");
+          return;
+        default:
+          genln("  mov rax, %ld", node->int_val);
+          return;
+      }
+    }
     case ND_NULL:
       return;
     case ND_MEMZERO:
@@ -486,7 +507,7 @@ static void gen_stmt(Node* node) {
 
       char* r = node->cond->type->size == 8 ? "rax" : "eax";
       for (Node* c = node->cases; c; c = c->cases) {
-        genln("  cmp %s, %ld", r, c->val);
+        genln("  cmp %s, %ld", r, c->int_val);
         genln("  je %s", c->label_id);
       }
       if (node->default_label_id) {
