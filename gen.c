@@ -13,25 +13,56 @@ static char* arg_regs16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
 static char* arg_regs32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
 static char* arg_regs64[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
 
-static char s8to32[] = "movsx eax, al";
-static char s16to32[] = "movsx eax, ax";
-static char s32to64[] = "movsxd rax, eax";
-static char z8to32[] = "movzx eax, al";
-static char z16to32[] = "movzx eax, ax";
-static char z32to64[] = "mov eax, eax";
-static char* cast_table[][8] = {
-  // to i8, i16, i32, i64, u8, u16, u32, u64
-  {NULL, NULL, NULL, s32to64, z8to32, z16to32, NULL, s32to64},       // from i8
-  {s8to32, NULL, NULL, s32to64, z8to32, z16to32, NULL, s32to64},     // from i16
-  {s8to32, s16to32, NULL, s32to64, z8to32, z16to32, NULL, s32to64},  // from i32
-  {s8to32, s16to32, NULL, NULL, z8to32, z16to32, NULL, NULL},        // from i64
-  {s8to32, NULL, NULL, s32to64, NULL, NULL, NULL, s32to64},          // from u8
-  {s8to32, s16to32, NULL, s32to64, z8to32, NULL, NULL, s32to64},     // from u16
-  {s8to32, s16to32, NULL, z32to64, z8to32, z16to32, NULL, z32to64},  // from u32
-  {s8to32, s16to32, NULL, NULL, z8to32, z16to32, NULL, NULL},        // from u64
+static char s8_32[] = "movsx eax, al";
+static char s16_32[] = "movsx eax, ax";
+static char s32_64[] = "movsxd rax, eax";
+static char i32_f32[] = "cvtsi2ss xmm0, eax";
+static char i32_f64[] = "cvtsi2sd xmm0, eax";
+static char i64_f32[] = "cvtsi2ss xmm0, rax";
+static char i64_f64[] = "cvtsi2sd xmm0, rax";
+static char z8_32[] = "movzx eax, al";
+static char z16_32[] = "movzx eax, ax";
+static char z32_64[] = "mov eax, eax";
+static char u32_f32[] = "mov eax, eax; cvtsi2ss xmm0, rax";
+static char u32_f64[] = "mov eax, eax; cvtsi2sd xmm0, rax";
+static char u64_f32[] = "cvtsi2ss xmm0, rax";
+static char u64_f64[]
+  = "test rax, rax; js 1f; pxor xmm0, xmm0; cvtsi2sd xmm0, rax; jmp 2f; "
+    "1: mov rdi, rax; and eax, 1; pxor xmm0, xmm0; shr rdi; "
+    "or rdi, rax; cvtsi2sd xmm0, rdi; addsd xmm0, xmm0; 2:";
+static char f32_i8[] = "cvttss2si eax, xmm0; movsx eax, al";
+static char f32_i16[] = "cvttss2si eax, xmm0; movsx eax, ax";
+static char f32_i32[] = "cvttss2si eax, xmm0";
+static char f32_i64[] = "cvttss2si rax, xmm0";
+static char f32_u8[] = "cvttss2si eax, xmm0; movzx eax, al";
+static char f32_u16[] = "cvttss2si eax, xmm0; movzx eax, ax";
+static char f32_u32[] = "cvttss2si rax, xmm0";
+static char f32_u64[] = "cvttss2si rax, xmm0";
+static char f32_f64[] = "cvtss2sd xmm0, xmm0";
+static char f64_i8[] = "cvttsd2si eax, xmm0; movsx eax, al";
+static char f64_i16[] = "cvttsd2si eax, xmm0; movsx eax, ax";
+static char f64_i32[] = "cvttsd2si eax, xmm0";
+static char f64_i64[] = "cvttsd2si rax, xmm0";
+static char f64_u8[] = "cvttsd2si eax, xmm0; movzx eax, al";
+static char f64_u16[] = "cvttsd2si eax, xmm0; movzx eax, ax";
+static char f64_u32[] = "cvttsd2si rax, xmm0";
+static char f64_u64[] = "cvttsd2si rax, xmm0";
+static char f64_f32[] = "cvtsd2ss xmm0, xmm0";
+static char* cast_table[][10] = {
+  // to i8, i16, i32, i64, u8, u16, u32, u64, f32, f64
+  {NULL, NULL, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64},              // from i8
+  {s8_32, NULL, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64},             // from i16
+  {s8_32, s16_32, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64},           // from i32
+  {s8_32, s16_32, NULL, NULL, z8_32, z16_32, NULL, NULL, i64_f32, i64_f64},               // from i64
+  {s8_32, NULL, NULL, s32_64, NULL, NULL, NULL, s32_64, i32_f32, i32_f64},                // from u8
+  {s8_32, s16_32, NULL, s32_64, z8_32, NULL, NULL, s32_64, i32_f32, i32_f64},             // from u16
+  {s8_32, s16_32, NULL, z32_64, z8_32, z16_32, NULL, z32_64, u32_f32, u32_f64},           // from u32
+  {s8_32, s16_32, NULL, NULL, z8_32, z16_32, NULL, NULL, u64_f32, u64_f64},               // from u64
+  {f32_i8, f32_i16, f32_i32, f32_i64, f32_u8, f32_u16, f32_u32, f32_u64, NULL, f32_f64},  // from f32
+  {f64_i8, f64_i16, f64_i32, f64_i64, f64_u8, f64_u16, f64_u32, f64_u64, f64_f32, NULL},  // from f64
 };
 
-enum { I8, I16, I32, I64, U8, U16, U32, U64 };
+enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64 };
 
 static int get_type_id(Type* type) {
   switch (type->kind) {
@@ -41,8 +72,14 @@ static int get_type_id(Type* type) {
       return type->is_unsigned ? U16 : I16;
     case TY_INT:
       return type->is_unsigned ? U32 : I32;
-    default:
+    case TY_LONG:
       return type->is_unsigned ? U64 : I64;
+    case TY_FLOAT:
+      return F32;
+    case TY_DOUBLE:
+      return F64;
+    default:
+      return U64;
   }
 }
 
@@ -113,28 +150,38 @@ static void gen_addr(Node* node) {
 }
 
 static void load(Node* node) {
-  if (node->type->kind == TY_ARRAY || node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
-    return;
+  switch (node->type->kind) {
+    case TY_ARRAY:
+    case TY_STRUCT:
+    case TY_UNION:
+      return;
+    case TY_FLOAT:
+      genln("  movss xmm0, [rax]");
+      return;
+    case TY_DOUBLE:
+      genln("  movsd xmm0, [rax]");
+      return;
+    default: {
+      char* ins = node->type->is_unsigned ? "movz" : "movs";
+
+      if (node->type->size == 1) {
+        genln("  %sx eax, BYTE PTR [rax]", ins);
+        return;
+      }
+
+      if (node->type->size == 2) {
+        genln("  %sx eax, WORD PTR [rax]", ins);
+        return;
+      }
+
+      if (node->type->size == 4) {
+        genln("  movsx rax, DWORD PTR [rax]");
+        return;
+      }
+
+      genln("  mov rax, [rax]");
+    }
   }
-
-  char* ins = node->type->is_unsigned ? "movz" : "movs";
-
-  if (node->type->size == 1) {
-    genln("  %sx eax, BYTE PTR [rax]", ins);
-    return;
-  }
-
-  if (node->type->size == 2) {
-    genln("  %sx eax, WORD PTR [rax]", ins);
-    return;
-  }
-
-  if (node->type->size == 4) {
-    genln("  movsx rax, DWORD PTR [rax]");
-    return;
-  }
-
-  genln("  mov rax, [rax]");
 }
 
 static void cast(Type* to, Type* from) {
@@ -171,27 +218,36 @@ static void gen_expr(Node* node) {
       push("rax");
       gen_expr(node->rhs);
       pop("rdi");
-      if (node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
-        for (int i = 0; i < node->type->size; i++) {
-          genln("  mov r8b, %d[rax]", i);
-          genln("  mov %d[rdi], r8b", i);
-        }
-        return;
+      switch (node->type->kind) {
+        case TY_STRUCT:
+        case TY_UNION:
+          for (int i = 0; i < node->type->size; i++) {
+            genln("  mov r8b, %d[rax]", i);
+            genln("  mov %d[rdi], r8b", i);
+          }
+          return;
+        case TY_FLOAT:
+          genln("  movss [rdi], xmm0");
+          return;
+        case TY_DOUBLE:
+          genln("  movsd [rdi], xmm0");
+          return;
+        default:
+          if (node->type->size == 1) {
+            genln("  mov [rdi], al");
+            return;
+          }
+          if (node->type->size == 2) {
+            genln("  mov [rdi], ax");
+            return;
+          }
+          if (node->type->size == 4) {
+            genln("  mov [rdi], eax");
+            return;
+          }
+          genln("  mov [rdi], rax");
+          return;
       }
-      if (node->type->size == 1) {
-        genln("  mov [rdi], al");
-        return;
-      }
-      if (node->type->size == 2) {
-        genln("  mov [rdi], ax");
-        return;
-      }
-      if (node->type->size == 4) {
-        genln("  mov [rdi], eax");
-        return;
-      }
-      genln("  mov [rdi], rax");
-      return;
     case ND_COMMA:
       gen_expr(node->lhs);
       gen_expr(node->rhs);

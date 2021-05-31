@@ -84,6 +84,7 @@ member = decl_specifier (declarator ("," declarator)*)? ";"
 decl_specifier = (
     "void" | "_Bool" | "char" |
     "short" | "int" | "long" |
+    "float" | "double" |
     struct_decl | union_decl | defined_type |
     "extern" | "static" | "_Alignas" | "signed" |
     "const" | "volatile" | "auto" | "register" |

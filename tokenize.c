@@ -294,6 +294,8 @@ static bool consume_keyword(Token** dst, char** c) {
     "short",
     "int",
     "long",
+    "float",
+    "double",
     "struct",
     "union",
     "enum",

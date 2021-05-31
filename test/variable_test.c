@@ -253,5 +253,14 @@ int main() {
 
   ASSERT(3, g3);
 
+  ASSERT(42, ({
+    float x = 42.1;
+    x;
+  }));
+  ASSERT(42, ({
+    double x = 42.1;
+    x;
+  }));
+
   ok();
 }

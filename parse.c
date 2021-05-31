@@ -499,6 +499,8 @@ static bool equal_to_decl_specifier(Token* token) {
     "short",
     "int",
     "long",
+    "float",
+    "double",
     "struct",
     "union",
     "enum",
@@ -2942,9 +2944,11 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
     SHORT = 1 << 6,
     INT = 1 << 8,
     LONG = 1 << 10,
-    OTHER = 1 << 12,
-    SIGNED = 1 << 13,
-    UNSIGNED = 1 << 14,
+    FLOAT = 1 << 12,
+    DOUBLE = 1 << 14,
+    OTHER = 1 << 16,
+    SIGNED = 1 << 17,
+    UNSIGNED = 1 << 18,
   };
 
   Type* type = ty_int;
@@ -3055,6 +3059,14 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       counter += LONG;
     }
 
+    if (consume_token(tokens, "float")) {
+      counter += FLOAT;
+    }
+
+    if (consume_token(tokens, "double")) {
+      counter += DOUBLE;
+    }
+
     if (consume_token(tokens, "signed")) {
       counter |= SIGNED;
     }
@@ -3111,6 +3123,12 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       case UNSIGNED + LONG + LONG:
       case UNSIGNED + LONG + LONG + INT:
         type = ty_ulong;
+        break;
+      case FLOAT:
+        type = ty_float;
+        break;
+      case DOUBLE:
+        type = ty_double;
         break;
       default: {
         error_token(start, "expected a typename");
