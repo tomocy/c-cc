@@ -790,6 +790,7 @@ static void gen_data(Obj* codes) {
   }
 }
 
+// NOLINTNEXTLINE
 static void gen_text(Obj* codes) {
   for (Obj* func = codes; func; func = func->next) {
     if (func->kind != OJ_FUNC || !func->is_definition) {
@@ -841,23 +842,36 @@ static void gen_text(Obj* codes) {
       genln("  movsd [rbp - %d], xmm7", offset - 128);
     }
 
-    int i = 0;
+    int int_cnt = 0;
+    int float_cnt = 0;
     for (Node* param = func->params; param; param = param->next) {
       gen_addr(param);
 
-      if (param->type->size == 1) {
-        genln("  mov [rax], %s", arg_regs8[i++]);
-        continue;
+      if (is_float(param->type)) {
+        switch (param->type->size) {
+          case 4:
+            genln("  movss [rax], xmm%d", float_cnt++);
+            continue;
+          case 8:
+            genln("  movsd [rax], xmm%d", float_cnt++);
+            continue;
+        }
+      } else {
+        switch (param->type->size) {
+          case 1:
+            genln("  mov [rax], %s", arg_regs8[int_cnt++]);
+            continue;
+          case 2:
+            genln("  mov [rax], %s", arg_regs16[int_cnt++]);
+            continue;
+          case 4:
+            genln("  mov [rax], %s", arg_regs32[int_cnt++]);
+            continue;
+          default:
+            genln("  mov [rax], %s", arg_regs64[int_cnt++]);
+            continue;
+        }
       }
-      if (param->type->size == 2) {
-        genln("  mov [rax], %s", arg_regs16[i++]);
-        continue;
-      }
-      if (param->type->size == 4) {
-        genln("  mov [rax], %s", arg_regs32[i++]);
-        continue;
-      }
-      genln("  mov [rax], %s", arg_regs64[i++]);
     }
 
     gen_stmt(func->body);
