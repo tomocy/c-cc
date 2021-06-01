@@ -202,7 +202,7 @@ static void cast(Type* to, Type* from) {
   }
 
   if (to->kind == TY_BOOL) {
-    if (is_numable(from) && from->size <= 4) {
+    if (is_integer(from) && from->size <= 4) {
       genln("  cmp eax, 0");
     } else {
       genln("  cmp rax, 0");
@@ -285,8 +285,22 @@ static void gen_expr(Node* node) {
       return;
     case ND_NEG:
       gen_expr(node->lhs);
-      genln("  neg rax");
-      return;
+      switch (node->type->kind) {
+        case TY_FLOAT:
+          genln("  mov rax, 1");
+          genln("  shl rax, 31");
+          genln("  movq xmm1, rax");
+          genln("  xorps xmm0, xmm1");
+          return;
+        case TY_DOUBLE:
+          genln("  mov rax, 1");
+          genln("  shl rax, 63");
+          genln("  movq xmm1, rax");
+          genln("  xorpd xmm0, xmm1");
+        default:
+          genln("  neg rax");
+          return;
+      }
     case ND_ADDR:
       gen_addr(node->lhs);
       return;
@@ -406,7 +420,7 @@ static void gen_expr(Node* node) {
       error_token(node->token, "expected an expression");
   }
 
-  if (is_float_num(node->lhs->type)) {
+  if (is_float(node->lhs->type)) {
     gen_expr(node->rhs);
     pushf("xmm0");
     gen_expr(node->lhs);
@@ -414,32 +428,51 @@ static void gen_expr(Node* node) {
 
     char* size = node->lhs->type->kind == TY_DOUBLE ? "sd" : "ss";
 
-    genln("  ucomi%s xmm1, xmm0", size);
-
     switch (node->kind) {
       case ND_EQ:
+        genln("  ucomi%s xmm1, xmm0", size);
         genln("  sete al");
         genln("  setnp dl");
         genln("  and al, dl");
-        break;
+        genln("  and al, 1");
+        genln("  movzx rax, al");
+        return;
       case ND_NE:
+        genln("  ucomi%s xmm1, xmm0", size);
         genln("  setne al");
         genln("  setp dl");
         genln("  or al, dl");
-        break;
+        genln("  and al, 1");
+        genln("  movzx rax, al");
+        return;
       case ND_LT:
+        genln("  ucomi%s xmm1, xmm0", size);
         genln("  seta al");
-        break;
+        genln("  and al, 1");
+        genln("  movzx rax, al");
+        return;
       case ND_LE:
+        genln("  ucomi%s xmm1, xmm0", size);
         genln("  setae al");
-        break;
+        genln("  and al, 1");
+        genln("  movzx rax, al");
+        return;
+      case ND_ADD:
+        genln("  add%s xmm0, xmm1", size);
+        return;
+      case ND_SUB:
+        genln("  sub%s xmm0, xmm1", size);
+        return;
+      case ND_MUL:
+        genln("  mul%s xmm0, xmm1", size);
+        return;
+      case ND_DIV:
+        genln("  div%s xmm0, xmm1", size);
+        return;
       default:
         error_token(node->token, "invalid expression");
+        return;
     }
-
-    genln("  and al, 1");
-    genln("  movzx rax, al");
-    return;
   }
 
   gen_expr(node->lhs);

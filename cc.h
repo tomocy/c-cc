@@ -225,8 +225,8 @@ extern Type* ty_ulong;
 extern Type* ty_float;
 extern Type* ty_double;
 
-bool is_numable(Type* type);
-bool is_float_num(Type* type);
+bool is_integer(Type* type);
+bool is_float(Type* type);
 
 void error(char* fmt, ...);
 void error_token(Token* token, char* fmt, ...);

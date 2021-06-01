@@ -59,5 +59,26 @@ int main() {
   ASSERT(1, 5.0F <= 5);
   ASSERT(1, 4.9F <= 5);
 
+  ASSERT(6, 2.3 + 3.8);
+  ASSERT(-1, 2.3 - 3.8);
+  ASSERT(-3, -3.8);  // NOLINT
+  ASSERT(13, 3.3 * 4);
+  ASSERT(2, 5.0 / 2);
+
+  ASSERT(6, 2.3F + 3.8F);
+  ASSERT(6, 2.3F + 3.8);
+  ASSERT(-1, 2.3F - 3.8);
+  ASSERT(-3, -3.8F);  // NOLINT
+  ASSERT(13, 3.3F * 4);
+  ASSERT(2, 5.0F / 2);
+
+  ASSERT(0, 0.0 / 0.0 == 0.0 / 0.0);
+  ASSERT(1, 0.0 / 0.0 != 0.0 / 0.0);
+
+  ASSERT(0, 0.0 / 0.0 < 0);
+  ASSERT(0, 0.0 / 0.0 <= 0);
+  ASSERT(0, 0.0 / 0.0 > 0);
+  ASSERT(0, 0.0 / 0.0 >= 0);
+
   ok();
 }

@@ -183,17 +183,21 @@ static Type* copy_composite_type(Type* src, TypeKind kind) {
   return new_composite_type(kind, src->size, src->alignment, head.next);
 }
 
-bool is_numable(Type* type) {
-  return type->kind == TY_BOOL || type->kind == TY_CHAR || type->kind == TY_SHORT || type->kind == TY_INT
-         || type->kind == TY_LONG;
-}
-
 static bool is_pointable(Type* type) {
   return type->kind == TY_PTR || type->kind == TY_ARRAY;
 }
 
-bool is_float_num(Type* type) {
+bool is_integer(Type* type) {
+  return type->kind == TY_BOOL || type->kind == TY_CHAR || type->kind == TY_SHORT || type->kind == TY_INT
+         || type->kind == TY_LONG;
+}
+
+bool is_float(Type* type) {
   return type->kind == TY_DOUBLE || type->kind == TY_FLOAT;
+}
+
+static bool is_numeric(Type* type) {
+  return is_integer(type) || is_float(type);
 }
 
 static void enter_scope(void) {
@@ -791,11 +795,13 @@ static Node* new_mod_node(Token* token, Node* lhs, Node* rhs) {
 }
 
 static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
+  // ptr + ptr
   if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
     error_token(token, "invalid operands");
   }
 
-  if (is_numable(lhs->type) && is_numable(rhs->type)) {
+  // num + num
+  if (is_numeric(lhs->type) && is_numeric(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->token = token;
@@ -803,7 +809,8 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
     return add;
   }
 
-  if (is_pointable(lhs->type) && is_numable(rhs->type)) {
+  // ptr + num
+  if (is_pointable(lhs->type) && is_integer(rhs->type)) {
     rhs = new_mul_node(rhs->token, rhs, new_long_node(rhs->token, lhs->type->base->size));
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->token = token;
@@ -811,6 +818,7 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
     return add;
   }
 
+  // num + ptr
   lhs = new_mul_node(lhs->token, lhs, new_long_node(lhs->token, rhs->type->base->size));
   Node* add = new_binary_node(ND_ADD, lhs, rhs);
   add->token = token;
@@ -820,7 +828,7 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
 
 static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   // num - ptr
-  if (is_numable(lhs->type) && is_pointable(rhs->type)) {
+  if (is_integer(lhs->type) && is_pointable(rhs->type)) {
     error_token(token, "invalid operands");
   }
 
@@ -833,7 +841,7 @@ static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   }
 
   // num - num
-  if (is_numable(lhs->type) && is_numable(rhs->type)) {
+  if (is_numeric(lhs->type) && is_numeric(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->token = token;
@@ -2221,8 +2229,8 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_NUM) {
-    Node* node = is_float_num((*tokens)->type) ? new_float_node(*tokens, (*tokens)->float_val)
-                                               : new_int_node(*tokens, (*tokens)->int_val);
+    Node* node = is_float((*tokens)->type) ? new_float_node(*tokens, (*tokens)->float_val)
+                                           : new_int_node(*tokens, (*tokens)->int_val);
     *tokens = (*tokens)->next;
     return node;
   }
@@ -2316,7 +2324,7 @@ static int64_t eval_reloc(Node* node, char** label) {
       return eval(node->lhs) % eval(node->rhs);
     case ND_CAST: {
       int64_t val = eval_reloc(node->lhs, label);
-      if (!is_numable(node->type)) {
+      if (!is_integer(node->type)) {
         return val;
       }
       switch (node->type->size) {
@@ -3258,7 +3266,7 @@ static Node* func_args(Token** tokens, Type* type) {
         error_token(arg->token, "passing struct or union is not supported yet");
       }
 
-      if (is_numable(param)) {
+      if (is_integer(param)) {
         arg = new_cast_node(param, arg->token, arg);
       }
 
