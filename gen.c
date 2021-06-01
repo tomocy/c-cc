@@ -133,31 +133,22 @@ static int count_label(void) {
   return count++;
 }
 
-static void gen_expr(Node* node);
-static void gen_stmt(Node* node);
-
-static void gen_addr(Node* node) {
-  switch (node->kind) {
-    case ND_COMMA:
-      gen_expr(node->lhs);
-      gen_addr(node->rhs);
-      break;
-    case ND_DEREF:
-      gen_expr(node->lhs);
-      break;
-    case ND_GVAR:
-      genln("  lea rax, %s[rip]", node->name);
-      break;
-    case ND_LVAR:
-      genln("  mov rax, rbp");
-      genln("  sub rax, %d", node->offset);
-      break;
-    case ND_MEMBER:
-      gen_addr(node->lhs);
-      genln("  add rax, %d", node->offset);
-      break;
+static void cmp_zero(Type* type) {
+  switch (type->kind) {
+    case TY_FLOAT:
+      genln("  xorps xmm1, xmm1");
+      genln("  ucomiss xmm0, xmm1");
+      return;
+    case TY_DOUBLE:
+      genln("  xorpd xmm1, xmm1");
+      genln("  ucomisd xmm0, xmm1");
+      return;
     default:
-      error_token(node->token, "expected a left value");
+      if (is_integer(type) && type->size <= 4) {
+        genln("  cmp eax, 0");
+        return;
+      }
+      genln("  cmp rax, 0");
   }
 }
 
@@ -202,11 +193,7 @@ static void cast(Type* to, Type* from) {
   }
 
   if (to->kind == TY_BOOL) {
-    if (is_integer(from) && from->size <= 4) {
-      genln("  cmp eax, 0");
-    } else {
-      genln("  cmp rax, 0");
-    }
+    cmp_zero(from);
     genln("  setne al");
     genln("  movzx rax, al");
     return;
@@ -217,6 +204,34 @@ static void cast(Type* to, Type* from) {
   char* ins = cast_table[from_id][to_id];
   if (ins) {
     genln("  %s", ins);
+  }
+}
+
+static void gen_expr(Node* node);
+static void gen_stmt(Node* node);
+
+static void gen_addr(Node* node) {
+  switch (node->kind) {
+    case ND_COMMA:
+      gen_expr(node->lhs);
+      gen_addr(node->rhs);
+      break;
+    case ND_DEREF:
+      gen_expr(node->lhs);
+      break;
+    case ND_GVAR:
+      genln("  lea rax, %s[rip]", node->name);
+      break;
+    case ND_LVAR:
+      genln("  mov rax, rbp");
+      genln("  sub rax, %d", node->offset);
+      break;
+    case ND_MEMBER:
+      gen_addr(node->lhs);
+      genln("  add rax, %d", node->offset);
+      break;
+    default:
+      error_token(node->token, "expected a left value");
   }
 }
 
@@ -267,7 +282,7 @@ static void gen_expr(Node* node) {
     case ND_COND: {
       int label = count_label();
       gen_expr(node->cond);
-      genln("  cmp rax, 0");
+      cmp_zero(node->cond->type);
       genln("  je .Lelse%d", label);
 
       gen_expr(node->then);
@@ -310,7 +325,7 @@ static void gen_expr(Node* node) {
       return;
     case ND_NOT:
       gen_expr(node->lhs);
-      genln("  cmp rax, 0");
+      cmp_zero(node->lhs->type);
       genln("  sete al");
       genln("  movzx rax, al");
       return;
@@ -429,6 +444,10 @@ static void gen_expr(Node* node) {
     char* size = node->lhs->type->kind == TY_DOUBLE ? "sd" : "ss";
 
     switch (node->kind) {
+      case ND_OR:
+      case ND_AND: {
+        break;
+      }
       case ND_EQ:
         genln("  ucomi%s xmm1, xmm0", size);
         genln("  sete al");
@@ -498,10 +517,10 @@ static void gen_expr(Node* node) {
     case ND_OR: {
       int label = count_label();
       gen_expr(node->lhs);
-      genln("  cmp rax, 0");
+      cmp_zero(node->lhs->type);
       genln("  jne .Ltrue%d", label);
       gen_expr(node->rhs);
-      genln("  cmp rax, 0");
+      cmp_zero(node->rhs->type);
       genln("  jne .Ltrue%d", label);
       genln("  mov rax, 0");
       genln("  jmp .Lend%d", label);
@@ -513,10 +532,10 @@ static void gen_expr(Node* node) {
     case ND_AND: {
       int label = count_label();
       gen_expr(node->lhs);
-      genln("  cmp rax, 0");
+      cmp_zero(node->lhs->type);
       genln("  je .Lfalse%d", label);
       gen_expr(node->rhs);
-      genln("  cmp rax, 0");
+      cmp_zero(node->rhs->type);
       genln("  je .Lfalse%d", label);
       genln("  mov rax, 1");
       genln("  jmp .Lend%d", label);
@@ -622,10 +641,11 @@ static void gen_stmt(Node* node) {
       }
       return;
     case ND_IF: {
-      gen_expr(node->cond);
       int lelse = count_label();
       int lend = count_label();
-      genln("  cmp rax, 0");
+
+      gen_expr(node->cond);
+      cmp_zero(node->cond->type);
       genln("  je .Lelse%d", lelse);
 
       gen_stmt(node->then);
@@ -669,7 +689,7 @@ static void gen_stmt(Node* node) {
       if (node->cond) {
         push("rax");
         gen_expr(node->cond);
-        genln("  cmp rax, 0");
+        cmp_zero(node->cond->type);
         pop("rax");
         genln("  je %s", node->break_label_id);
       }
