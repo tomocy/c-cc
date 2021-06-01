@@ -92,3 +92,11 @@ int add_all(int n, ...) {
   }
   return sum;
 }
+
+float add_float(float x, float y) {
+  return x + y;
+}
+
+double add_double(double x, double y) {
+  return x + y;
+}

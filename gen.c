@@ -83,6 +83,9 @@ static int get_type_id(Type* type) {
   }
 }
 
+static void gen_expr(Node* node);
+static void gen_stmt(Node* node);
+
 static void genln(char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
@@ -126,6 +129,27 @@ static void popf(char* reg) {
   genln("  movsd %s, [rsp]", reg);
   genln("  add rsp, 8");
   depth--;
+}
+
+static void popfn(int n) {
+  char* reg = calloc(5, sizeof(char));
+  sprintf(reg, "xmm%d", n);
+  popf(reg);
+}
+
+static void push_args(Node* args) {
+  if (!args) {
+    return;
+  }
+
+  push_args(args->next);
+
+  gen_expr(args);
+  if (is_float(args->type)) {
+    pushf("xmm0");
+  } else {
+    push("rax");
+  }
 }
 
 static int count_label(void) {
@@ -206,9 +230,6 @@ static void cast(Type* to, Type* from) {
     genln("  %s", ins);
   }
 }
-
-static void gen_expr(Node* node);
-static void gen_stmt(Node* node);
 
 static void gen_addr(Node* node) {
   switch (node->kind) {
@@ -345,14 +366,15 @@ static void gen_expr(Node* node) {
       load(node);
       return;
     case ND_FUNCCALL: {
-      int arg_count = 0;
+      push_args(node->args);
+      int int_cnt = 0;
+      int float_cnt = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
-        gen_expr(arg);
-        push("rax");
-        arg_count++;
-      }
-      for (int i = arg_count - 1; i >= 0; i--) {
-        pop(arg_regs64[i]);
+        if (is_float(arg->type)) {
+          popfn(float_cnt++);
+        } else {
+          pop(arg_regs64[int_cnt++]);
+        }
       }
 
       genln("  mov rax, 0");
@@ -441,7 +463,7 @@ static void gen_expr(Node* node) {
     gen_expr(node->lhs);
     popf("xmm1");
 
-    char* size = node->lhs->type->kind == TY_DOUBLE ? "sd" : "ss";
+    char* size = node->lhs->type->kind == TY_FLOAT ? "ss" : "sd";
 
     switch (node->kind) {
       case ND_OR:

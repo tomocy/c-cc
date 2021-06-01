@@ -3266,9 +3266,7 @@ static Node* func_args(Token** tokens, Type* type) {
         error_token(arg->token, "passing struct or union is not supported yet");
       }
 
-      if (is_integer(param)) {
-        arg = new_cast_node(param, arg->token, arg);
-      }
+      arg = new_cast_node(param, arg->token, arg);
 
       param = param->next;
     }
