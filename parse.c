@@ -3197,6 +3197,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
         type = ty_float;
         break;
       case DOUBLE:
+      case LONG + DOUBLE:
         type = ty_double;
         break;
       default: {
