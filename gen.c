@@ -116,6 +116,18 @@ static void pop(char* reg) {
   do_pop(&depth, reg);
 }
 
+static void pushf(char* reg) {
+  genln("  sub rsp, 8");
+  genln("  movsd [rsp], %s", reg);
+  depth++;
+}
+
+static void popf(char* reg) {
+  genln("  movsd %s, [rsp]", reg);
+  genln("  add rsp, 8");
+  depth--;
+}
+
 static int count_label(void) {
   static int count = 0;
   return count++;
@@ -392,6 +404,42 @@ static void gen_expr(Node* node) {
       break;
     default:
       error_token(node->token, "expected an expression");
+  }
+
+  if (is_float_num(node->lhs->type)) {
+    gen_expr(node->rhs);
+    pushf("xmm0");
+    gen_expr(node->lhs);
+    popf("xmm1");
+
+    char* size = node->lhs->type->kind == TY_DOUBLE ? "sd" : "ss";
+
+    genln("  ucomi%s xmm1, xmm0", size);
+
+    switch (node->kind) {
+      case ND_EQ:
+        genln("  sete al");
+        genln("  setnp dl");
+        genln("  and al, dl");
+        break;
+      case ND_NE:
+        genln("  setne al");
+        genln("  setp dl");
+        genln("  or al, dl");
+        break;
+      case ND_LT:
+        genln("  seta al");
+        break;
+      case ND_LE:
+        genln("  setae al");
+        break;
+      default:
+        error_token(node->token, "invalid expression");
+    }
+
+    genln("  and al, 1");
+    genln("  movzx rax, al");
+    return;
   }
 
   gen_expr(node->lhs);

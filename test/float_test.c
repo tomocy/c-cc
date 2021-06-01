@@ -39,5 +39,25 @@ int main() {
 
   ASSERT(-2147483648, (double)(unsigned long)(long)-1);
 
+  ASSERT(1, 2e3 == 2e3);
+  ASSERT(0, 2e3 == 2e5);
+  ASSERT(1, 2.0 == 2);
+  ASSERT(0, 5.1 < 5);
+  ASSERT(0, 5.0 < 5);
+  ASSERT(1, 4.9 < 5);
+  ASSERT(0, 5.1 <= 5);
+  ASSERT(1, 5.0 <= 5);
+  ASSERT(1, 4.9 <= 5);
+
+  ASSERT(1, 2e3F == 2e3);
+  ASSERT(0, 2e3F == 2e5);
+  ASSERT(1, 2.0F == 2);
+  ASSERT(0, 5.1F < 5);
+  ASSERT(0, 5.0F < 5);
+  ASSERT(1, 4.9F < 5);
+  ASSERT(0, 5.1F <= 5);
+  ASSERT(1, 5.0F <= 5);
+  ASSERT(1, 4.9F <= 5);
+
   ok();
 }

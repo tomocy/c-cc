@@ -192,6 +192,10 @@ static bool is_pointable(Type* type) {
   return type->kind == TY_PTR || type->kind == TY_ARRAY;
 }
 
+bool is_float_num(Type* type) {
+  return type->kind == TY_DOUBLE || type->kind == TY_FLOAT;
+}
+
 static void enter_scope(void) {
   Scope* next = calloc(1, sizeof(Scope));
   next->next = current_scope;
@@ -730,6 +734,13 @@ static Node* new_cast_node(Type* type, Token* token, Node* lhs) {
 static Type* get_common_type(Type* a, Type* b) {
   if (a->base) {
     return new_ptr_type(a->base);
+  }
+
+  if (a->kind == TY_DOUBLE || b->kind == TY_DOUBLE) {
+    return ty_double;
+  }
+  if (a->kind == TY_FLOAT || b->kind == TY_FLOAT) {
+    return ty_float;
   }
 
   Type* x = a;
@@ -2210,9 +2221,8 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_NUM) {
-    Node* node = (*tokens)->type->kind == TY_FLOAT || (*tokens)->type->kind == TY_DOUBLE
-                   ? new_float_node(*tokens, (*tokens)->float_val)
-                   : new_int_node(*tokens, (*tokens)->int_val);
+    Node* node = is_float_num((*tokens)->type) ? new_float_node(*tokens, (*tokens)->float_val)
+                                               : new_int_node(*tokens, (*tokens)->int_val);
     *tokens = (*tokens)->next;
     return node;
   }
