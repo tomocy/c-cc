@@ -1053,6 +1053,7 @@ static Type* array_dimensions(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Type* type);
 static int64_t const_expr(Token** tokens);
 static int64_t eval(Node* node);
+static double eval_float(Node* node);
 static int64_t eval_reloc(Node* node, char** label);
 static void gvar_initer(Token** tokens, Obj* var);
 static Node* lvar_initer(Token** tokens, Obj* var);
@@ -1210,7 +1211,7 @@ static void func(Token** tokens) {
   current_func = NULL;
 }
 
-static void write_data(char* data, int size, int64_t val) {
+static void write_int_data(char* data, int size, int64_t val) {
   switch (size) {
     case 1:
       *data = val;
@@ -1227,6 +1228,17 @@ static void write_data(char* data, int size, int64_t val) {
   }
 }
 
+static void write_float_data(char* data, Type* type, double val) {
+  switch (type->kind) {
+    case TY_FLOAT:
+      *(float*)data = val;
+      return;
+    default:
+      *(double*)data = val;
+      return;
+  }
+}
+
 static Relocation* new_reloc(char* label, int offset, long addend) {
   Relocation* reloc = calloc(1, sizeof(Relocation));
   reloc->label = label;
@@ -1236,40 +1248,45 @@ static Relocation* new_reloc(char* label, int offset, long addend) {
 }
 
 static Relocation* write_gvar_data(char* data, int offset, Initer* init, Relocation* reloc) {
-  if (init->type->kind == TY_STRUCT) {
-    int i = 0;
-    for (Member* mem = init->type->members; mem; mem = mem->next) {
-      reloc = write_gvar_data(data, offset + mem->offset, init->children[i], reloc);
-      i++;
+  switch (init->type->kind) {
+    case TY_STRUCT: {
+      int i = 0;
+      for (Member* mem = init->type->members; mem; mem = mem->next) {
+        reloc = write_gvar_data(data, offset + mem->offset, init->children[i], reloc);
+        i++;
+      }
+      return reloc;
     }
-    return reloc;
-  }
-
-  if (init->type->kind == TY_UNION) {
-    return write_gvar_data(data, offset, init->children[0], reloc);
-  }
-
-  if (init->type->kind == TY_ARRAY) {
-    int size = init->type->base->size;
-    for (int i = 0; i < init->type->len; i++) {
-      reloc = write_gvar_data(data, offset + size * i, init->children[i], reloc);
+    case TY_UNION:
+      return write_gvar_data(data, offset, init->children[0], reloc);
+    case TY_ARRAY: {
+      int size = init->type->base->size;
+      for (int i = 0; i < init->type->len; i++) {
+        reloc = write_gvar_data(data, offset + size * i, init->children[i], reloc);
+      }
+      return reloc;
     }
-    return reloc;
-  }
+    default: {
+      if (!init->expr) {
+        return reloc;
+      }
 
-  if (!init->expr) {
-    return reloc;
-  }
+      if (is_float(init->type)) {
+        write_float_data(data + offset, init->type, eval_float(init->expr));
+        return reloc;
+      }
 
-  char* label = NULL;
-  uint64_t val = eval_reloc(init->expr, &label);
-  if (!label) {
-    write_data(data + offset, init->type->size, val);
-    return reloc;
-  }
+      char* label = NULL;
+      uint64_t val = eval_reloc(init->expr, &label);
+      if (!label) {
+        write_int_data(data + offset, init->type->size, val);
+        return reloc;
+      }
 
-  reloc->next = new_reloc(label, offset, val);
-  return reloc->next;
+      reloc->next = new_reloc(label, offset, val);
+      return reloc->next;
+    }
+  }
 }
 
 static void gvar_initer(Token** tokens, Obj* var) {
@@ -2268,8 +2285,42 @@ static int64_t eval(Node* node) {
   return eval_reloc(node, NULL);
 }
 
+static double eval_float(Node* node) {
+  if (is_integer(node->type)) {
+    return node->type->is_unsigned ? (unsigned long)eval(node) : eval(node);
+  }
+
+  switch (node->kind) {
+    case ND_COMMA:
+      return eval_float(node->rhs);
+    case ND_COND:
+      return eval_float(node->cond) ? eval_float(node->then) : eval_float(node->els);
+    case ND_ADD:
+      return eval_float(node->lhs) + eval_float(node->rhs);
+    case ND_SUB:
+      return eval_float(node->lhs) - eval_float(node->rhs);
+    case ND_MUL:
+      return eval_float(node->lhs) * eval_float(node->rhs);
+    case ND_DIV:
+      return eval_float(node->lhs) / eval_float(node->rhs);
+    case ND_CAST:
+      return is_float(node->lhs->type) ? eval_float(node->lhs) : eval(node->lhs);
+    case ND_NEG:
+      return -eval_float(node->lhs);
+    case ND_NUM:
+      return node->float_val;
+    default:
+      error_token(node->token, "not a compile-time constant");
+      return 0;
+  }
+}
+
 // NOLINTNEXTLINE
 static int64_t eval_reloc(Node* node, char** label) {
+  if (is_float(node->type)) {
+    return eval_float(node);
+  }
+
   switch (node->kind) {
     case ND_COMMA:
       return eval_reloc(node->rhs, label);
