@@ -3269,6 +3269,8 @@ static Node* func_args(Token** tokens, Type* type) {
       arg = new_cast_node(param, arg->token, arg);
 
       param = param->next;
+    } else if (arg->type->kind == TY_FLOAT) {
+      arg = new_cast_node(ty_double, arg->token, arg);
     }
 
     cur->next = arg;

@@ -212,22 +212,22 @@ static void load(Node* node) {
 }
 
 static void cast(Type* to, Type* from) {
-  if (to->kind == TY_VOID) {
-    return;
-  }
-
-  if (to->kind == TY_BOOL) {
-    cmp_zero(from);
-    genln("  setne al");
-    genln("  movzx rax, al");
-    return;
-  }
-
-  int from_id = get_type_id(from);
-  int to_id = get_type_id(to);
-  char* ins = cast_table[from_id][to_id];
-  if (ins) {
-    genln("  %s", ins);
+  switch (to->kind) {
+    case TY_VOID:
+      return;
+    case TY_BOOL:
+      cmp_zero(from);
+      genln("  setne al");
+      genln("  movzx rax, al");
+      return;
+    default: {
+      int from_id = get_type_id(from);
+      int to_id = get_type_id(to);
+      char* ins = cast_table[from_id][to_id];
+      if (ins) {
+        genln("  %s", ins);
+      }
+    }
   }
 }
 
@@ -377,7 +377,6 @@ static void gen_expr(Node* node) {
         }
       }
 
-      genln("  mov rax, 0");
       if (depth % 2 == 0) {
         genln("  call %s", node->name);
       } else {
