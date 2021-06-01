@@ -809,9 +809,14 @@ static void gen_text(Obj* codes) {
     genln("  sub rsp, %d", func->stack_size);
 
     if (func->va_area) {
-      int i = 0;
+      int int_cnt = 0;
+      int float_cnt = 0;
       for (Node* param = func->params; param; param = param->next) {
-        i++;
+        if (is_float(param->type)) {
+          float_cnt++;
+        } else {
+          int_cnt++;
+        }
       }
 
       int offset = func->va_area->offset;
@@ -819,9 +824,9 @@ static void gen_text(Obj* codes) {
       // to assign __va_area__ to __va_elem
       // set __va_area__ as __va_elem manually in memory
       // __va_area_.gp_offset (int)
-      genln("  mov DWORD PTR [rbp - %d], %d", offset, i * 8);
+      genln("  mov DWORD PTR [rbp - %d], %d", offset, int_cnt * 8);
       // __va_area_.fp_offset (int)
-      genln("  mov DWORD PTR [rbp - %d], %d", offset - 4, 0);
+      genln("  mov DWORD PTR [rbp - %d], %d", offset - 4, float_cnt * 8 + 48);
       // __va_area_.reg_save_area (void*)
       genln("  mov QWORD PTR [rbp - %d], rbp", offset - 16);
       genln("  sub QWORD PTR [rbp - %d], %d", offset - 16, offset - 24);
