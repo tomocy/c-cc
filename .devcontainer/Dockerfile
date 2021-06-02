@@ -9,10 +9,14 @@ RUN apt update && \
     binutils \
     libc6-dev \
     gdb \
-    sudo
+    sudo \
+    python3 \
+    python3-pip
 
 RUN adduser --disabled-password --gecos '' cc
 RUN echo 'cc ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/cc
+
+
 USER cc
 
 WORKDIR /home/cc/cc
