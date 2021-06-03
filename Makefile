@@ -59,7 +59,7 @@ beta/prepare:
 	make beta/gen.o
 
 .PHONY: beta/test@%
-beta/test@%: s2/cc test/%_test.c
+beta/test@%: test/%_test.c
 	make beta/prepare
 	make beta/cc
 	./beta/cc -o test/$*_test.s test/$*_test.c

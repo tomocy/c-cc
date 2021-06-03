@@ -130,6 +130,24 @@ int static_array_size() {
   return sizeof(x);
 }
 
+static int is_keyword(char** c) {
+  static char* kws[] = {
+    "int",
+    "double",
+  };
+  static int klen = sizeof(kws) / sizeof(char*);
+
+  for (int i = 0; i < klen; i++) {
+    if (memcmp(*c, kws[i], 3) != 0) {
+      continue;
+    }
+
+    return 1;
+  }
+
+  return 0;
+}
+
 int main() {
   ASSERT(3, ret3());
   ASSERT(8, add2(3, 5));
@@ -240,6 +258,15 @@ int main() {
   }));
 
   ASSERT(24, static_array_size());
+
+  ASSERT(1, ({
+    char* src = "int main() {}";
+    is_keyword(&src);
+  }));
+  ASSERT(0, ({
+    char* src = "aiueo";
+    is_keyword(&src);
+  }));
 
   ok();
 }

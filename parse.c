@@ -308,6 +308,10 @@ static void add_var_to_current_local_scope(char* key, Obj* var) {
     error("expected a local scope");
   }
 
+  if (current_lvars && var->offset < current_lvars->offset) {
+    error("expected the variable offset to be adjusted");
+  }
+
   var->next = current_lvars;
   current_lvars = var;
   add_var_to_scope(current_scope, key, var);
@@ -393,20 +397,25 @@ static Obj* new_str(char* val, int len) {
   return str;
 }
 
-static Obj* new_static_lvar(Type* type, char* name) {
-  Obj* var = new_anon_gvar(type);
-  var->is_static = true;
-  add_var_to_current_local_scope(name, var);
-  return var;
-}
-
-static void change_lvar_type(Obj* vars, Obj* var, Type* type) {
+static void adjust_lvar_offset(Obj* vars, Obj* var, Type* type) {
   if (var->kind != OJ_LVAR) {
     error("expected a local var");
   }
 
   var->type = type;
-  var->offset = align(vars ? vars->offset + var->type->size : var->type->size, var->alignment);
+  // If the type has not been determined yet,
+  // treat its size as 0
+  int size = var->type->size >= 0 ? var->type->size : 0;
+  var->offset = align(vars ? vars->offset + size : size, var->alignment);
+}
+
+static Obj* new_static_lvar(Type* type, char* name) {
+  Obj* var = new_anon_gvar(type);
+  var->is_static = true;
+  // Inherit the current offset so that other lvars can extend their offset on it
+  var->offset = current_lvars->offset;
+  add_var_to_current_local_scope(name, var);
+  return var;
 }
 
 static Obj* new_lvar(Type* type, char* name) {
@@ -414,7 +423,7 @@ static Obj* new_lvar(Type* type, char* name) {
   var->type = type;
   var->name = name;
   var->alignment = type->alignment;
-  change_lvar_type(current_lvars, var, type);
+  adjust_lvar_offset(current_lvars, var, type);
   add_lvar(var);
   return var;
 }
@@ -2755,7 +2764,8 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
 
   Type* type = var->type;
   Initer* init = initer(tokens, &type);
-  change_lvar_type(var->next, var, type);
+  // Adjust the offset of the var from the previous one (var->next)
+  adjust_lvar_offset(var->next, var, type);
 
   DesignatedIniter designated = {NULL, var};
   return new_comma_node(start, new_memzero_node(var->type, start, var->offset), lvar_init(start, init, &designated));
