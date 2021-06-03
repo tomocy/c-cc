@@ -470,5 +470,23 @@ int main() {
     j;
   }));
 
+  ASSERT(1, ({
+    char* a = "--";
+    int x = 0;
+    if (a[0] == '-' && a[1] != '\0') {
+      x = 1;
+    }
+    x;
+  }));
+
+  ASSERT(1, ({
+    char* a = "(@m@)";
+    int x = 0;
+    if (strcmp(a, "(@m@)") == 0) {
+      x = 1;
+    }
+    x;
+  }));
+
   ok();
 }

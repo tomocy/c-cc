@@ -621,7 +621,7 @@ static bool consume_char(Token** dst, char** c) {
     error_at(start, "unclosed string literal");
   }
 
-  Token* token = new_token(TK_NUM, start + 1, end - start - 1);
+  Token* token = new_token(TK_NUM, start, end - start + 1);
   token->type = ty_int;
   token->int_val = read;
   *dst = token;
@@ -655,7 +655,7 @@ static bool consume_str(Token** dst, char** c) {
     val[val_len++] = *c++;
   }
 
-  Token* token = new_token(TK_STR, start + 1, end - start - 1);
+  Token* token = new_token(TK_STR, start, end - start + 1);
   token->str_val = val;
   token->str_val_len = val_len;
   *dst = token;
