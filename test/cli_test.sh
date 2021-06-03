@@ -14,6 +14,13 @@ failed() {
   exit 1
 }
 
+# no input files
+if ./cc 2>&1 | grep -q 'no input files'; then
+  passed 'no input files'
+else
+  failed 'no input files'
+fi
+
 # -o
 OUTPUT=$TMP/out
 rm -rf "$OUTPUT"

@@ -33,6 +33,10 @@ static void parse_args(int argc, char** argv) {
 
     input_filename = argv[i];
   }
+
+  if (!input_filename) {
+    error("no input files");
+  }
 }
 
 int main(int argc, char** argv) {
