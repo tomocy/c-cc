@@ -3,6 +3,8 @@
 *.o
 tmp*
 cc
+s2
+beta
 test/*
 !test/*.c
 !test/*.h
