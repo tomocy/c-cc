@@ -413,7 +413,7 @@ static Obj* new_static_lvar(Type* type, char* name) {
   Obj* var = new_anon_gvar(type);
   var->is_static = true;
   // Inherit the current offset so that other lvars can extend their offset on it
-  var->offset = current_lvars->offset;
+  var->offset = current_lvars ? current_lvars->offset : 0;
   add_var_to_current_local_scope(name, var);
   return var;
 }

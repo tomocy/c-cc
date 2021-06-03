@@ -148,6 +148,18 @@ static int is_keyword(char** c) {
   return 0;
 }
 
+int increment2(void) {
+  int count = 0;
+  int* p = &count;
+  return (*p)++;
+}
+
+int increment_static_lvar(void) {
+  static int count = 0;
+  int* p = &count;
+  return (*p)++;
+}
+
 int main() {
   ASSERT(3, ret3());
   ASSERT(8, add2(3, 5));
@@ -267,6 +279,11 @@ int main() {
     char* src = "aiueo";
     is_keyword(&src);
   }));
+
+  ASSERT(0, increment_static_lvar());
+  ASSERT(1, increment_static_lvar());
+  ASSERT(2, increment_static_lvar());
+  ASSERT(3, increment_static_lvar());
 
   ok();
 }
