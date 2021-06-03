@@ -1860,11 +1860,11 @@ static Node* assign(Token** tokens) {
 }
 
 static Node* conditional(Token** tokens) {
-  Token* start = *tokens;
-
   Node* node = orr(tokens);
 
   if (consume_token(tokens, "?")) {
+    Token* start = *tokens;
+
     Node* then = expr(tokens);
     expect_token(tokens, ":");
     Node* els = conditional(tokens);
@@ -1876,11 +1876,10 @@ static Node* conditional(Token** tokens) {
 }
 
 static Node* orr(Token** tokens) {
-  Token* start = *tokens;
-
   Node* node = andd(tokens);
 
   while (consume_token(tokens, "||")) {
+    Token* start = *tokens;
     node = new_or_node(start, node, andd(tokens));
   }
 
@@ -1888,11 +1887,10 @@ static Node* orr(Token** tokens) {
 }
 
 static Node* andd(Token** tokens) {
-  Token* start = *tokens;
-
   Node* node = bitorr(tokens);
 
   while (consume_token(tokens, "&&")) {
+    Token* start = *tokens;
     node = new_and_node(start, node, bitorr(tokens));
   }
 
@@ -1900,11 +1898,10 @@ static Node* andd(Token** tokens) {
 }
 
 static Node* bitorr(Token** tokens) {
-  Token* start = *tokens;
-
   Node* node = bitxorr(tokens);
 
   while (consume_token(tokens, "|")) {
+    Token* start = *tokens;
     node = new_bitor_node(start, node, bitxorr(tokens));
   }
 
@@ -1912,11 +1909,10 @@ static Node* bitorr(Token** tokens) {
 }
 
 static Node* bitxorr(Token** tokens) {
-  Token* start = *tokens;
-
   Node* node = bitandd(tokens);
 
   while (consume_token(tokens, "^")) {
+    Token* start = *tokens;
     node = new_bitxor_node(start, node, bitandd(tokens));
   }
 
@@ -1924,11 +1920,10 @@ static Node* bitxorr(Token** tokens) {
 }
 
 static Node* bitandd(Token** tokens) {
-  Token* start = *tokens;
-
   Node* node = equality(tokens);
 
   while (consume_token(tokens, "&")) {
+    Token* start = *tokens;
     node = new_bitand_node(start, node, equality(tokens));
   }
 

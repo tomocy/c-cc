@@ -218,7 +218,7 @@ static void cast(Type* to, Type* from) {
     case TY_BOOL:
       cmp_zero(from);
       genln("  setne al");
-      genln("  movzx rax, al");
+      genln("  movzx eax, al");
       return;
     default: {
       int from_id = get_type_id(from);
@@ -435,8 +435,36 @@ static void gen_expr(Node* node) {
       genln("  mov al, 0");
       genln("  rep stosb");
       return;
-    case ND_OR:
-    case ND_AND:
+    case ND_OR: {
+      int label = count_label();
+      gen_expr(node->lhs);
+      cmp_zero(node->lhs->type);
+      genln("  jne .Ltrue%d", label);
+      gen_expr(node->rhs);
+      cmp_zero(node->rhs->type);
+      genln("  jne .Ltrue%d", label);
+      genln("  mov rax, 0");
+      genln("  jmp .Lend%d", label);
+      genln(".Ltrue%d:", label);
+      genln("  mov rax, 1");
+      genln(".Lend%d:", label);
+      return;
+    }
+    case ND_AND: {
+      int label = count_label();
+      gen_expr(node->lhs);
+      cmp_zero(node->lhs->type);
+      genln("  je .Lfalse%d", label);
+      gen_expr(node->rhs);
+      cmp_zero(node->rhs->type);
+      genln("  je .Lfalse%d", label);
+      genln("  mov rax, 1");
+      genln("  jmp .Lend%d", label);
+      genln(".Lfalse%d:", label);
+      genln("  mov rax, 0");
+      genln(".Lend%d:", label);
+      return;
+    }
     case ND_BITOR:
     case ND_BITXOR:
     case ND_BITAND:
@@ -535,36 +563,6 @@ static void gen_expr(Node* node) {
   }
 
   switch (node->kind) {
-    case ND_OR: {
-      int label = count_label();
-      gen_expr(node->lhs);
-      cmp_zero(node->lhs->type);
-      genln("  jne .Ltrue%d", label);
-      gen_expr(node->rhs);
-      cmp_zero(node->rhs->type);
-      genln("  jne .Ltrue%d", label);
-      genln("  mov rax, 0");
-      genln("  jmp .Lend%d", label);
-      genln(".Ltrue%d:", label);
-      genln("  mov rax, 1");
-      genln(".Lend%d:", label);
-      return;
-    }
-    case ND_AND: {
-      int label = count_label();
-      gen_expr(node->lhs);
-      cmp_zero(node->lhs->type);
-      genln("  je .Lfalse%d", label);
-      gen_expr(node->rhs);
-      cmp_zero(node->rhs->type);
-      genln("  je .Lfalse%d", label);
-      genln("  mov rax, 1");
-      genln("  jmp .Lend%d", label);
-      genln(".Lfalse%d:", label);
-      genln("  mov rax, 0");
-      genln(".Lend%d:", label);
-      return;
-    }
     case ND_BITOR:
       genln("  or %s, %s", ax, di);
       return;

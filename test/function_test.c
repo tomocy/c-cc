@@ -285,5 +285,43 @@ int main() {
   ASSERT(2, increment_static_lvar());
   ASSERT(3, increment_static_lvar());
 
+  ASSERT(11, ({
+    int x = 0;
+
+    if (true_fn() || true_fn()) {
+      x += 1;
+    }
+    if (true_fn() && true_fn()) {
+      x += 2;
+    }
+    if (true_fn() || false_fn()) {
+      x += 3;
+    }
+    if (true_fn() && false_fn()) {
+      x += 4;
+    }
+    if (false_fn() || true_fn()) {
+      x += 5;
+    }
+    if (false_fn() && true_fn()) {
+      x += 6;
+    }
+    if (false_fn() || false_fn()) {
+      x += 7;
+    }
+    if (false_fn() && false_fn()) {
+      x += 8;
+    }
+    x;
+  }));
+  ASSERT(1, ({
+    int x = 0;
+
+    if (true_fn() || false_fn() || false_fn() || false_fn() || false_fn() || false_fn() || false_fn() || false_fn()) {
+      x = 1;
+    }
+    x;
+  }));
+
   ok();
 }

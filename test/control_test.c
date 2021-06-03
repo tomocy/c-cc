@@ -4,6 +4,14 @@
  * This is a block comment.
  */
 
+static int increment(int* count) {
+  return ++(*count);
+}
+
+static int is_le(int x, int basis) {
+  return x <= basis;
+}
+
 // NOLINTNEXTLINE
 int main() {
   ASSERT(3, ({
@@ -483,6 +491,75 @@ int main() {
     char* a = "(@m@)";
     int x = 0;
     if (strcmp(a, "(@m@)") == 0) {
+      x = 1;
+    }
+    x;
+  }));
+
+  ASSERT(11, ({
+    int a = 1;
+    int b = 1;
+    int c = 0;
+    int d = 0;
+
+    int x = 0;
+
+    if (a || b) {
+      x += 1;
+    }
+    if (a && b) {
+      x += 2;
+    }
+    if (a || c) {
+      x += 3;
+    }
+    if (a && c) {
+      x += 4;
+    }
+    if (d || b) {
+      x += 5;
+    }
+    if (d && b) {
+      x += 6;
+    }
+    if (c || d) {
+      x += 7;
+    }
+    if (c && d) {
+      x += 8;
+    }
+    x;
+  }));
+  ASSERT(1, ({
+    int a = 1;
+    int b = 0;
+    int c = 0;
+    int d = 0;
+    int e = 1;
+    int f = 0;
+    int g = 0;
+    int h = 0;
+
+    int x = 0;
+
+    if (a || b || c || d || e || f || g || h) {
+      x = 1;
+    }
+    x;
+  }));
+
+  ASSERT(1, ({
+    int count = 0;
+    int x = 0;
+    if (is_le(increment(&count), 2) || is_le(increment(&count), 2)) {
+      x = 1;
+    }
+    x;
+  }));
+  ASSERT(1, ({
+    int count = 0;
+    int x = 0;
+    if (is_le(increment(&count), 1) && is_le(increment(&count), 2)) {
       x = 1;
     }
     x;
