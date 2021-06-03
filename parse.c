@@ -387,6 +387,7 @@ static Obj* new_anon_gvar(Type* type) {
 static Obj* new_str(char* val, int len) {
   Type* type = new_array_type(ty_char, len + 1);
   Obj* str = new_stray_gvar(type, new_id());
+  str->is_static = true;
   str->val = strdup(val);
   add_code(str);
   return str;
@@ -394,6 +395,7 @@ static Obj* new_str(char* val, int len) {
 
 static Obj* new_static_lvar(Type* type, char* name) {
   Obj* var = new_anon_gvar(type);
+  var->is_static = true;
   add_var_to_current_local_scope(name, var);
   return var;
 }
