@@ -308,7 +308,8 @@ static void add_var_to_current_local_scope(char* key, Obj* var) {
     error("expected a local scope");
   }
 
-  if (current_lvars && var->offset < current_lvars->offset) {
+  int current_offset = current_lvars ? current_lvars->offset : 0;
+  if (var->offset < current_offset) {
     error("expected the variable offset to be adjusted");
   }
 

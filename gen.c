@@ -769,11 +769,13 @@ static void gen_data(TopLevelObj* codes) {
       Relocation* reloc = var->obj->relocs;
       int offset = 0;
       while (offset < var->obj->type->size) {
-        if (reloc && offset == reloc->offset) {
-          genln("  .quad %s%+ld", reloc->label, reloc->addend);
-          reloc = reloc->next;
-          offset += 8;
-          continue;
+        if (reloc) {
+          if (offset == reloc->offset) {
+            genln("  .quad %s%+ld", reloc->label, reloc->addend);
+            reloc = reloc->next;
+            offset += 8;
+            continue;
+          }
         }
 
         genln("  .byte %d", var->obj->val[offset++]);
