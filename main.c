@@ -42,7 +42,7 @@ static void parse_args(int argc, char** argv) {
 int main(int argc, char** argv) {
   parse_args(argc, argv);
   Token* tokens = tokenize();
-  Obj* codes = parse(tokens);
+  TopLevelObj* codes = parse(tokens);
   gen(codes);
   return 0;
 }

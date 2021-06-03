@@ -746,29 +746,29 @@ static void gen_stmt(Node* node) {
   }
 }
 
-static void gen_data(Obj* codes) {
-  for (Obj* var = codes; var; var = var->next) {
-    if (var->kind != OJ_GVAR) {
+static void gen_data(TopLevelObj* codes) {
+  for (TopLevelObj* var = codes; var; var = var->next) {
+    if (var->obj->kind != OJ_GVAR) {
       continue;
     }
-    if (!var->is_definition) {
+    if (!var->obj->is_definition) {
       continue;
     }
 
-    if (var->is_static) {
-      genln(".local %s", var->name);
+    if (var->obj->is_static) {
+      genln(".local %s", var->obj->name);
     } else {
-      genln(".global %s", var->name);
+      genln(".global %s", var->obj->name);
     }
 
-    if (var->val) {
+    if (var->obj->val) {
       genln(".data");
-      genln(".align %d", var->alignment);
-      genln("%s:", var->name);
+      genln(".align %d", var->obj->alignment);
+      genln("%s:", var->obj->name);
 
-      Relocation* reloc = var->relocs;
+      Relocation* reloc = var->obj->relocs;
       int offset = 0;
-      while (offset < var->type->size) {
+      while (offset < var->obj->type->size) {
         if (reloc && offset == reloc->offset) {
           genln("  .quad %s%+ld", reloc->label, reloc->addend);
           reloc = reloc->next;
@@ -776,42 +776,42 @@ static void gen_data(Obj* codes) {
           continue;
         }
 
-        genln("  .byte %d", var->val[offset++]);
+        genln("  .byte %d", var->obj->val[offset++]);
       }
 
       continue;
     }
 
     genln(".bss");
-    genln(".align %d", var->alignment);
-    genln("%s:", var->name);
-    genln("  .zero %d", var->type->size);
+    genln(".align %d", var->obj->alignment);
+    genln("%s:", var->obj->name);
+    genln("  .zero %d", var->obj->type->size);
   }
 }
 
 // NOLINTNEXTLINE
-static void gen_text(Obj* codes) {
-  for (Obj* func = codes; func; func = func->next) {
-    if (func->kind != OJ_FUNC || !func->is_definition) {
+static void gen_text(TopLevelObj* codes) {
+  for (TopLevelObj* func = codes; func; func = func->next) {
+    if (func->obj->kind != OJ_FUNC || !func->obj->is_definition) {
       continue;
     }
 
     genln(".text");
-    if (func->is_static) {
-      genln(".local %s", func->name);
+    if (func->obj->is_static) {
+      genln(".local %s", func->obj->name);
     } else {
-      genln(".global %s", func->name);
+      genln(".global %s", func->obj->name);
     }
 
-    genln("%s:", func->name);
+    genln("%s:", func->obj->name);
     push_outside_frame("rbp");
     genln("  mov rbp, rsp");
-    genln("  sub rsp, %d", func->stack_size);
+    genln("  sub rsp, %d", func->obj->stack_size);
 
-    if (func->va_area) {
+    if (func->obj->va_area) {
       int int_cnt = 0;
       int float_cnt = 0;
-      for (Node* param = func->params; param; param = param->next) {
+      for (Node* param = func->obj->params; param; param = param->next) {
         if (is_float(param->type)) {
           float_cnt++;
         } else {
@@ -819,7 +819,7 @@ static void gen_text(Obj* codes) {
         }
       }
 
-      int offset = func->va_area->offset;
+      int offset = func->obj->va_area->offset;
 
       // to assign __va_area__ to __va_elem
       // set __va_area__ as __va_elem manually in memory
@@ -848,7 +848,7 @@ static void gen_text(Obj* codes) {
 
     int int_cnt = 0;
     int float_cnt = 0;
-    for (Node* param = func->params; param; param = param->next) {
+    for (Node* param = func->obj->params; param; param = param->next) {
       gen_addr(param);
 
       if (is_float(param->type)) {
@@ -878,7 +878,7 @@ static void gen_text(Obj* codes) {
       }
     }
 
-    gen_stmt(func->body);
+    gen_stmt(func->obj->body);
 
     genln(".Lreturn%d:", func_count++);
     genln("  mov rsp, rbp");
@@ -905,7 +905,7 @@ static void assert_depth_offset(char* name, int d) {
   }
 }
 
-void gen(Obj* codes) {
+void gen(TopLevelObj* codes) {
   open_output_file();
 
   genln(".intel_syntax noprefix");

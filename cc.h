@@ -11,6 +11,7 @@
 
 typedef struct Token Token;
 typedef struct Node Node;
+typedef struct TopLevelObj TopLevelObj;
 typedef struct Obj Obj;
 typedef struct Relocation Relocation;
 typedef struct Type Type;
@@ -170,6 +171,11 @@ struct Node {
   char* continue_label_id;
 };
 
+struct TopLevelObj {
+  TopLevelObj* next;
+  Obj* obj;
+};
+
 typedef enum {
   OJ_FUNC,
   OJ_GVAR,
@@ -238,5 +244,5 @@ void expect_token(Token** token, char* s);
 int expect_num(Token** token);
 
 Token* tokenize();
-Obj* parse(Token* tokens);
-void gen(Obj* codes);
+TopLevelObj* parse(Token* tokens);
+void gen(TopLevelObj* codes);

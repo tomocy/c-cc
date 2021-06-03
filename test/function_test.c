@@ -121,6 +121,15 @@ double add_double3(double x, double y, double z) {
   return x + y + z;
 }
 
+int static_array_size() {
+  static char* x[] = {
+    "aa",
+    "ab",
+    "ac",
+  };
+  return sizeof(x);
+}
+
 int main() {
   ASSERT(3, ret3());
   ASSERT(8, add2(3, 5));
@@ -218,6 +227,19 @@ int main() {
     fmt(buf, "%.1f", (float)3.5);
     strcmp(buf, "3.5");
   }));
+
+  ASSERT(1, ({
+    char* a = "--";
+    int x = 0;
+    if (a[0] == '-' && a[1] != '\0') {
+      x = 1;
+    } else {
+      x = 2;
+    }
+    x;
+  }));
+
+  ASSERT(24, static_array_size());
 
   ok();
 }

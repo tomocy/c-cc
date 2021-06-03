@@ -64,6 +64,16 @@ T65 g65 = {'f', 'o', 'o', 0};
 // NOLINTNEXTLINE
 T65 g66 = {'f', 'o', 'o', 'b', 'a', 'r', 0};
 
+char* g70[] = {
+  "aa",
+  "ab",
+  "ac",
+};
+
+int g70_size() {
+  return sizeof(g70);
+}
+
 int main() {
   ASSERT(1, ({
     int x[3] = {1, 2, 3};
@@ -483,6 +493,8 @@ int main() {
   ASSERT(7, sizeof(g66));
   ASSERT(0, strcmp(g65.b, "oo"));
   ASSERT(0, strcmp(g66.b, "oobar"));
+
+  ASSERT(24, g70_size());
 
   ok();
 }

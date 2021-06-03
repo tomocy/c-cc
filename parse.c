@@ -48,7 +48,7 @@ struct DesignatedIniter {
   Member* mem;
 };
 
-static Obj* codes;
+static TopLevelObj* codes;
 static Scope* gscope;
 static Scope* current_scope;
 static Obj* current_lvars;
@@ -200,6 +200,29 @@ static bool is_numeric(Type* type) {
   return is_integer(type) || is_float(type);
 }
 
+static TopLevelObj* new_top_level_obj(Obj* obj) {
+  TopLevelObj* objs = calloc(1, sizeof(TopLevelObj));
+  objs->obj = obj;
+  return objs;
+}
+
+static void add_code(Obj* code) {
+  if (code->kind != OJ_FUNC && code->kind != OJ_GVAR) {
+    error("expected a top level object");
+  }
+
+  TopLevelObj* top_level = new_top_level_obj(code);
+  top_level->next = codes;
+  codes = top_level;
+}
+
+static ScopedObj* new_scoped_obj(char* key, Obj* obj) {
+  ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
+  scoped->key = key;
+  scoped->obj = obj;
+  return scoped;
+}
+
 static void enter_scope(void) {
   Scope* next = calloc(1, sizeof(Scope));
   next->next = current_scope;
@@ -213,23 +236,12 @@ static void leave_scope(void) {
   current_scope = current_scope->next;
 }
 
-static void add_code(Obj* code) {
-  if (code->kind != OJ_FUNC && code->kind != OJ_GVAR) {
-    error("expected a top level object");
-  }
-
-  code->next = codes;
-  codes = code;
-}
-
 static void add_first_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
   if (obj->kind != OJ_GVAR && obj->kind != OJ_LVAR && obj->kind != OJ_ENUM && obj->kind != OJ_DEF_TYPE) {
     error("expected a first class object");
   }
 
-  ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
-  scoped->key = key;
-  scoped->obj = obj;
+  ScopedObj* scoped = new_scoped_obj(key, obj);
   scoped->next = scope->first_class_objs;
   scope->first_class_objs = scoped;
 }
@@ -239,9 +251,7 @@ static void add_second_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
     error("expected a second class object");
   }
 
-  ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
-  scoped->key = key;
-  scoped->obj = obj;
+  ScopedObj* scoped = new_scoped_obj(key, obj);
   scoped->next = scope->second_class_objs;
   scope->second_class_objs = scoped;
 }
@@ -383,12 +393,8 @@ static Obj* new_str(char* val, int len) {
 }
 
 static Obj* new_static_lvar(Type* type, char* name) {
-  // Static local variables are added into both code and current_scope
-  // using 'next' property, thus create two instances not to override each
-  // the property.
-  char* id = new_id();
-  Obj* var = new_gvar(type, id);
-  add_var_to_current_local_scope(name, prepare_gvar(type, id));
+  Obj* var = new_anon_gvar(type);
+  add_var_to_current_local_scope(name, var);
   return var;
 }
 
@@ -437,12 +443,12 @@ static Obj* new_tag(Type* type, char* name) {
 }
 
 static Obj* find_func(char* name, int len) {
-  for (Obj* func = codes; func; func = func->next) {
-    if (!are_strs_equal_n(func->name, name, len)) {
+  for (TopLevelObj* func = codes; func; func = func->next) {
+    if (!are_strs_equal_n(func->obj->name, name, len)) {
       continue;
     }
 
-    return func->kind == OJ_FUNC ? func : NULL;
+    return func->obj->kind == OJ_FUNC ? func->obj : NULL;
   }
   return NULL;
 }
@@ -1075,7 +1081,7 @@ bool is_func(Token* tokens) {
   return is_func_declarator(tokens, spec);
 }
 
-Obj* parse(Token* tokens) {
+TopLevelObj* parse(Token* tokens) {
   enter_scope();
   gscope = current_scope;
 
