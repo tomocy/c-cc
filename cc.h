@@ -85,9 +85,9 @@ struct Type {
   Token* ident;
   char* name;
 
+  Type* return_type;
   Type* params;
   bool is_variadic;
-  Type* return_type;
 
   Type* next;
 };

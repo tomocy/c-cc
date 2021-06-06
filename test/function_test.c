@@ -326,5 +326,10 @@ int main() {
     x;
   }));
 
+  ASSERT(0, ({
+    int (*fn)(int, int) = 0;  // NOLINT
+    0;
+  }));
+
   ok();
 }

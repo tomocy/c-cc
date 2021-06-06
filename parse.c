@@ -165,9 +165,11 @@ static Type* new_ptr_type(Type* base) {
   return ptr;
 }
 
-static Type* new_func_type(Type* return_type) {
+static Type* new_func_type(Type* return_type, Type* params, bool is_variadic) {
   Type* func = new_type(TY_FUNC, 0, 0);
   func->return_type = return_type;
+  func->params = params;
+  func->is_variadic = is_variadic;
   return func;
 }
 
@@ -1094,6 +1096,7 @@ static Type* decl(Token** tokens, VarAttr* attr);
 static Type* abstract_declarator(Token** tokens, Type* type);
 static Type* abstract_decl(Token** tokens, VarAttr* attr);
 static Type* type_suffix(Token** tokens, Type* type);
+static Type* func_params(Token** tokens, Type* type);
 static Type* array_dimensions(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Type* type);
 static int64_t const_expr(Token** tokens);
@@ -1104,37 +1107,36 @@ static void gvar_initer(Token** tokens, Obj* var);
 static Node* lvar_initer(Token** tokens, Obj* var);
 static Initer* initer(Token** tokens, Type** type);
 
-bool is_func_declarator(Token* tokens, Type* spec) {
-  if (equal_to_token(tokens, ";")) {
+bool is_func_declarator(Token* token, Type* type) {
+  if (equal_to_token(token, ";")) {
     return false;
   }
 
-  declarator(&tokens, spec);
-
-  return equal_to_token(tokens, "(");
+  type = declarator(&token, type);
+  return type->kind == TY_FUNC;
 }
 
-bool is_func(Token* tokens) {
+bool is_func(Token* token) {
   VarAttr attr = {};
-  Type* spec = decl_specifier(&tokens, &attr);
-  return is_func_declarator(tokens, spec);
+  Type* spec = decl_specifier(&token, &attr);
+  return is_func_declarator(token, spec);
 }
 
-TopLevelObj* parse(Token* tokens) {
+TopLevelObj* parse(Token* token) {
   enter_scope();
   gscope = current_scope;
 
-  while (tokens->kind != TK_EOF) {
-    if (equal_to_token(tokens, "typedef")) {
-      tydef(&tokens);
+  while (token->kind != TK_EOF) {
+    if (equal_to_token(token, "typedef")) {
+      tydef(&token);
       continue;
     }
 
-    if (is_func(tokens)) {
-      func(&tokens);
+    if (is_func(token)) {
+      func(&token);
       continue;
     }
-    gvar(&tokens);
+    gvar(&token);
   }
 
   leave_scope();
@@ -1162,48 +1164,6 @@ static void resolve_goto_labels(void) {
   current_gotos = NULL;
 }
 
-static void func_params(Token** tokens, Obj* func) {
-  expect_token(tokens, "(");
-
-  if (equal_to_token(*tokens, "void") && equal_to_token((*tokens)->next, ")")) {
-    expect_token(tokens, "void");
-    expect_token(tokens, ")");
-    return;
-  }
-
-  Type type_head = {};
-  Type* cur_type = &type_head;
-  func->type->is_variadic = false;
-  while (!consume_token(tokens, ")")) {
-    if (cur_type != &type_head) {
-      expect_token(tokens, ",");
-    }
-
-    if (consume_token(tokens, "...")) {
-      expect_token(tokens, ")");
-      func->type->is_variadic = true;
-      break;
-    }
-
-    Type* type = decl(tokens, NULL);
-    if (type->kind == TY_ARRAY) {
-      Token* ident = type->ident;
-      char* name = type->name;
-      type = new_ptr_type(type->base);
-      type->ident = ident;
-      type->name = name;
-    }
-
-    cur_type = cur_type->next = copy_type(type);
-  }
-
-  if (cur_type == &type_head) {
-    func->type->is_variadic = true;
-  }
-
-  func->type->params = type_head.next;
-}
-
 static Node* new_func_params(Type* params) {
   Node head = {};
   Node* cur = &head;
@@ -1226,13 +1186,10 @@ static void func(Token** tokens) {
     error_token(type->ident, "function name omitted");
   }
 
-  Obj* func = new_func(new_func_type(type), strndup(type->ident->loc, type->ident->len));
+  Obj* func = new_func(type, type->name);
   current_func = func;
 
   func->is_static = attr.is_static;
-
-  func_params(tokens, func);
-
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
     current_func = NULL;
@@ -3310,11 +3267,57 @@ static Type* abstract_decl(Token** tokens, VarAttr* attr) {
 }
 
 static Type* type_suffix(Token** tokens, Type* type) {
+  if (equal_to_token(*tokens, "(")) {
+    return func_params(tokens, type);
+  }
+
   if (equal_to_token(*tokens, "[")) {
     return array_dimensions(tokens, type);
   }
 
   return type;
+}
+
+static Type* func_params(Token** tokens, Type* type) {
+  expect_token(tokens, "(");
+
+  if (equal_to_token(*tokens, "void") && equal_to_token((*tokens)->next, ")")) {
+    expect_token(tokens, "void");
+    expect_token(tokens, ")");
+    return new_func_type(type, NULL, false);
+  }
+
+  Type head = {};
+  Type* cur = &head;
+  bool is_variadic = false;
+  while (!consume_token(tokens, ")")) {
+    if (cur != &head) {
+      expect_token(tokens, ",");
+    }
+
+    if (consume_token(tokens, "...")) {
+      expect_token(tokens, ")");
+      is_variadic = true;
+      break;
+    }
+
+    Type* type = decl(tokens, NULL);
+    if (type->kind == TY_ARRAY) {
+      Token* ident = type->ident;
+      char* name = type->name;
+      type = new_ptr_type(type->base);
+      type->ident = ident;
+      type->name = name;
+    }
+
+    cur = cur->next = copy_type(type);
+  }
+
+  if (cur == &head) {
+    type->is_variadic = true;
+  }
+
+  return new_func_type(type, head.next, is_variadic);
 }
 
 static Type* array_dimensions(Token** tokens, Type* type) {
