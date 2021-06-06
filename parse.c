@@ -59,18 +59,69 @@ static char* current_break_label_id;
 static char* current_continue_label_id;
 static Obj* current_func;
 
-Type* ty_void = &(Type){TY_VOID, 1, 1};
-Type* ty_bool = &(Type){TY_BOOL, 1, 1};
-Type* ty_char = &(Type){TY_CHAR, 1, 1};
-Type* ty_short = &(Type){TY_SHORT, 2, 2};
-Type* ty_int = &(Type){TY_INT, 4, 4};
-Type* ty_long = &(Type){TY_LONG, 8, 8};
-Type* ty_uchar = &(Type){TY_CHAR, 1, 1, true};
-Type* ty_ushort = &(Type){TY_SHORT, 2, 2, true};
-Type* ty_uint = &(Type){TY_INT, 4, 4, true};
-Type* ty_ulong = &(Type){TY_LONG, 8, 8, true};
-Type* ty_float = &(Type){TY_FLOAT, 4, 4};
-Type* ty_double = &(Type){TY_DOUBLE, 8, 8};
+static Type* new_type(TypeKind kind, int size, int alignment) {
+  Type* type = calloc(1, sizeof(Type));
+  type->kind = kind;
+  type->size = size;
+  type->alignment = alignment;
+  return type;
+}
+
+static Type* new_void_type() {
+  return new_type(TY_VOID, 1, 1);
+}
+
+static Type* new_bool_type() {
+  return new_type(TY_BOOL, 1, 1);
+}
+
+static Type* new_char_type() {
+  return new_type(TY_CHAR, 1, 1);
+}
+
+static Type* new_uchar_type() {
+  Type* type = new_char_type();
+  type->is_unsigned = true;
+  return type;
+}
+
+static Type* new_short_type() {
+  return new_type(TY_SHORT, 2, 2);
+}
+
+static Type* new_ushort_type() {
+  Type* type = new_short_type();
+  type->is_unsigned = true;
+  return type;
+}
+
+Type* new_int_type() {
+  return new_type(TY_INT, 4, 4);
+}
+
+Type* new_uint_type() {
+  Type* type = new_int_type();
+  type->is_unsigned = true;
+  return type;
+}
+
+Type* new_long_type() {
+  return new_type(TY_LONG, 8, 8);
+}
+
+Type* new_ulong_type() {
+  Type* type = new_long_type();
+  type->is_unsigned = true;
+  return type;
+}
+
+Type* new_float_type() {
+  return new_type(TY_FLOAT, 4, 4);
+}
+
+Type* new_double_type() {
+  return new_type(TY_DOUBLE, 8, 8);
+}
 
 static char* new_id(void) {
   static int id = 0;
@@ -115,8 +166,6 @@ static char* renew_continue_label_id(char** next) {
   return renew_label_id(&current_continue_label_id, next);
 }
 
-static Type* new_type(TypeKind kind, int size, int alignment);
-
 static Type* new_ptr_type(Type* base) {
   Type* ptr = new_type(TY_PTR, 8, 8);
   ptr->base = base;
@@ -151,23 +200,9 @@ static Type* new_union_type(int size, int alignment, Member* mems) {
   return new_composite_type(TY_UNION, size, alignment, mems);
 }
 
-static Type* new_type(TypeKind kind, int size, int alignment) {
-  Type* type = calloc(1, sizeof(Type));
-  type->kind = kind;
-  type->size = size;
-  type->alignment = alignment;
-  return type;
-}
-
 static Type* copy_type(Type* src) {
   Type* copied = calloc(1, sizeof(Type));
   *copied = *src;
-  return copied;
-}
-
-static Type* copy_type_with_alignment(Type* src, int alignment) {
-  Type* copied = copy_type(src);
-  copied->alignment = alignment;
   return copied;
 }
 
@@ -390,7 +425,7 @@ static Obj* new_anon_gvar(Type* type) {
 }
 
 static Obj* new_str(char* val, int len) {
-  Type* type = new_array_type(ty_char, len + 1);
+  Type* type = new_array_type(new_char_type(), len + 1);
   Obj* str = new_stray_gvar(type, new_id());
   str->is_static = true;
   str->val = strdup(val);
@@ -662,7 +697,7 @@ static Node* new_funccall_node(Type* type, Token* token, char* name, Node* args)
 
 static Node* new_int_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
-  node->type = token->type ? token->type : ty_int;
+  node->type = token->type ? token->type : new_int_type();
   node->token = token;
   node->int_val = val;
   return node;
@@ -670,7 +705,7 @@ static Node* new_int_node(Token* token, int64_t val) {
 
 static Node* new_long_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
-  node->type = ty_long;
+  node->type = new_long_type();
   node->token = token;
   node->int_val = val;
   return node;
@@ -678,7 +713,7 @@ static Node* new_long_node(Token* token, int64_t val) {
 
 static Node* new_ulong_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
-  node->type = ty_ulong;
+  node->type = new_ulong_type();
   node->token = token;
   node->int_val = val;
   return node;
@@ -686,7 +721,7 @@ static Node* new_ulong_node(Token* token, int64_t val) {
 
 static Node* new_float_node(Token* token, double val) {
   Node* node = new_node(ND_NUM);
-  node->type = token->type ? token->type : ty_double;
+  node->type = token->type ? token->type : new_double_type();
   node->token = token;
   node->float_val = val;
   return node;
@@ -733,7 +768,7 @@ static Node* new_deref_node(Token* token, Node* lhs) {
 
 static Node* new_not_node(Token* token, Node* lhs) {
   Node* n = new_unary_node(ND_NOT, lhs);
-  n->type = ty_int;
+  n->type = new_int_type();
   n->token = token;
   return n;
 }
@@ -759,20 +794,20 @@ static Type* get_common_type(Type* a, Type* b) {
   }
 
   if (a->kind == TY_DOUBLE || b->kind == TY_DOUBLE) {
-    return ty_double;
+    return new_double_type();
   }
   if (a->kind == TY_FLOAT || b->kind == TY_FLOAT) {
-    return ty_float;
+    return new_float_type();
   }
 
   Type* x = a;
   Type* y = b;
 
   if (x->size < 4) {
-    x = ty_int;
+    x = new_int_type();
   }
   if (y->size < 4) {
-    y = ty_int;
+    y = new_int_type();
   }
 
   if (x->size != y->size) {
@@ -854,7 +889,7 @@ static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->token = token;
-    sub->type = ty_long;
+    sub->type = new_long_type();
     return new_div_node(sub->token, sub, new_int_node(lhs->token, sub->lhs->type->base->size));
   }
 
@@ -893,7 +928,7 @@ static Node* new_eq_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* eq = new_binary_node(ND_EQ, lhs, rhs);
   eq->token = token;
-  eq->type = ty_long;
+  eq->type = new_long_type();
   return eq;
 }
 
@@ -901,7 +936,7 @@ static Node* new_ne_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* ne = new_binary_node(ND_NE, lhs, rhs);
   ne->token = token;
-  ne->type = ty_long;
+  ne->type = new_long_type();
   return ne;
 }
 
@@ -909,7 +944,7 @@ static Node* new_lt_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* lt = new_binary_node(ND_LT, lhs, rhs);
   lt->token = token;
-  lt->type = ty_long;
+  lt->type = new_long_type();
   return lt;
 }
 
@@ -917,7 +952,7 @@ static Node* new_le_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* le = new_binary_node(ND_LE, lhs, rhs);
   le->token = token;
-  le->type = ty_long;
+  le->type = new_long_type();
   return le;
 }
 
@@ -949,7 +984,7 @@ static Node* new_and_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* n = new_binary_node(ND_AND, lhs, rhs);
   n->token = token;
-  n->type = ty_int;
+  n->type = new_int_type();
   return n;
 }
 
@@ -957,7 +992,7 @@ static Node* new_or_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
   Node* n = new_binary_node(ND_OR, lhs, rhs);
   n->token = token;
-  n->type = ty_int;
+  n->type = new_int_type();
   return n;
 }
 
@@ -969,7 +1004,7 @@ static Node* new_cond_node(Token* token, Node* cond, Node* then, Node* els) {
   c->els = els;
 
   if (c->then->type->kind == TY_VOID || c->els->type->kind == TY_VOID) {
-    c->type = ty_void;
+    c->type = new_void_type();
   } else {
     usual_arith_convert(&c->then, &c->els);
     c->type = c->then->type;
@@ -1214,7 +1249,7 @@ static void func(Token** tokens) {
   func->params = new_func_params(param_decls);
 
   if (func->type->is_variadic) {
-    func->va_area = new_lvar(new_array_type(ty_char, 136), "__va_area__");
+    func->va_area = new_lvar(new_array_type(new_char_type(), 136), "__va_area__");
   }
 
   func->body = block_stmt(tokens);
@@ -1332,7 +1367,8 @@ static void gvar(Token** tokens) {
       error_token(decl->ident, "variable name omitted");
     }
     if (attr.alignment) {
-      decl->type = copy_type_with_alignment(decl->type, attr.alignment);
+      decl->type = copy_type(decl->type);
+      decl->type->alignment = attr.alignment;
     }
 
     Obj* var = new_gvar(decl->type, decl->name);
@@ -2784,7 +2820,7 @@ static Node* lvar_decl(Token** tokens) {
     if (!decl->name) {
       error_token(decl->ident, "variable name omitted");
     }
-    if (decl->type == ty_void) {
+    if (decl->type->kind == TY_VOID) {
       error_token(decl->ident, "variable declared void");
     }
 
@@ -2796,7 +2832,8 @@ static Node* lvar_decl(Token** tokens) {
       continue;
     }
     if (attr.alignment) {
-      decl->type = copy_type_with_alignment(decl->type, attr.alignment);
+      decl->type = copy_type(decl->type);
+      decl->type->alignment = attr.alignment;
     }
 
     Obj* var = new_lvar(decl->type, decl->name);
@@ -2851,7 +2888,7 @@ static Type* enum_specifier(Token** tokens) {
     new_enum(strndup(ident->loc, ident->len), val++);
   }
 
-  Type* enu = ty_int;
+  Type* enu = new_int_type();
 
   if (tag) {
     new_tag(enu, strndup(tag->loc, tag->len));
@@ -2886,7 +2923,7 @@ static Type* struct_decl(Token** tokens) {
   int offset = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
-    if (mem->type == ty_void) {
+    if (mem->type->kind == TY_VOID) {
       error_token(mem->token, "variable declared void");
     }
     if (mem->type->size < 0) {
@@ -2949,7 +2986,7 @@ static Type* union_decl(Token** tokens) {
   int size = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
-    if (mem->type == ty_void) {
+    if (mem->type->kind == TY_VOID) {
       error_token(mem->token, "variable declared void");
     }
     if (mem->type->size < 0) {
@@ -3034,7 +3071,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
     UNSIGNED = 1 << 18,
   };
 
-  Type* type = ty_int;
+  Type* type = new_int_type();
   int counter = 0;
 
   while (equal_to_decl_specifier(*tokens)) {
@@ -3160,36 +3197,36 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
 
     switch (counter) {
       case VOID:
-        type = ty_void;
+        type = new_void_type();
         break;
       case BOOL:
-        type = ty_bool;
+        type = new_bool_type();
         break;
       case CHAR:
       case SIGNED + CHAR:
-        type = ty_char;
+        type = new_char_type();
         break;
       case UNSIGNED + CHAR:
-        type = ty_uchar;
+        type = new_uchar_type();
         break;
       case SHORT:
       case SHORT + INT:
       case SIGNED + SHORT:
       case SIGNED + SHORT + INT:
-        type = ty_short;
+        type = new_short_type();
         break;
       case UNSIGNED + SHORT:
       case UNSIGNED + SHORT + INT:
-        type = ty_ushort;
+        type = new_ushort_type();
         break;
       case INT:
       case SIGNED:
       case SIGNED + INT:
-        type = ty_int;
+        type = new_int_type();
         break;
       case UNSIGNED:
       case UNSIGNED + INT:
-        type = ty_uint;
+        type = new_uint_type();
         break;
       case LONG:
       case LONG + INT:
@@ -3199,20 +3236,20 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       case SIGNED + LONG + INT:
       case SIGNED + LONG + LONG:
       case SIGNED + LONG + LONG + INT:
-        type = ty_long;
+        type = new_long_type();
         break;
       case UNSIGNED + LONG:
       case UNSIGNED + LONG + INT:
       case UNSIGNED + LONG + LONG:
       case UNSIGNED + LONG + LONG + INT:
-        type = ty_ulong;
+        type = new_ulong_type();
         break;
       case FLOAT:
-        type = ty_float;
+        type = new_float_type();
         break;
       case DOUBLE:
       case LONG + DOUBLE:
-        type = ty_double;
+        type = new_double_type();
         break;
       default: {
         error_token(start, "expected a typename");
@@ -3336,7 +3373,7 @@ static Node* func_args(Token** tokens, Type* type) {
 
       param = param->next;
     } else if (arg->type->kind == TY_FLOAT) {
-      arg = new_cast_node(ty_double, arg->token, arg);
+      arg = new_cast_node(new_double_type(), arg->token, arg);
     }
 
     cur->next = arg;

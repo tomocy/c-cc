@@ -455,31 +455,31 @@ static Token* read_int(char** c) {
   Type* type = NULL;
   if (base == 10) {
     if (l && u) {
-      type = ty_ulong;
+      type = new_ulong_type();
     } else if (l) {
-      type = ty_long;
+      type = new_long_type();
     } else if (u) {
-      type = (val >> 32) ? ty_ulong : ty_uint;
+      type = (val >> 32) ? new_ulong_type() : new_uint_type();
     } else if (val >> 31) {
-      type = ty_long;
+      type = new_long_type();
     } else {
-      type = ty_int;
+      type = new_int_type();
     }
   } else {
     if (l && u) {
-      type = ty_ulong;
+      type = new_ulong_type();
     } else if (l) {
-      type = (val >> 63) ? ty_ulong : ty_long;
+      type = (val >> 63) ? new_ulong_type() : new_long_type();
     } else if (u) {
-      type = (val >> 32) ? ty_ulong : ty_uint;
+      type = (val >> 32) ? new_ulong_type() : new_uint_type();
     } else if (val >> 63) {
-      type = ty_ulong;
+      type = new_ulong_type();
     } else if (val >> 32) {
-      type = ty_long;
+      type = new_long_type();
     } else if (val >> 31) {
-      type = ty_uint;
+      type = new_uint_type();
     } else {
-      type = ty_int;
+      type = new_int_type();
     }
   }
 
@@ -496,13 +496,13 @@ static Token* read_float(char** c) {
 
   Type* type = NULL;
   if (starting_with_insensitive(*c, "F")) {
-    type = ty_float;
+    type = new_float_type();
     (*c)++;
   } else if (starting_with_insensitive(*c, "L")) {
-    type = ty_double;
+    type = new_double_type();
     (*c)++;
   } else {
-    type = ty_double;
+    type = new_double_type();
   }
 
   Token* token = new_token(TK_NUM, start, *c - start);
@@ -622,7 +622,7 @@ static bool consume_char(Token** dst, char** c) {
   }
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
-  token->type = ty_int;
+  token->type = new_int_type();
   token->int_val = read;
   *dst = token;
   return true;

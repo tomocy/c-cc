@@ -218,18 +218,12 @@ struct Relocation {
 extern char* input_filename;
 extern char* output_filename;
 
-extern Type* ty_void;
-extern Type* ty_bool;
-extern Type* ty_char;
-extern Type* ty_short;
-extern Type* ty_int;
-extern Type* ty_long;
-extern Type* ty_uchar;
-extern Type* ty_ushort;
-extern Type* ty_uint;
-extern Type* ty_ulong;
-extern Type* ty_float;
-extern Type* ty_double;
+Type* new_int_type();
+Type* new_uint_type();
+Type* new_long_type();
+Type* new_ulong_type();
+Type* new_float_type();
+Type* new_double_type();
 
 bool is_integer(Type* type);
 bool is_float(Type* type);
