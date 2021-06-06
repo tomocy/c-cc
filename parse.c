@@ -180,6 +180,10 @@ static Type* new_array_type(Type* base, int len) {
   return arr;
 }
 
+static Type* new_chars_type(int len) {
+  return new_array_type(new_char_type(), len);
+}
+
 static Type* new_composite_type(TypeKind kind, int size, int alignment, Member* mems) {
   Type* type = new_type(kind, align(size, alignment), alignment);
   type->members = mems;
@@ -385,10 +389,10 @@ static Obj* new_obj(ObjKind kind) {
   return obj;
 }
 
-static Obj* new_func(Type* type, char* name) {
+static Obj* new_func(Type* type) {
   Obj* func = new_obj(OJ_FUNC);
   func->type = type;
-  func->name = name;
+  func->name = type->name;
   add_code(func);
   return func;
 }
@@ -408,18 +412,22 @@ static Obj* new_stray_gvar(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_gvar(Type* type, char* name) {
+static Obj* new_gvar_as(Type* type, char* name) {
   Obj* var = new_stray_gvar(type, name);
   add_code(var);
   return var;
 }
 
+static Obj* new_gvar(Type* type) {
+  return new_gvar_as(type, type->name);
+}
+
 static Obj* new_anon_gvar(Type* type) {
-  return new_gvar(type, new_id());
+  return new_gvar_as(type, new_id());
 }
 
 static Obj* new_str(char* val, int len) {
-  Type* type = new_array_type(new_char_type(), len + 1);
+  Type* type = new_chars_type(len + 1);
   Obj* str = new_stray_gvar(type, new_id());
   str->is_static = true;
   str->val = strdup(val);
@@ -439,16 +447,16 @@ static void adjust_lvar_offset(Obj* vars, Obj* var, Type* type) {
   var->offset = align(vars ? vars->offset + size : size, var->alignment);
 }
 
-static Obj* new_static_lvar(Type* type, char* name) {
+static Obj* new_static_lvar(Type* type) {
   Obj* var = new_anon_gvar(type);
   var->is_static = true;
   // Inherit the current offset so that other lvars can extend their offset on it
   var->offset = current_lvars ? current_lvars->offset : 0;
-  add_var_to_current_local_scope(name, var);
+  add_var_to_current_local_scope(type->name, var);
   return var;
 }
 
-static Obj* new_lvar(Type* type, char* name) {
+static Obj* new_lvar_as(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
@@ -456,6 +464,10 @@ static Obj* new_lvar(Type* type, char* name) {
   adjust_lvar_offset(current_lvars, var, type);
   add_lvar(var);
   return var;
+}
+
+static Obj* new_lvar(Type* type) {
+  return new_lvar_as(type, type->name);
 }
 
 static Obj* new_enum(char* name, int64_t val) {
@@ -467,10 +479,10 @@ static Obj* new_enum(char* name, int64_t val) {
   return enu;
 }
 
-static Obj* new_def_type(Type* type, char* name) {
+static Obj* new_def_type(Type* type) {
   Obj* def_type = new_obj(OJ_DEF_TYPE);
   def_type->type = type;
-  def_type->name = name;
+  def_type->name = type->name;
   add_def_type(def_type);
   return def_type;
 }
@@ -1172,7 +1184,7 @@ static Node* new_func_params(Type* params) {
       error_token(param->ident, "parameter name omitted");
     }
 
-    Obj* var = new_lvar(param, param->name);
+    Obj* var = new_lvar_as(param, param->name);
     cur = cur->next = new_var_node(param->ident, var);
   }
 
@@ -1186,7 +1198,7 @@ static void func(Token** tokens) {
     error_token(type->ident, "function name omitted");
   }
 
-  Obj* func = new_func(type, type->name);
+  Obj* func = new_func(type);
   current_func = func;
 
   func->is_static = attr.is_static;
@@ -1201,7 +1213,7 @@ static void func(Token** tokens) {
   func->params = new_func_params(func->type->params);
 
   if (func->type->is_variadic) {
-    func->va_area = new_lvar(new_array_type(new_char_type(), 136), "__va_area__");
+    func->va_area = new_lvar_as(new_chars_type(136), "__va_area__");
   }
 
   func->body = block_stmt(tokens);
@@ -1323,7 +1335,7 @@ static void gvar(Token** tokens) {
       type->alignment = attr.alignment;
     }
 
-    Obj* var = new_gvar(type, type->name);
+    Obj* var = new_gvar(type);
     var->is_static = attr.is_static;
     var->is_definition = !attr.is_extern;
 
@@ -1352,7 +1364,7 @@ static void tydef(Token** tokens) {
     if (!type->name) {
       error_token(type->ident, "typedef name omitted");
     }
-    new_def_type(type, type->name);
+    new_def_type(type);
   }
 }
 
@@ -1735,7 +1747,7 @@ static Node* expr(Token** tokens) {
 }
 
 static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
-  Obj* tmp_var = new_lvar(new_ptr_type(lhs->type), "");
+  Obj* tmp_var = new_lvar_as(new_ptr_type(lhs->type), "");
 
   Node* tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs));
 
@@ -2196,7 +2208,7 @@ static Node* compound_literal(Token** tokens) {
     return new_var_node(*tokens, var);
   }
 
-  Obj* var = new_lvar(type, "");
+  Obj* var = new_lvar_as(type, "");
   Node* assign = lvar_initer(tokens, var);
   return new_comma_node(*tokens, assign, new_var_node(*tokens, var));
 }
@@ -2777,7 +2789,7 @@ static Node* lvar_decl(Token** tokens) {
     }
 
     if (attr.is_static) {
-      Obj* var = new_static_lvar(type, type->name);
+      Obj* var = new_static_lvar(type);
       if (consume_token(tokens, "=")) {
         gvar_initer(tokens, var);
       }
@@ -2788,7 +2800,7 @@ static Node* lvar_decl(Token** tokens) {
       type->alignment = attr.alignment;
     }
 
-    Obj* var = new_lvar(type, type->name);
+    Obj* var = new_lvar(type);
     Node* node = new_var_node(type->ident, var);
 
     if (consume_token(tokens, "=")) {
