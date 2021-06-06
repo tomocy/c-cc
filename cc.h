@@ -82,6 +82,9 @@ struct Type {
   Type* base;
   int len;
 
+  Token* ident;
+  char* name;
+
   Type* params;
   bool is_variadic;
   Type* return_type;

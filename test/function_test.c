@@ -160,6 +160,9 @@ int increment_static_lvar(void) {
   return (*p)++;
 }
 
+void declaration(char, short, int, long, float, double);
+
+// NOLINTNEXTLINE
 int main() {
   ASSERT(3, ret3());
   ASSERT(8, add2(3, 5));

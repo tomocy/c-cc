@@ -2,7 +2,6 @@
 
 typedef struct ScopedObj ScopedObj;
 typedef struct Scope Scope;
-typedef struct Decl Decl;
 typedef struct Initer Initer;
 typedef struct DesignatedIniter DesignatedIniter;
 
@@ -24,13 +23,6 @@ typedef struct VarAttr {
 
   int alignment;
 } VarAttr;
-
-typedef struct Decl {
-  Decl* next;
-  Type* type;
-  Token* ident;
-  char* name;
-} Decl;
 
 struct Initer {
   Initer* next;
@@ -1097,10 +1089,10 @@ static Type* struct_decl(Token** tokens);
 static Type* union_decl(Token** tokens);
 static Member* members(Token** tokens);
 static Type* decl_specifier(Token** tokens, VarAttr* attr);
-static Decl* declarator(Token** tokens, Type* type);
-static Decl* decl(Token** tokens, VarAttr* attr);
-static Decl* abstract_declarator(Token** tokens, Type* type);
-static Decl* abstract_decl(Token** tokens, VarAttr* attr);
+static Type* declarator(Token** tokens, Type* type);
+static Type* decl(Token** tokens, VarAttr* attr);
+static Type* abstract_declarator(Token** tokens, Type* type);
+static Type* abstract_decl(Token** tokens, VarAttr* attr);
 static Type* type_suffix(Token** tokens, Type* type);
 static Type* array_dimensions(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Type* type);
@@ -1170,17 +1162,15 @@ static void resolve_goto_labels(void) {
   current_gotos = NULL;
 }
 
-static Decl* func_params(Token** tokens, Obj* func) {
+static void func_params(Token** tokens, Obj* func) {
   expect_token(tokens, "(");
 
   if (equal_to_token(*tokens, "void") && equal_to_token((*tokens)->next, ")")) {
     expect_token(tokens, "void");
     expect_token(tokens, ")");
-    return NULL;
+    return;
   }
 
-  Decl decl_head = {};
-  Decl* cur_decl = &decl_head;
   Type type_head = {};
   Type* cur_type = &type_head;
   func->type->is_variadic = false;
@@ -1195,13 +1185,16 @@ static Decl* func_params(Token** tokens, Obj* func) {
       break;
     }
 
-    Decl* dcl = decl(tokens, NULL);
-    if (dcl->type->kind == TY_ARRAY) {
-      dcl->type = new_ptr_type(dcl->type->base);
+    Type* type = decl(tokens, NULL);
+    if (type->kind == TY_ARRAY) {
+      Token* ident = type->ident;
+      char* name = type->name;
+      type = new_ptr_type(type->base);
+      type->ident = ident;
+      type->name = name;
     }
 
-    cur_decl = cur_decl->next = dcl;
-    cur_type = cur_type->next = copy_type(dcl->type);
+    cur_type = cur_type->next = copy_type(type);
   }
 
   if (cur_type == &type_head) {
@@ -1209,16 +1202,18 @@ static Decl* func_params(Token** tokens, Obj* func) {
   }
 
   func->type->params = type_head.next;
-
-  return decl_head.next;
 }
 
-static Node* new_func_params(Decl* decls) {
+static Node* new_func_params(Type* params) {
   Node head = {};
   Node* cur = &head;
-  for (Decl* decl = decls; decl; decl = decl->next) {
-    Obj* var = new_lvar(decl->type, decl->name);
-    cur = cur->next = new_var_node(decl->ident, var);
+  for (Type* param = params; param; param = param->next) {
+    if (!param->name) {
+      error_token(param->ident, "parameter name omitted");
+    }
+
+    Obj* var = new_lvar(param, param->name);
+    cur = cur->next = new_var_node(param->ident, var);
   }
 
   return head.next;
@@ -1226,17 +1221,17 @@ static Node* new_func_params(Decl* decls) {
 
 static void func(Token** tokens) {
   VarAttr attr = {};
-  Decl* dcl = decl(tokens, &attr);
-  if (!dcl->name) {
-    error_token(dcl->ident, "function name omitted");
+  Type* type = decl(tokens, &attr);
+  if (!type->name) {
+    error_token(type->ident, "function name omitted");
   }
 
-  Obj* func = new_func(new_func_type(dcl->type), strndup(dcl->ident->loc, dcl->ident->len));
+  Obj* func = new_func(new_func_type(type), strndup(type->ident->loc, type->ident->len));
   current_func = func;
 
   func->is_static = attr.is_static;
 
-  Decl* param_decls = func_params(tokens, func);
+  func_params(tokens, func);
 
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
@@ -1246,7 +1241,7 @@ static void func(Token** tokens) {
 
   enter_scope();
 
-  func->params = new_func_params(param_decls);
+  func->params = new_func_params(func->type->params);
 
   if (func->type->is_variadic) {
     func->va_area = new_lvar(new_array_type(new_char_type(), 136), "__va_area__");
@@ -1362,16 +1357,16 @@ static void gvar(Token** tokens) {
     }
     is_first = false;
 
-    Decl* decl = declarator(tokens, spec);
-    if (!decl->name) {
-      error_token(decl->ident, "variable name omitted");
+    Type* type = declarator(tokens, spec);
+    if (!type->name) {
+      error_token(type->ident, "variable name omitted");
     }
     if (attr.alignment) {
-      decl->type = copy_type(decl->type);
-      decl->type->alignment = attr.alignment;
+      type = copy_type(type);
+      type->alignment = attr.alignment;
     }
 
-    Obj* var = new_gvar(decl->type, decl->name);
+    Obj* var = new_gvar(type, type->name);
     var->is_static = attr.is_static;
     var->is_definition = !attr.is_extern;
 
@@ -1379,7 +1374,7 @@ static void gvar(Token** tokens) {
       gvar_initer(tokens, var);
     }
     if (var->type->size < 0) {
-      error_token(decl->ident, "variable has imcomplete type");
+      error_token(type->ident, "variable has imcomplete type");
     }
   }
 }
@@ -1396,11 +1391,11 @@ static void tydef(Token** tokens) {
     }
     is_first = false;
 
-    Decl* decl = declarator(tokens, spec);
-    if (!decl->name) {
-      error_token(decl->ident, "typedef name omitted");
+    Type* type = declarator(tokens, spec);
+    if (!type->name) {
+      error_token(type->ident, "typedef name omitted");
     }
-    new_def_type(decl->type, decl->name);
+    new_def_type(type, type->name);
   }
 }
 
@@ -2085,7 +2080,7 @@ static Node* cast(Token** tokens) {
   if (equal_to_abstract_decl_start(*tokens)) {
     Token* start = *tokens;
     expect_token(tokens, "(");
-    Decl* decl = abstract_decl(tokens, NULL);
+    Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
 
     // compound literals
@@ -2094,7 +2089,7 @@ static Node* cast(Token** tokens) {
       return unary(tokens);
     }
 
-    return new_cast_node(decl->type, start, cast(tokens));
+    return new_cast_node(type, start, cast(tokens));
   }
 
   return unary(tokens);
@@ -2138,9 +2133,9 @@ static Node* unary(Token** tokens) {
   if (equal_to_token(*tokens, "sizeof") && equal_to_abstract_decl_start((*tokens)->next)) {
     expect_token(tokens, "sizeof");
     expect_token(tokens, "(");
-    Decl* decl = abstract_decl(tokens, NULL);
+    Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
-    return new_ulong_node(start, decl->type->size);
+    return new_ulong_node(start, type->size);
   }
 
   if (consume_token(tokens, "sizeof")) {
@@ -2151,9 +2146,9 @@ static Node* unary(Token** tokens) {
   if (equal_to_token(*tokens, "_Alignof") && equal_to_abstract_decl_start((*tokens)->next)) {
     expect_token(tokens, "_Alignof");
     expect_token(tokens, "(");
-    Decl* decl = abstract_decl(tokens, NULL);
+    Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
-    return new_ulong_node(start, decl->type->alignment);
+    return new_ulong_node(start, type->alignment);
   }
 
   if (consume_token(tokens, "_Alignof")) {
@@ -2234,17 +2229,17 @@ static Node* compound_literal(Token** tokens) {
   expect_token(tokens, "(");
 
   VarAttr attr = {};
-  Decl* decl = abstract_decl(tokens, &attr);
+  Type* type = abstract_decl(tokens, &attr);
 
   expect_token(tokens, ")");
 
   if (is_gscope(current_scope)) {
-    Obj* var = new_anon_gvar(decl->type);
+    Obj* var = new_anon_gvar(type);
     gvar_initer(tokens, var);
     return new_var_node(*tokens, var);
   }
 
-  Obj* var = new_lvar(decl->type, "");
+  Obj* var = new_lvar(type, "");
   Node* assign = lvar_initer(tokens, var);
   return new_comma_node(*tokens, assign, new_var_node(*tokens, var));
 }
@@ -2816,34 +2811,34 @@ static Node* lvar_decl(Token** tokens) {
       expect_token(tokens, ",");
     }
 
-    Decl* decl = declarator(tokens, spec);
-    if (!decl->name) {
-      error_token(decl->ident, "variable name omitted");
+    Type* type = declarator(tokens, spec);
+    if (!type->name) {
+      error_token(type->ident, "variable name omitted");
     }
-    if (decl->type->kind == TY_VOID) {
-      error_token(decl->ident, "variable declared void");
+    if (type->kind == TY_VOID) {
+      error_token(type->ident, "variable declared void");
     }
 
     if (attr.is_static) {
-      Obj* var = new_static_lvar(decl->type, decl->name);
+      Obj* var = new_static_lvar(type, type->name);
       if (consume_token(tokens, "=")) {
         gvar_initer(tokens, var);
       }
       continue;
     }
     if (attr.alignment) {
-      decl->type = copy_type(decl->type);
-      decl->type->alignment = attr.alignment;
+      type = copy_type(type);
+      type->alignment = attr.alignment;
     }
 
-    Obj* var = new_lvar(decl->type, decl->name);
-    Node* node = new_var_node(decl->ident, var);
+    Obj* var = new_lvar(type, type->name);
+    Node* node = new_var_node(type->ident, var);
 
     if (consume_token(tokens, "=")) {
       node = lvar_initer(tokens, var);
     }
     if (var->type->size < 0) {
-      error_token(decl->ident, "variable has imcomplete type");
+      error_token(type->ident, "variable has imcomplete type");
     }
 
     cur->next = node;
@@ -3032,16 +3027,16 @@ static Member* members(Token** tokens) {
       }
       is_first = false;
 
-      Decl* decl = declarator(tokens, spec);
-      if (!decl->name) {
-        error_token(decl->ident, "member name omitted");
+      Type* type = declarator(tokens, spec);
+      if (!type->name) {
+        error_token(type->ident, "member name omitted");
       }
 
       Member* mem = calloc(1, sizeof(Member));
-      mem->type = decl->type;
-      mem->token = decl->ident;
-      mem->name = decl->name;
-      mem->alignment = attr.alignment ? attr.alignment : decl->type->alignment;
+      mem->type = type;
+      mem->token = type->ident;
+      mem->name = type->name;
+      mem->alignment = attr.alignment ? attr.alignment : type->alignment;
 
       cur->next = mem;
       cur = cur->next;
@@ -3104,8 +3099,8 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       expect_token(tokens, "_Alignas");
       expect_token(tokens, "(");
       if (equal_to_decl_specifier(*tokens)) {
-        Decl* decl = abstract_decl(tokens, NULL);
-        attr->alignment = decl->type->alignment;
+        Type* type = abstract_decl(tokens, NULL);
+        attr->alignment = type->alignment;
       } else {
         attr->alignment = const_expr(tokens);
       }
@@ -3270,7 +3265,7 @@ static Type* pointers(Token** tokens, Type* type) {
   return type;
 }
 
-static Decl* declarator(Token** tokens, Type* type) {
+static Type* declarator(Token** tokens, Type* type) {
   type = pointers(tokens, type);
 
   if (consume_token(tokens, "(")) {
@@ -3286,18 +3281,16 @@ static Decl* declarator(Token** tokens, Type* type) {
 
   type = type_suffix(tokens, type);
 
-  Decl* decl = calloc(1, sizeof(Decl));
-  decl->type = type;
-  decl->ident = ident;
-  decl->name = ident->kind == TK_IDENT ? strndup(ident->loc, ident->len) : NULL;
-  return decl;
+  type->ident = ident;
+  type->name = ident->kind == TK_IDENT ? strndup(ident->loc, ident->len) : NULL;
+  return type;
 }
 
-static Decl* decl(Token** tokens, VarAttr* attr) {
+static Type* decl(Token** tokens, VarAttr* attr) {
   return declarator(tokens, decl_specifier(tokens, attr));
 }
 
-static Decl* abstract_declarator(Token** tokens, Type* type) {
+static Type* abstract_declarator(Token** tokens, Type* type) {
   type = pointers(tokens, type);
 
   if (consume_token(tokens, "(")) {
@@ -3309,14 +3302,10 @@ static Decl* abstract_declarator(Token** tokens, Type* type) {
     return abstract_declarator(&start, type);
   }
 
-  type = type_suffix(tokens, type);
-
-  Decl* decl = calloc(1, sizeof(Decl));
-  decl->type = type;
-  return decl;
+  return type_suffix(tokens, type);
 }
 
-static Decl* abstract_decl(Token** tokens, VarAttr* attr) {
+static Type* abstract_decl(Token** tokens, VarAttr* attr) {
   return abstract_declarator(tokens, decl_specifier(tokens, attr));
 }
 
