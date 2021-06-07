@@ -2272,7 +2272,7 @@ static Node* datum(Token** tokens) {
   Token* ident = expect_ident(tokens);
   Obj* datum = find_datum(ident->loc, ident->len);
   if (!datum) {
-    if (equal_to_token((*tokens)->next, "(")) {
+    if (equal_to_token(*tokens, "(")) {
       error_token(ident, "implicit declaration of a function");
     } else {
       error_token(ident, "undefined variable");
