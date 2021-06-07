@@ -223,6 +223,13 @@ static Type* inherit_decl(Type* dst, Type* src) {
 }
 
 static Type* get_common_type(Type* a, Type* b) {
+  if (a->kind == TY_FUNC) {
+    return new_ptr_type(a);
+  }
+  if (b->kind == TY_FUNC) {
+    return new_ptr_type(b);
+  }
+
   if (a->base) {
     return new_ptr_type(a->base);
   }

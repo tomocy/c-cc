@@ -170,6 +170,10 @@ int param_decay2(int x()) {
   return x();
 }
 
+static int ret10(void) {
+  return 10;
+}
+
 // NOLINTNEXTLINE
 int main() {
   ASSERT(3, ret3());
@@ -349,6 +353,8 @@ int main() {
   ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
 
   ASSERT(3, param_decay2(ret3));
+
+  ASSERT(10, (1 ? ret10 : (void*)0)());
 
   ok();
 }
