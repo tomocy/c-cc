@@ -162,6 +162,10 @@ int increment_static_lvar(void) {
 
 void declaration(char, short, int, long, float, double);
 
+int (*fnptr(int (*fn)(int n, ...)))(int, ...) {
+  return fn;
+}
+
 // NOLINTNEXTLINE
 int main() {
   ASSERT(3, ret3());
@@ -330,6 +334,15 @@ int main() {
     int (*fn)(int, int) = 0;  // NOLINT
     0;
   }));
+
+  ASSERT(5, (add2)(2, 3));
+  ASSERT(5, (&add2)(2, 3));
+  ASSERT(7, ({
+    int (*fn)(int, int) = add2;
+    fn(2, 5);
+  }));
+  ASSERT(6, (add_all)(3, 1, 2, 3));
+  ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
 
   ok();
 }

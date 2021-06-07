@@ -49,17 +49,26 @@ unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     "_Alignof" "(" abstract_declarator ")" |
     "_Alignof" unary |
     postifx
-postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
+postfix = primary (
+    func_args |
+    "[" expr "]" |
+    "." ident |
+    "->" ident |
+    "++" |
+    "--"
+)*
 compound_literal = "(" abstract_decl ")" initer
 primary = "(" "{" stmt+ "}" ")" |
     "(" expr ")" |
-    ident func_args? |
+    ident |
     num |
     str
 num = ("0x" | "0X") hexadecimal | decimal | "0" octal | ("0b | "0B") binary | float
 const_expr
 
 lvar = var_decl ";"
+
+func_args = "(" (assign (, assign)*)? ")"
 
 initer = string_initer |
     struct_initer | direct_struct_initer |
@@ -98,8 +107,6 @@ abstract_decl = decl_specifier abstract_declarator
 type_suffix = func_params | array_dimensions | ε
 func_params = "(" ("void" | decl ("," decl)* ("," "...")?)? ")"
 array_dimensions = "[" ("static" | "restrict")* const_expr? "]" type_suffix
-
-func_args = "(" (assign (, assign)*)? ")"
 ```
 
 ## Build and Run docker image

@@ -216,6 +216,39 @@ static Type* copy_composite_type(Type* src, TypeKind kind) {
   return new_composite_type(kind, src->size, src->alignment, head.next);
 }
 
+static Type* get_common_type(Type* a, Type* b) {
+  if (a->base) {
+    return new_ptr_type(a->base);
+  }
+
+  if (a->kind == TY_DOUBLE || b->kind == TY_DOUBLE) {
+    return new_double_type();
+  }
+  if (a->kind == TY_FLOAT || b->kind == TY_FLOAT) {
+    return new_float_type();
+  }
+
+  Type* x = a;
+  Type* y = b;
+
+  if (x->size < 4) {
+    x = new_int_type();
+  }
+  if (y->size < 4) {
+    y = new_int_type();
+  }
+
+  if (x->size != y->size) {
+    return x->size > y->size ? x : y;
+  }
+
+  return y->is_unsigned ? y : x;
+}
+
+static Type* deref_ptr_type(Type* type) {
+  return type->kind == TY_PTR ? type->base : type;
+}
+
 static bool is_pointable(Type* type) {
   return type->kind == TY_PTR || type->kind == TY_ARRAY;
 }
@@ -270,13 +303,20 @@ static void leave_scope(void) {
 }
 
 static void add_first_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
-  if (obj->kind != OJ_GVAR && obj->kind != OJ_LVAR && obj->kind != OJ_ENUM && obj->kind != OJ_DEF_TYPE) {
-    error("expected a first class object");
+  switch (obj->kind) {
+    case OJ_FUNC:
+    case OJ_GVAR:
+    case OJ_LVAR:
+    case OJ_ENUM:
+    case OJ_DEF_TYPE: {
+      ScopedObj* scoped = new_scoped_obj(key, obj);
+      scoped->next = scope->first_class_objs;
+      scope->first_class_objs = scoped;
+      break;
+    }
+    default:
+      error("expected a first class object");
   }
-
-  ScopedObj* scoped = new_scoped_obj(key, obj);
-  scoped->next = scope->first_class_objs;
-  scope->first_class_objs = scoped;
 }
 
 static void add_second_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
@@ -287,6 +327,14 @@ static void add_second_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
   ScopedObj* scoped = new_scoped_obj(key, obj);
   scoped->next = scope->second_class_objs;
   scope->second_class_objs = scoped;
+}
+
+static void add_func_to_scope(Scope* scope, char* key, Obj* func) {
+  if (func->kind != OJ_FUNC) {
+    error("expected a function");
+  }
+
+  add_first_class_obj_to_scope(scope, key, func);
 }
 
 static void add_var_to_scope(Scope* scope, char* key, Obj* var) {
@@ -323,6 +371,14 @@ static void add_tag_to_scope(Scope* scope, char* key, Obj* tag) {
 
 static bool is_gscope(Scope* scope) {
   return !scope->next;
+}
+
+static void add_func(Obj* func) {
+  if (func->kind != OJ_FUNC) {
+    error("expected a function");
+  }
+
+  add_func_to_scope(current_scope, func->name, func);
 }
 
 static void add_gvar(Obj* var) {
@@ -393,6 +449,7 @@ static Obj* new_func(Type* type) {
   Obj* func = new_obj(OJ_FUNC);
   func->type = type;
   func->name = type->name;
+  add_func(func);
   add_code(func);
   return func;
 }
@@ -495,17 +552,6 @@ static Obj* new_tag(Type* type, char* name) {
   return tag;
 }
 
-static Obj* find_func(char* name, int len) {
-  for (TopLevelObj* func = codes; func; func = func->next) {
-    if (!are_strs_equal_n(func->obj->name, name, len)) {
-      continue;
-    }
-
-    return func->obj->kind == OJ_FUNC ? func->obj : NULL;
-  }
-  return NULL;
-}
-
 static Obj* find_datum(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
@@ -513,7 +559,15 @@ static Obj* find_datum(char* name, int len) {
         continue;
       }
 
-      return var->obj->kind == OJ_GVAR || var->obj->kind == OJ_LVAR || var->obj->kind == OJ_ENUM ? var->obj : NULL;
+      switch (var->obj->kind) {
+        case OJ_FUNC:
+        case OJ_GVAR:
+        case OJ_LVAR:
+        case OJ_ENUM:
+          return var->obj;
+        default:
+          return NULL;
+      }
     }
   }
   return NULL;
@@ -655,6 +709,15 @@ static Node* new_stmt_expr_node(Token* token, Node* body) {
   return expr;
 }
 
+static Node* new_func_node(Type* type, Token* token, char* name, bool is_definition) {
+  Node* node = new_node(ND_FUNC);
+  node->type = type;
+  node->token = token;
+  node->name = name;
+  node->is_definition = is_definition;
+  return node;
+}
+
 static Node* new_gvar_node(Type* type, Token* token, char* name) {
   Node* node = new_node(ND_GVAR);
   node->type = type;
@@ -683,21 +746,20 @@ static Node* new_var_node(Token* token, Obj* obj) {
   }
 }
 
+static Node* new_funccall_node(Token* token, Node* lhs, Node* args) {
+  Node* node = new_unary_node(ND_FUNCCALL, lhs);
+  node->type = deref_ptr_type(lhs->type)->return_type;
+  node->token = token;
+  node->args = args;
+  return node;
+}
+
 static Node* new_member_node(Token* token, Node* lhs, Member* mem) {
   Node* node = new_unary_node(ND_MEMBER, lhs);
   node->type = mem->type;
   node->token = token;
   node->name = mem->name;
   node->offset = mem->offset;
-  return node;
-}
-
-static Node* new_funccall_node(Type* type, Token* token, char* name, Node* args) {
-  Node* node = new_node(ND_FUNCCALL);
-  node->type = type;
-  node->token = token;
-  node->name = name;
-  node->args = args;
   return node;
 }
 
@@ -792,35 +854,6 @@ static Node* new_cast_node(Type* type, Token* token, Node* lhs) {
   node->token = token;
   node->lhs = lhs;
   return node;
-}
-
-static Type* get_common_type(Type* a, Type* b) {
-  if (a->base) {
-    return new_ptr_type(a->base);
-  }
-
-  if (a->kind == TY_DOUBLE || b->kind == TY_DOUBLE) {
-    return new_double_type();
-  }
-  if (a->kind == TY_FLOAT || b->kind == TY_FLOAT) {
-    return new_float_type();
-  }
-
-  Type* x = a;
-  Type* y = b;
-
-  if (x->size < 4) {
-    x = new_int_type();
-  }
-  if (y->size < 4) {
-    y = new_int_type();
-  }
-
-  if (x->size != y->size) {
-    return x->size > y->size ? x : y;
-  }
-
-  return y->is_unsigned ? y : x;
 }
 
 static void usual_arith_convert(Node** lhs, Node** rhs) {
@@ -2162,6 +2195,15 @@ static Node* postfix(Token** tokens) {
   for (;;) {
     Token* start = *tokens;
 
+    if (equal_to_token(*tokens, "(")) {
+      Type* type = deref_ptr_type(node->type);
+      if (type->kind != TY_FUNC) {
+        error_token(node->token, "not a function");
+      }
+      node = new_funccall_node(start, node, func_args(tokens, type));
+      continue;
+    }
+
     if (consume_token(tokens, "[")) {
       Node* index = expr(tokens);
       expect_token(tokens, "]");
@@ -2213,25 +2255,28 @@ static Node* compound_literal(Token** tokens) {
   return new_comma_node(*tokens, assign, new_var_node(*tokens, var));
 }
 
-static Node* funccall(Token** tokens) {
-  Token* ident = expect_ident(tokens);
-  Obj* func = find_func(ident->loc, ident->len);
-  if (!func) {
-    error_token(ident, "implicit declaration of a function");
-  }
-
-  return new_funccall_node(func->type->return_type, ident, func->name, func_args(tokens, func->type));
-}
-
 static Node* datum(Token** tokens) {
   Token* ident = expect_ident(tokens);
   Obj* datum = find_datum(ident->loc, ident->len);
   if (!datum) {
-    error_token(ident, "undefined ident");
+    if (equal_to_token((*tokens)->next, "(")) {
+      error_token(ident, "implicit declaration of a function");
+    } else {
+      error_token(ident, "undefined variable");
+    }
   }
 
-  Node* node = datum->kind == OJ_ENUM ? new_int_node(ident, (int64_t)datum->val) : new_var_node(ident, datum);
-  return node;
+  switch (datum->kind) {
+    case OJ_FUNC:
+      return new_func_node(datum->type, ident, datum->name, datum->is_definition);
+    case OJ_GVAR:
+    case OJ_LVAR:
+      return new_var_node(ident, datum);
+    case OJ_ENUM:
+      return new_int_node(ident, (int64_t)datum->val);
+    default:
+      return NULL;
+  }
 }
 
 static Node* primary(Token** tokens) {
@@ -2248,10 +2293,6 @@ static Node* primary(Token** tokens) {
     Node* node = expr(tokens);
     expect_token(tokens, ")");
     return node;
-  }
-
-  if ((*tokens)->kind == TK_IDENT && equal_to_token((*tokens)->next, "(")) {
-    return funccall(tokens);
   }
 
   if ((*tokens)->kind == TK_IDENT) {

@@ -178,9 +178,10 @@ static void cmp_zero(Type* type) {
 
 static void load(Node* node) {
   switch (node->type->kind) {
-    case TY_ARRAY:
     case TY_STRUCT:
     case TY_UNION:
+    case TY_FUNC:
+    case TY_ARRAY:
       return;
     case TY_FLOAT:
       genln("  movss xmm0, [rax]");
@@ -239,6 +240,13 @@ static void gen_addr(Node* node) {
       break;
     case ND_DEREF:
       gen_expr(node->lhs);
+      break;
+    case ND_FUNC:
+      if (node->is_definition) {
+        genln("  lea rax, %s[rip]", node->name);
+      } else {
+        genln("  mov rax, %s@GOTPCREL[rip]", node->name);
+      }
       break;
     case ND_GVAR:
       genln("  lea rax, %s[rip]", node->name);
@@ -359,6 +367,7 @@ static void gen_expr(Node* node) {
         gen_stmt(stmt);
       }
       return;
+    case ND_FUNC:
     case ND_GVAR:
     case ND_LVAR:
     case ND_MEMBER:
@@ -367,6 +376,15 @@ static void gen_expr(Node* node) {
       return;
     case ND_FUNCCALL: {
       push_args(node->args);
+
+      // node->lhs may be another function call, which means that
+      // it may use arguments registers for its arguments,
+      // so resolve the address of function first
+      // keeping the values of the arugments of this function call in stack
+      // and then pop them, otherwise the poped values of the arguments of this function call
+      // will be overridden
+      gen_expr(node->lhs);
+
       int int_cnt = 0;
       int float_cnt = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
@@ -378,10 +396,10 @@ static void gen_expr(Node* node) {
       }
 
       if (depth % 2 == 0) {
-        genln("  call %s", node->name);
+        genln("  call rax");
       } else {
         genln("  sub rsp, 8");
-        genln("  call %s", node->name);
+        genln("  call rax");
         genln("  add rsp, 8");
       }
 

@@ -128,6 +128,7 @@ typedef enum {
   ND_NOT,
   ND_BITNOT,
   ND_STMT_EXPR,
+  ND_FUNC,
   ND_GVAR,
   ND_LVAR,
   ND_MEMBER,
@@ -164,6 +165,8 @@ struct Node {
 
   int64_t int_val;
   double float_val;
+
+  bool is_definition;
 
   Node* labels;
   Node* gotos;
