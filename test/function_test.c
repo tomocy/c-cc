@@ -166,6 +166,10 @@ int (*fnptr(int (*fn)(int n, ...)))(int, ...) {
   return fn;
 }
 
+int param_decay2(int x()) {
+  return x();
+}
+
 // NOLINTNEXTLINE
 int main() {
   ASSERT(3, ret3());
@@ -343,6 +347,8 @@ int main() {
   }));
   ASSERT(6, (add_all)(3, 1, 2, 3));
   ASSERT(6, fnptr(add_all)(3, 1, 2, 3));
+
+  ASSERT(3, param_decay2(ret3));
 
   ok();
 }

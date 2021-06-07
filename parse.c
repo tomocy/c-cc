@@ -216,6 +216,12 @@ static Type* copy_composite_type(Type* src, TypeKind kind) {
   return new_composite_type(kind, src->size, src->alignment, head.next);
 }
 
+static Type* inherit_decl(Type* dst, Type* src) {
+  dst->ident = src->ident;
+  dst->name = src->name;
+  return dst;
+}
+
 static Type* get_common_type(Type* a, Type* b) {
   if (a->base) {
     return new_ptr_type(a->base);
@@ -3355,12 +3361,15 @@ static Type* func_params(Token** tokens, Type* type) {
     }
 
     Type* type = decl(tokens, NULL);
-    if (type->kind == TY_ARRAY) {
-      Token* ident = type->ident;
-      char* name = type->name;
-      type = new_ptr_type(type->base);
-      type->ident = ident;
-      type->name = name;
+    switch (type->kind) {
+      case TY_FUNC:
+        type = inherit_decl(new_ptr_type(type), type);
+        break;
+      case TY_ARRAY:
+        type = inherit_decl(new_ptr_type(type->base), type);
+        break;
+      default: {
+      }
     }
 
     cur = cur->next = copy_type(type);
