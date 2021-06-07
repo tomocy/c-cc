@@ -1,11 +1,39 @@
 #include "cc.h"
 
+typedef struct Str Str;
+
+struct Str {
+  Str* next;
+  char* data;
+};
+
 char* input_filename;
 char* output_filename;
-static char* tmp_filename;
+
+static Str* tmp_filenames;
+static Str* input_filenames;
 static bool do_log_args;
 static bool do_exec;
 static bool in_asm;
+
+static void add_str(Str** strs, Str* str) {
+  str->next = *strs;
+  *strs = str;
+}
+
+static void add_tmp_filename(Str* fname) {
+  add_str(&tmp_filenames, fname);
+}
+
+static void add_input_filename(Str* fname) {
+  add_str(&input_filenames, fname);
+}
+
+static Str* new_str(char* data) {
+  Str* str = calloc(1, sizeof(Str));
+  str->data = data;
+  return str;
+}
 
 static bool are_equal(char* a, char* b) {
   return strcmp(a, b) == 0;
@@ -35,15 +63,19 @@ static char* create_tmp_file() {
   }
   close(fd);
 
+  add_tmp_filename(new_str(name));
+
   return name;
 }
 
 static void unlink_tmp_file() {
-  unlink(tmp_filename);
+  for (Str* fname = tmp_filenames; fname; fname = fname->next) {
+    unlink(fname->data);
+  }
 }
 
 static void usage(int status) {
-  fprintf(stderr, "Usage: cc [ -o <output> ] <input>\n");
+  fprintf(stderr, "Usage: cc [ -o output ] input [rest_inputs...]\n");
   exit(status);
 }
 
@@ -62,12 +94,21 @@ static void parse_args(int argc, char** argv) {
       do_exec = true;
       continue;
     }
+    if (are_equal(argv[i], "-exec/input")) {
+      input_filename = argv[++i];
+      continue;
+    }
+    if (are_equal(argv[i], "-exec/output")) {
+      output_filename = argv[++i];
+      continue;
+    }
 
     if (are_equal(argv[i], "-S")) {
       in_asm = true;
       continue;
     }
 
+    // -o output_filename
     if (are_equal(argv[i], "-o")) {
       if (!argv[++i]) {
         usage(1);
@@ -75,7 +116,7 @@ static void parse_args(int argc, char** argv) {
       output_filename = argv[i];
       continue;
     }
-
+    // -o=output_filename etc
     if (are_n_equal(argv[i], "-o")) {
       output_filename = argv[i] + 2;
       continue;
@@ -85,11 +126,7 @@ static void parse_args(int argc, char** argv) {
       error("unknown argument: %s", argv[i]);
     }
 
-    input_filename = argv[i];
-  }
-
-  if (!input_filename) {
-    error("no input files");
+    add_input_filename(new_str(argv[i]));
   }
 }
 
@@ -118,18 +155,19 @@ static int run_subprocess(int argc, char** argv) {
   return status == 0 ? 0 : 1;
 }
 
-static int run_to_exec(int argc, char** argv, char* input, char* output) {
-  char** args = calloc(argc + 1 + 1, sizeof(char*));  // the last +1 for NULL termination
+static int run_with(int argc, char** argv, char* input, char* output) {
+  char** args = calloc(argc + 5 + 1, sizeof(char*));  // the last +1 for NULL termination
   memcpy(args, argv, argc * sizeof(char*));
 
   args[argc++] = "-exec";
 
   if (input) {
+    args[argc++] = "-exec/input";
     args[argc++] = input;
   }
 
   if (output) {
-    args[argc++] = "-o";
+    args[argc++] = "-exec/output";
     args[argc++] = output;
   }
 
@@ -142,8 +180,8 @@ static int run_assembler(char* input, char* output) {
 }
 
 static int assemble(int argc, char** argv, char* input, char* output) {
-  tmp_filename = create_tmp_file();
-  int status = run_to_exec(argc, argv, input_filename, tmp_filename);
+  char* tmp_filename = create_tmp_file();
+  int status = run_with(argc, argv, input, tmp_filename);
   if (status != 0) {
     return status;
   }
@@ -151,26 +189,43 @@ static int assemble(int argc, char** argv, char* input, char* output) {
 }
 
 static int exec() {
+  if (!input_filename) {
+    error("no input file to exec");
+  }
+
   Token* tokens = tokenize();
   TopLevelObj* codes = parse(tokens);
   gen(codes);
   return 0;
 }
 
-int main(int argc, char** argv) {
+static int run_to_exec(int argc, char** argv) {
+  if (!input_filenames) {
+    error("no input files");
+  }
+  if (output_filename && input_filenames->next) {
+    error("cannot specify '-o' with multiple filenames");
+  }
+
   atexit(unlink_tmp_file);
 
+  for (Str* input = input_filenames; input; input = input->next) {
+    char* output = output_filename;
+    if (!output) {
+      char* ext = in_asm ? ".s" : ".o";
+      output = replace_ext(input->data, ext);
+    }
+
+    int status = !in_asm ? assemble(argc, argv, input->data, output) : run_with(argc, argv, input->data, output);
+    if (status != 0) {
+      return status;
+    }
+  }
+
+  return 0;
+}
+
+int main(int argc, char** argv) {
   parse_args(argc, argv);
-
-  if (do_exec) {
-    return exec();
-  }
-
-  char* output = output_filename;
-  if (!output) {
-    char* ext = in_asm ? ".s" : ".o";
-    output = replace_ext(input_filename, ext);
-  }
-
-  return !in_asm ? assemble(argc, argv, input_filename, output) : run_to_exec(argc, argv, input_filename, output);
+  return !do_exec ? run_to_exec(argc, argv) : exec();
 }

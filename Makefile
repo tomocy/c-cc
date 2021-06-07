@@ -78,6 +78,10 @@ s1/test: $(TESTS)
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done;
 	make clean
 
+.PHONY: s1/test@cli
+s1/test@cli: cc test/cli_test.sh
+	./test/cli_test.sh ./cc
+
 .PHONY: s1/test@%
 s1/test@%: test/%_test
 	./test/$*_test
@@ -108,6 +112,10 @@ s2/test: $(S2_TESTS)
 	./test/cli_test.sh ./s2/cc; echo;
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done;
 	make clean
+
+.PHONY: s2/test@cli
+s2/test@cli: s2/cc test/cli_test.sh
+	./test/cli_test.sh ./s2/cc
 
 .PHONY: s2/test@%
 s2/test@%: s2/test/%_test
