@@ -18,6 +18,7 @@ struct Scope {
 };
 
 typedef struct VarAttr {
+  bool is_typedef;
   bool is_extern;
   bool is_static;
 
@@ -625,6 +626,7 @@ static Obj* find_tag(char* name, int len) {
 
 static bool equal_to_decl_specifier(Token* token) {
   static char* names[] = {
+    "typedef",
     "extern",
     "static",
     "void",
@@ -1174,26 +1176,25 @@ bool is_func_declarator(Token* token, Type* type) {
   return type->kind == TY_FUNC;
 }
 
-bool is_func(Token* token) {
-  VarAttr attr = {};
-  Type* spec = decl_specifier(&token, &attr);
-  return is_func_declarator(token, spec);
-}
-
 TopLevelObj* parse(Token* token) {
   enter_scope();
   gscope = current_scope;
 
   while (token->kind != TK_EOF) {
-    if (equal_to_token(token, "typedef")) {
+    Token* peeked = token;
+    VarAttr attr = {};
+    Type* spec = decl_specifier(&peeked, &attr);
+
+    if (attr.is_typedef) {
       tydef(&token);
       continue;
     }
 
-    if (is_func(token)) {
+    if (is_func_declarator(peeked, spec)) {
       func(&token);
       continue;
     }
+
     gvar(&token);
   }
 
@@ -1423,18 +1424,17 @@ static Node* block_stmt(Token** tokens) {
   Node head = {};
   Node* curr = &head;
   while (!consume_token(tokens, "}")) {
-    if (equal_to_token(*tokens, "typedef")) {
-      tydef(tokens);
-      continue;
-    }
-
     if (equal_to_decl_specifier(*tokens) && !equal_to_token((*tokens)->next, ":")) {
-      Token* ignored = *tokens;
-
+      Token* peeked = *tokens;
       VarAttr attr = {};
-      Type* spec = decl_specifier(&ignored, &attr);
+      Type* spec = decl_specifier(&peeked, &attr);
 
-      if (is_func_declarator(ignored, spec)) {
+      if (attr.is_typedef) {
+        tydef(tokens);
+        continue;
+      }
+
+      if (is_func_declarator(peeked, spec)) {
         func(tokens);
         continue;
       }
@@ -3095,13 +3095,18 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   while (equal_to_decl_specifier(*tokens)) {
     Token* start = *tokens;
 
-    if (equal_to_token(*tokens, "extern") || equal_to_token(*tokens, "static")) {
+    if (equal_to_token(*tokens, "typedef") || equal_to_token(*tokens, "extern") || equal_to_token(*tokens, "static")) {
       if (!attr) {
         error_token(*tokens, "storage class specifier is not allowed in this context");
       }
 
+      attr->is_typedef = equal_to_token(*tokens, "typedef");
       attr->is_extern = equal_to_token(*tokens, "extern");
       attr->is_static = equal_to_token(*tokens, "static");
+
+      if (attr->is_typedef && (attr->is_extern || attr->is_static)) {
+        error_token(*tokens, "typedef may not be used with extern or static");
+      }
 
       *tokens = (*tokens)->next;
       continue;
