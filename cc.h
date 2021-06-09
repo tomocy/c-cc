@@ -229,6 +229,17 @@ struct Relocation {
 extern char* input_filename;
 extern char* output_filename;
 
+void error(char* fmt, ...);
+void verror_at(char* fname, char* contents, char* loc, char* fmt, va_list args);
+void error_at(char* fname, char* contents, char* loc, char* fmt, ...);
+void warn_at(char* fname, char* contents, char* loc);
+
+char* format(char* fmt, ...);
+bool equal_to_str(char* s, char* other);
+bool equal_to_n_chars(char* s, char* c, int n);
+bool start_with(char* s, char* prefix);
+bool start_with_insensitive(char* s, char* prefix);
+
 Type* new_int_type();
 Type* new_uint_type();
 Type* new_long_type();
@@ -239,14 +250,12 @@ Type* new_double_type();
 bool is_integer(Type* type);
 bool is_float(Type* type);
 
-void error(char* fmt, ...);
 void error_token(Token* token, char* fmt, ...);
 void warn_token(Token* token);
 
 bool equal_to_token(Token* token, char* s);
 bool consume_token(Token** token, char* s);
 void expect_token(Token** token, char* s);
-int expect_num(Token** token);
 
 Token* tokenize();
 Token* preprocess(Token* tokens);

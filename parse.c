@@ -137,14 +137,6 @@ static int align(int n, int align) {
   return (n + align - 1) / align * align;
 }
 
-static bool are_strs_equal_n(char* a, char* b, int b_len) {
-  return strlen(a) == b_len && strncmp(a, b, b_len) == 0;
-}
-
-static bool are_strs_equal(char* a, char* b) {
-  return are_strs_equal_n(a, b, strlen(b));
-}
-
 static char* renew_label_id(char** current, char** next) {
   char* prev = *current;
   *next = *current = new_id();
@@ -569,7 +561,7 @@ static Obj* new_tag(Type* type, char* name) {
 static Obj* find_datum(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
-      if (!are_strs_equal_n(var->key, name, len)) {
+      if (!equal_to_n_chars(var->key, name, len)) {
         continue;
       }
 
@@ -590,7 +582,7 @@ static Obj* find_datum(char* name, int len) {
 static Obj* find_def_type(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* def_type = s->first_class_objs; def_type; def_type = def_type->next) {
-      if (!are_strs_equal_n(def_type->key, name, len)) {
+      if (!equal_to_n_chars(def_type->key, name, len)) {
         continue;
       }
 
@@ -602,7 +594,7 @@ static Obj* find_def_type(char* name, int len) {
 
 static Obj* find_tag_in_current_scope(char* name, int len) {
   for (ScopedObj* tag = current_scope->second_class_objs; tag; tag = tag->next) {
-    if (!are_strs_equal_n(tag->key, name, len)) {
+    if (!equal_to_n_chars(tag->key, name, len)) {
       continue;
     }
 
@@ -614,7 +606,7 @@ static Obj* find_tag_in_current_scope(char* name, int len) {
 static Obj* find_tag(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* tag = s->second_class_objs; tag; tag = tag->next) {
-      if (!are_strs_equal_n(tag->key, name, len)) {
+      if (!equal_to_n_chars(tag->key, name, len)) {
         continue;
       }
 
@@ -1206,7 +1198,7 @@ TopLevelObj* parse(Token* token) {
 static void resolve_goto_labels(void) {
   for (Node* g = current_gotos; g; g = g->gotos) {
     for (Node* l = current_labels; l; l = l->labels) {
-      if (!are_strs_equal(g->label, l->label)) {
+      if (!equal_to_str(g->label, l->label)) {
         continue;
       }
 
@@ -2187,7 +2179,7 @@ static Node* member(Token** tokens, Token* token, Node* lhs) {
   Token* ident = expect_ident(tokens);
 
   for (Member* mem = lhs->type->members; mem; mem = mem->next) {
-    if (!are_strs_equal_n(mem->name, ident->loc, ident->len)) {
+    if (!equal_to_n_chars(mem->name, ident->loc, ident->len)) {
       continue;
     }
 

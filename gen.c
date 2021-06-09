@@ -132,8 +132,7 @@ static void popf(char* reg) {
 }
 
 static void popfn(int n) {
-  char* reg = calloc(5, sizeof(char));
-  sprintf(reg, "xmm%d", n);
+  char* reg = format("xmm%d", n);
   popf(reg);
 }
 

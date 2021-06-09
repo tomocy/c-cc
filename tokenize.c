@@ -5,8 +5,6 @@ static bool is_bol;
 
 static Token* new_token(TokenKind kind, char* loc, int len);
 
-static void error_at(char* loc, char* fmt, ...);
-
 static void read_file(char** content);
 static void add_line_number(Token* token);
 
@@ -71,7 +69,7 @@ Token* tokenize(void) {
       continue;
     }
 
-    error_at(c, "invalid character");
+    error_at(input_filename, user_input, c, "invalid character");
   }
 
   cur->next = new_token(TK_EOF, c, 0);
@@ -96,18 +94,8 @@ bool consume_token(Token** token, char* s) {
 
 void expect_token(Token** token, char* s) {
   if (!consume_token(token, s)) {
-    error_at((*token)->loc, "expected '%s'", s);
+    error_at(input_filename, user_input, (*token)->loc, "expected '%s'", s);
   }
-}
-
-int expect_num(Token** token) {
-  if ((*token)->kind != TK_NUM) {
-    error_token(*token, "expected a number");
-  }
-
-  int val = (*token)->int_val;
-  *token = (*token)->next;
-  return val;
 }
 
 static Token* new_token(TokenKind kind, char* loc, int len) {
@@ -120,101 +108,31 @@ static Token* new_token(TokenKind kind, char* loc, int len) {
   return tok;
 }
 
-void error(char* fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  vfprintf(stderr, fmt, ap);
-  fprintf(stderr, "\n");
-  exit(1);
-}
-
-static void verror_at(int line, char* loc, char* fmt, va_list args) {
-  char* start = loc;
-  while (user_input < start && start[-1] != '\n') {
-    start--;
-  }
-  char* end = loc;
-  while (*end != '\n') {
-    end++;
-  }
-
-  int indent = fprintf(stderr, "%s:%d ", input_filename, line);
-  fprintf(stderr, "%.*s\n", (int)(end - start), start);
-
-  int pos = loc - start + indent;
-  fprintf(stderr, "%*s", pos, "");
-  fprintf(stderr, "^ ");
-  vfprintf(stderr, fmt, args);
-  fprintf(stderr, "\n");
-
-  exit(1);
-}
-
-static void error_at(char* loc, char* fmt, ...) {
-  int line = 1;
-  for (char* cur = user_input; cur < loc; cur++) {
-    if (*cur == '\n') {
-      line++;
-    }
-  }
-
-  va_list args;
-  va_start(args, fmt);
-  verror_at(line, loc, fmt, args);
-}
-
 void error_token(Token* token, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  verror_at(token->line, token->loc, fmt, args);
-}
-
-static void warn_at(int line, char* loc) {
-  char* start = loc;
-  while (user_input < start && start[-1] != '\n') {
-    start--;
-  }
-  char* end = loc;
-  while (*end != '\n') {
-    end++;
-  }
-
-  int indent = fprintf(stderr, "%s:%d ", input_filename, line);
-  fprintf(stderr, "%.*s\n", (int)(end - start), start);
-
-  int pos = loc - start + indent;
-  fprintf(stderr, "%*s", pos, "");
-  fprintf(stderr, "^ ");
-  fprintf(stderr, "\n");
+  verror_at(input_filename, user_input, token->loc, fmt, args);
 }
 
 void warn_token(Token* token) {
-  warn_at(token->line, token->loc);
+  warn_at(input_filename, user_input, token->loc);
 }
 
 static bool isbdigit(char c) {
   return c == '0' || c == '1';
 }
 
-static bool starting_with(char* c, char* prefix) {
-  return memcmp(c, prefix, strlen(prefix)) == 0;
-}
-
-static bool starting_with_insensitive(char* c, char* prefix) {
-  return strncasecmp(c, prefix, strlen(prefix)) == 0;
-}
-
-static bool is_identable1(char c) {
+static bool can_be_ident(char c) {
   return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
 }
 
-static bool is_identable2(char c) {
-  return is_identable1(c) || ('0' <= c && c <= '9');
+static bool can_be_ident2(char c) {
+  return can_be_ident(c) || ('0' <= c && c <= '9');
 }
 
-static void read_file(char** content) {
+static void read_file(char** contents) {
   FILE* f;
-  if (strcmp(input_filename, "-") == 0) {
+  if (equal_to_str(input_filename, "-")) {
     f = stdin;
   } else {
     f = fopen(input_filename, "r");
@@ -224,7 +142,7 @@ static void read_file(char** content) {
   }
 
   size_t len;
-  FILE* stream = open_memstream(content, &len);
+  FILE* stream = open_memstream(contents, &len);
 
   for (;;) {
     char tmp[4096];
@@ -241,7 +159,7 @@ static void read_file(char** content) {
 
   fflush(stream);
 
-  if (len == 0 || (*content)[len - 1] != '\n') {
+  if (len == 0 || (*contents)[len - 1] != '\n') {
     fputc('\n', stream);
   }
   fputc('\0', stream);
@@ -265,17 +183,17 @@ static void add_line_number(Token* token) {
 }
 
 static bool consume_comment(char** c) {
-  if (starting_with(*c, "//")) {
+  if (start_with(*c, "//")) {
     while (**c != '\n') {
       (*c)++;
     }
     return true;
   }
 
-  if (starting_with(*c, "/*")) {
+  if (start_with(*c, "/*")) {
     char* close = strstr(*c + 2, "*/");
     if (!close) {
-      error_at(*c, "unclosed block comment");
+      error_at(input_filename, user_input, *c, "unclosed block comment");
     }
     *c = close + 2;
     return true;
@@ -284,8 +202,8 @@ static bool consume_comment(char** c) {
   return false;
 }
 
-static bool can_be_as_keyward(char* kw, char* c) {
-  return starting_with(c, kw) && !is_identable2(c[strlen(kw)]);
+static bool can_be_keyword(char* s, char* keyword) {
+  return start_with(s, keyword) && !can_be_ident2(s[strlen(keyword)]);
 }
 
 static bool consume_keyword(Token** dst, char** c) {
@@ -332,7 +250,7 @@ static bool consume_keyword(Token** dst, char** c) {
   static int klen = sizeof(kws) / sizeof(char*);
 
   for (int i = 0; i < klen; i++) {
-    if (!can_be_as_keyward(kws[i], *c)) {
+    if (!can_be_keyword(*c, kws[i])) {
       continue;
     }
 
@@ -398,7 +316,7 @@ static bool consume_punct(Token** dst, char** c) {
   static int plen = sizeof(puncts) / sizeof(char*);
 
   for (int i = 0; i < plen; i++) {
-    if (!starting_with(*c, puncts[i])) {
+    if (!start_with(*c, puncts[i])) {
       continue;
     }
 
@@ -412,14 +330,14 @@ static bool consume_punct(Token** dst, char** c) {
 }
 
 static bool consume_ident(Token** dst, char** c) {
-  if (!is_identable1(**c)) {
+  if (!can_be_ident(**c)) {
     return false;
   }
 
   char* start = *c;
   do {
     (*c)++;
-  } while (is_identable2(**c));
+  } while (can_be_ident2(**c));
 
   *dst = new_token(TK_IDENT, start, *c - start);
   return true;
@@ -430,10 +348,10 @@ static Token* read_int(char** c) {
   char* start = *c;
 
   int base = 10;
-  if (starting_with_insensitive(*c, "0x") && isxdigit((*c)[2])) {
+  if (start_with_insensitive(*c, "0x") && isxdigit((*c)[2])) {
     *c += 2;
     base = 16;
-  } else if (starting_with_insensitive(*c, "0b") && isbdigit((*c)[2])) {
+  } else if (start_with_insensitive(*c, "0b") && isbdigit((*c)[2])) {
     *c += 2;
     base = 2;
   } else if (**c == '0') {
@@ -444,20 +362,20 @@ static Token* read_int(char** c) {
 
   bool l = false;
   bool u = false;
-  if (starting_with(*c, "LLU") || starting_with(*c, "LLu") || starting_with(*c, "llU") || starting_with(*c, "llu")
-      || starting_with(*c, "ULL") || starting_with(*c, "Ull") || starting_with(*c, "uLL") || starting_with(*c, "ull")) {
+  if (start_with(*c, "LLU") || start_with(*c, "LLu") || start_with(*c, "llU") || start_with(*c, "llu")
+      || start_with(*c, "ULL") || start_with(*c, "Ull") || start_with(*c, "uLL") || start_with(*c, "ull")) {
     *c += 3;
     l = u = true;
-  } else if (starting_with_insensitive(*c, "LU") || starting_with_insensitive(*c, "UL")) {
+  } else if (start_with_insensitive(*c, "LU") || start_with_insensitive(*c, "UL")) {
     *c += 2;
     l = u = true;
-  } else if (starting_with(*c, "LL") || starting_with_insensitive(*c, "ll")) {
+  } else if (start_with(*c, "LL") || start_with_insensitive(*c, "ll")) {
     *c += 2;
     l = true;
-  } else if (starting_with_insensitive(*c, "L")) {
+  } else if (start_with_insensitive(*c, "L")) {
     (*c)++;
     l = true;
-  } else if (starting_with_insensitive(*c, "U")) {
+  } else if (start_with_insensitive(*c, "U")) {
     (*c)++;
     u = true;
   }
@@ -505,10 +423,10 @@ static Token* read_float(char** c) {
   double val = strtod(start, c);
 
   Type* type = NULL;
-  if (starting_with_insensitive(*c, "F")) {
+  if (start_with_insensitive(*c, "F")) {
     type = new_float_type();
     (*c)++;
-  } else if (starting_with_insensitive(*c, "L")) {
+  } else if (start_with_insensitive(*c, "L")) {
     type = new_double_type();
     (*c)++;
   } else {
@@ -529,7 +447,7 @@ static bool consume_number(Token** dst, char** c) {
 
   char* peeked = *c;
   Token* token = read_int(&peeked);
-  if (!strchr(".EeFf", *peeked)) {
+  if (strchr(".EeFf", *peeked) == 0) {
     *c = peeked;
     *dst = token;
     return true;
@@ -572,7 +490,7 @@ static int read_escaped_char(char** c) {
   if (**c == 'x') {
     (*c)++;
     if (!isxdigit(**c)) {
-      error_at(*c, "expected a hex escape sequence");
+      error_at(input_filename, user_input, *c, "expected a hex escape sequence");
     }
 
     int digit = 0;
@@ -614,7 +532,7 @@ static bool consume_char(Token** dst, char** c) {
   char* start = (*c)++;
 
   if (**c == '\n' || **c == '\0') {
-    error_at(start, "unclosed string literal");
+    error_at(input_filename, user_input, start, "unclosed string literal");
   }
 
   char read;
@@ -628,7 +546,7 @@ static bool consume_char(Token** dst, char** c) {
 
   char* end = (*c)++;
   if (*end != '\'') {
-    error_at(start, "unclosed string literal");
+    error_at(input_filename, user_input, start, "unclosed string literal");
   }
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
@@ -646,7 +564,7 @@ static bool consume_str(Token** dst, char** c) {
   char* start = (*c)++;
   for (; **c != '"'; (*c)++) {
     if (**c == '\n' || **c == '\0') {
-      error_at(start, "unclosed string literal");
+      error_at(input_filename, user_input, start, "unclosed string literal");
     }
     if (**c == '\\') {
       (*c)++;

@@ -19,27 +19,6 @@ static bool in_asm;
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
 
-static bool are_equal(char* a, char* b) {
-  return strcmp(a, b) == 0;
-}
-
-static bool are_n_equal(char* a, char* b) {
-  return strncmp(a, b, strlen(b)) == 0;
-}
-
-static char* format(char* fmt, ...) {
-  char* dst = NULL;
-  size_t dst_len = 0;
-  FILE* out = open_memstream(&dst, &dst_len);
-
-  va_list args;
-  va_start(args, fmt);
-  vfprintf(out, fmt, args);
-  va_end(args);
-  fclose(out);
-  return dst;
-}
-
 static char* replace_ext(char* name, char* ext) {
   name = basename(strdup(name));
   char* dot = strrchr(name, '.');
@@ -112,40 +91,40 @@ static void usage(int status) {
 
 static void parse_args(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
-    if (are_equal(argv[i], "--help")) {
+    if (equal_to_str(argv[i], "--help")) {
       usage(0);
     }
 
-    if (are_equal(argv[i], "-###")) {
+    if (equal_to_str(argv[i], "-###")) {
       do_log_args = true;
       continue;
     }
 
-    if (are_equal(argv[i], "-exec")) {
+    if (equal_to_str(argv[i], "-exec")) {
       do_exec = true;
       continue;
     }
-    if (are_equal(argv[i], "-exec/input")) {
+    if (equal_to_str(argv[i], "-exec/input")) {
       input_filename = argv[++i];
       continue;
     }
-    if (are_equal(argv[i], "-exec/output")) {
+    if (equal_to_str(argv[i], "-exec/output")) {
       output_filename = argv[++i];
       continue;
     }
 
-    if (are_equal(argv[i], "-c")) {
+    if (equal_to_str(argv[i], "-c")) {
       in_obj = true;
       continue;
     }
 
-    if (are_equal(argv[i], "-S")) {
+    if (equal_to_str(argv[i], "-S")) {
       in_asm = true;
       continue;
     }
 
     // -o output_filename
-    if (are_equal(argv[i], "-o")) {
+    if (equal_to_str(argv[i], "-o")) {
       if (!argv[++i]) {
         usage(1);
       }
@@ -153,12 +132,12 @@ static void parse_args(int argc, char** argv) {
       continue;
     }
     // -o=output_filename etc
-    if (are_n_equal(argv[i], "-o")) {
+    if (start_with(argv[i], "-o")) {
       output_filename = argv[i] + 2;
       continue;
     }
 
-    if (argv[i][0] == '-' && argv[i][1] != '\0') {
+    if (start_with(argv[i], "-") && !equal_to_str(argv[i], "-")) {
       error("unknown argument: %s", argv[i]);
     }
 
