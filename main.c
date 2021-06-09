@@ -265,6 +265,7 @@ static int exec() {
   }
 
   Token* tokens = tokenize();
+  tokens = preprocess(tokens);
   TopLevelObj* codes = parse(tokens);
   gen(codes);
   return 0;

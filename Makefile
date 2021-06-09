@@ -93,6 +93,7 @@ s1/test@%: test/%_test
 beta/prepare:
 	make beta/main.s
 	make beta/tokenize.s
+	make beta/preprocess.s
 	make beta/parse.s
 	make beta/gen.s
 

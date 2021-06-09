@@ -248,5 +248,6 @@ void expect_token(Token** token, char* s);
 int expect_num(Token** token);
 
 Token* tokenize();
+Token* preprocess(Token* tokens);
 TopLevelObj* parse(Token* tokens);
 void gen(TopLevelObj* codes);
