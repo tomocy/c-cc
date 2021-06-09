@@ -9,12 +9,46 @@ struct Str {
 
 char* input_filename;
 char* output_filename;
-
 static Str* tmp_filenames;
 static Str* input_filenames;
 static bool do_log_args;
 static bool do_exec;
+static bool in_obj;
 static bool in_asm;
+
+static char* lib_path = "/usr/lib/x86_64-linux-gnu";
+static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
+
+static bool are_equal(char* a, char* b) {
+  return strcmp(a, b) == 0;
+}
+
+static bool are_n_equal(char* a, char* b) {
+  return strncmp(a, b, strlen(b)) == 0;
+}
+
+static char* format(char* fmt, ...) {
+  char* dst = NULL;
+  size_t dst_len = 0;
+  FILE* out = open_memstream(&dst, &dst_len);
+
+  va_list args;
+  va_start(args, fmt);
+  vfprintf(out, fmt, args);
+  va_end(args);
+  fclose(out);
+  return dst;
+}
+
+static char* replace_ext(char* name, char* ext) {
+  name = basename(strdup(name));
+  char* dot = strrchr(name, '.');
+  if (dot) {
+    *dot = '\0';
+  }
+
+  return format("%s%s", name, ext);
+}
 
 static void add_str(Str** strs, Str* str) {
   str->next = *strs;
@@ -35,24 +69,21 @@ static Str* new_str(char* data) {
   return str;
 }
 
-static bool are_equal(char* a, char* b) {
-  return strcmp(a, b) == 0;
-}
-
-static bool are_n_equal(char* a, char* b) {
-  return strncmp(a, b, strlen(b)) == 0;
-}
-
-static char* replace_ext(char* name, char* ext) {
-  name = basename(strdup(name));
-  char* dot = strrchr(name, '.');
-  if (dot) {
-    *dot = '\0';
+static char** new_args(int* argc, Str* strs) {
+  int len = 0;
+  for (Str* arg = strs; arg; arg = arg->next) {
+    len++;
   }
 
-  char* dst = calloc(1, strlen(name) + strlen(ext));
-  sprintf(dst, "%s%s", name, ext);
-  return dst;
+  int i = 0;
+  char** args = calloc(len + 1, sizeof(char*));
+  for (Str* arg = strs; arg; arg = arg->next) {
+    args[i++] = arg->data;
+  }
+  args[i] = NULL;
+
+  *argc = len;
+  return args;
 }
 
 static char* create_tmp_file() {
@@ -100,6 +131,11 @@ static void parse_args(int argc, char** argv) {
     }
     if (are_equal(argv[i], "-exec/output")) {
       output_filename = argv[++i];
+      continue;
+    }
+
+    if (are_equal(argv[i], "-c")) {
+      in_obj = true;
       continue;
     }
 
@@ -155,37 +191,72 @@ static int run_subprocess(int argc, char** argv) {
   return status == 0 ? 0 : 1;
 }
 
-static int run_with(int argc, char** argv, char* input, char* output) {
-  char** args = calloc(argc + 5 + 1, sizeof(char*));  // the last +1 for NULL termination
-  memcpy(args, argv, argc * sizeof(char*));
-
-  args[argc++] = "-exec";
-
-  if (input) {
-    args[argc++] = "-exec/input";
-    args[argc++] = input;
-  }
-
-  if (output) {
-    args[argc++] = "-exec/output";
-    args[argc++] = output;
-  }
-
-  return run_subprocess(argc, args);
+static int compile(char* input, char* output) {
+  char* args[] = {"/proc/self/exe", "-exec", "-exec/input", input, "-exec/output", output, NULL};
+  return run_subprocess(6, args);
 }
 
-static int run_assembler(char* input, char* output) {
-  char* args[] = {"as", "-c", input, "-o", output, NULL};
-  return run_subprocess(5, args);
-}
-
-static int assemble(int argc, char** argv, char* input, char* output) {
-  char* tmp_filename = create_tmp_file();
-  int status = run_with(argc, argv, input, tmp_filename);
+static int assemble(char* input, char* output) {
+  char* tmp_fname = create_tmp_file();
+  int status = compile(input, tmp_fname);
   if (status != 0) {
     return status;
   }
-  return run_assembler(tmp_filename, output);
+
+  char* args[] = {"as", "-c", tmp_fname, "-o", output, NULL};
+  return run_subprocess(5, args);
+}
+
+static int linkk(Str* inputs, char* output) {
+  Str head_link_inputs = {};
+  Str* link_inputs = &head_link_inputs;
+  for (Str* input = inputs; input; input = input->next) {
+    char* tmp_fname = create_tmp_file();
+    int status = assemble(input->data, tmp_fname);
+    if (status != 0) {
+      return status;
+    }
+
+    link_inputs = link_inputs->next = new_str(tmp_fname);
+  }
+
+  Str head_ld_args = {};
+  Str* ld_args = &head_ld_args;
+  ld_args = ld_args->next = new_str("ld");
+  ld_args = ld_args->next = new_str("-o");
+  ld_args = ld_args->next = new_str(output);
+  ld_args = ld_args->next = new_str("-m");
+  ld_args = ld_args->next = new_str("elf_x86_64");
+  ld_args = ld_args->next = new_str("-dynamic-linker");
+  ld_args = ld_args->next = new_str("/lib64/ld-linux-x86-64.so.2");
+  ld_args = ld_args->next = new_str(format("%s/crt1.o", lib_path));
+  ld_args = ld_args->next = new_str(format("%s/crti.o", lib_path));
+  ld_args = ld_args->next = new_str(format("%s/crtbegin.o", gcc_lib_path));
+  ld_args = ld_args->next = new_str(format("-L%s", gcc_lib_path));
+  ld_args = ld_args->next = new_str(format("-L%s", lib_path));
+  ld_args = ld_args->next = new_str(format("-L%s/..", lib_path));
+  ld_args = ld_args->next = new_str("-L/usr/lib64");
+  ld_args = ld_args->next = new_str("-L/lib64");
+  ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-linux-gnu");
+  ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-pc-linux-gnu");
+  ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-redhat-linux");
+  ld_args = ld_args->next = new_str("-L/usr/lib");
+  ld_args = ld_args->next = new_str("-L/lib");
+  for (Str* input = head_link_inputs.next; input; input = input->next) {
+    ld_args = ld_args->next = input;
+  }
+  ld_args = ld_args->next = new_str("-lc");
+  ld_args = ld_args->next = new_str("-lgcc");
+  ld_args = ld_args->next = new_str("--as-needed");
+  ld_args = ld_args->next = new_str("-lgcc_s");
+  ld_args = ld_args->next = new_str("--no-as-needed");
+  ld_args = ld_args->next = new_str(format("%s/crtend.o", gcc_lib_path));
+  ld_args = ld_args->next = new_str(format("%s/crtn.o", lib_path));
+
+  int argc = 0;
+  char** args = new_args(&argc, head_ld_args.next);
+
+  return run_subprocess(argc, args);
 }
 
 static int exec() {
@@ -199,16 +270,18 @@ static int exec() {
   return 0;
 }
 
-static int run_to_exec(int argc, char** argv) {
+static int run(int argc, char** argv) {
   if (!input_filenames) {
     error("no input files");
   }
-  if (output_filename && input_filenames->next) {
-    error("cannot specify '-o' with multiple filenames");
+  if (input_filenames->next && output_filename && (in_obj || in_asm)) {
+    error("cannot specify '-o' with '-c' or '-S' with multiple files");
   }
 
   atexit(unlink_tmp_file);
 
+  Str head_link_inputs = {};
+  Str* link_inputs = &head_link_inputs;
   for (Str* input = input_filenames; input; input = input->next) {
     char* output = output_filename;
     if (!output) {
@@ -216,16 +289,32 @@ static int run_to_exec(int argc, char** argv) {
       output = replace_ext(input->data, ext);
     }
 
-    int status = !in_asm ? assemble(argc, argv, input->data, output) : run_with(argc, argv, input->data, output);
-    if (status != 0) {
-      return status;
+    // compile and assemble
+    if (in_obj) {
+      int status = assemble(input->data, output);
+      if (status != 0) {
+        return status;
+      }
+      continue;
     }
+
+    // compile
+    if (in_asm) {
+      int status = compile(input->data, output);
+      if (status != 0) {
+        return status;
+      }
+      continue;
+    }
+
+    // Keep the input filename to compile, assemble and link later
+    link_inputs = link_inputs->next = new_str(input->data);
   }
 
-  return 0;
+  return head_link_inputs.next ? linkk(head_link_inputs.next, output_filename ? output_filename : "a.out") : 0;
 }
 
 int main(int argc, char** argv) {
   parse_args(argc, argv);
-  return !do_exec ? run_to_exec(argc, argv) : exec();
+  return !do_exec ? run(argc, argv) : exec();
 }

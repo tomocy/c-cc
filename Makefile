@@ -18,7 +18,7 @@ cc: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test/%: cc test/adapter.c test/%.c
-	$(CC) -o - -E -P -C test/$*.c | ./cc - -o test/$*.o
+	$(CC) -o - -E -P -C test/$*.c | ./cc -c -o test/$*.o -
 	$(CC) -o $@ test/adapter.c test/$*.o
 	rm test/$*.o
 
@@ -44,13 +44,13 @@ s2/cc: $(S2_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 s2/%.o: cc s2/%.c
-	./cc -o s2/$*.o s2/$*.c
+	./cc -c -o s2/$*.o s2/$*.c
 
 s2/%.c: self.py %.c
 	./self.py cc.h $*.c > s2/$*.c
 
 s2/test/%: s2/cc test/adapter.c test/%.c
-	$(CC) -o - -E -P -C test/$*.c | ./s2/cc - -o s2/test/$*.o
+	$(CC) -o - -E -P -C test/$*.c | ./s2/cc -c -o s2/test/$*.o -
 	$(CC) -o $@ test/adapter.c s2/test/$*.o
 	rm -rf s2/test/$*.o
 
@@ -101,7 +101,7 @@ beta/test@%: test/adapter.c test/%_test.c
 	make beta/prepare
 	make beta/cc
 	$(CC) -o - -E -P -C test/$*_test.c > beta/test/$*_test.c
-	./beta/cc -o beta/test/$*_test.o beta/test/$*_test.c
+	./beta/cc -c -o beta/test/$*_test.o beta/test/$*_test.c
 	$(CC) -o beta/test/$*_test test/adapter.c beta/test/$*_test.o
 	./beta/test/$*_test
 	rm -f beta/test/$*_test.o beta/test/$*_test.c beta/test/$*_test

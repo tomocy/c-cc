@@ -4,8 +4,6 @@ CC=$1
 
 TMP=$(mktemp -d /tmp/cc-test-XXXXXX)
 trap 'rm -rf $TMP' INT TERM HUP EXIT
-EMPTY=$TMP/empty.c
-touch "$EMPTY"
 
 passed() {
   echo "testing $1 ... passed"
@@ -16,81 +14,113 @@ failed() {
   exit 1
 }
 
-# --help
+# help (--help)
 if $CC --help 2>&1 | grep -q cc; then
-  passed --help
+  passed 'help (--help)'
 else
-  failed --help
+  failed 'help (--help)'
 fi
 
-# -S
+# compile (-S)
 if echo "int main() {}" | $CC -S -o - - | grep -q "main:"; then
-    passed -S
+    passed 'compile (-S)'
 else
-    failed -S
+    failed 'compile (-S)'
 fi
 
-# -o
-OUTPUT=$TMP/out
-rm -rf "$OUTPUT"
-$CC -o "$OUTPUT" "$EMPTY"
-if [ -f "$OUTPUT" ]; then
-  passed -o
+# assemble (-o)
+rm -rf "$TMP/out"
+echo "int main() { return 0; }" | $CC -c -o "$TMP/out" -
+if [ -f "$TMP/out" ]; then
+  passed 'assemble (-o)'
 else
-  failed -o
+  failed 'assemble (-o)'
+fi
+
+# link
+rm -rf "$TMP/out"
+echo "int bar(); int main() { return bar(); }" > "$TMP/out1.c"
+echo "int bar() { return 0; }" > "$TMP/out2.c"
+$CC -o "$TMP/out" "$TMP/out1.c" "$TMP/out2.c"
+if $TMP/out; then
+    passed link
+else
+    failed link
 fi
 
 # default output file
 echo "int main() {}" > "$TMP/out.c"
-# .c -> .o
-rm -f "$TMP/out.o"
-(cd "$TMP"; $OLDPWD/$CC $TMP/out.c)
-if [ -f "$TMP/out.o" ]; then
-    passed "out.c -> out.o"
-else
-    failed "out.c -> out.o"
-fi
 # .c -> .s
 rm -f "$TMP/out.s"
 (cd "$TMP"; $OLDPWD/$CC -S "$TMP/out.c")
 if [ -f "$TMP/out.s" ]; then
-    passed "out.c -> out.s"
+    passed "default output file: out.c -> out.s"
 else
-    failed "out.c -> out.s"
+    failed "default output file: out.c -> out.s"
+fi
+# .c -> .o
+rm -f "$TMP/out.o"
+(cd "$TMP"; $OLDPWD/$CC -c $TMP/out.c)
+if [ -f "$TMP/out.o" ]; then
+    passed "default output file: out.c -> out.o"
+else
+    failed "default output file: out.c -> out.o"
+fi
+# .c -> a.out
+rm -f "$TMP/a.out"
+(cd "$TMP"; $OLDPWD/$CC $TMP/out.c)
+if [ -f "$TMP/a.out" ]; then
+    passed "default output file: out.c -> a.out"
+else
+    failed "default output file: out.c -> a.out"
 fi
 
 # multiple input files
 echo "int x;" > "$TMP/out1.c"
-echo "int y;" > "$TMP/out2.c"
-# .c -> .o
-rm -f "$TMP/out1.o" "$TMP/out2.o"
-(cd "$TMP"; $OLDPWD/$CC $TMP/out1.c $TMP/out2.c)
-if [ -f "$TMP/out1.o" ] && [ -f "$TMP/out2.o" ]; then
-    passed "out1.c -> out1.o, out2.c -> out2.o"
-else
-    failed "out1.c -> out1.o, out2.c -> out2.o"
-fi
+echo "extern int x; int main() { return x; }" > "$TMP/out2.c"
 # .c -> .s
 rm -f "$TMP/out1.s" "$TMP/out2.s"
 (cd "$TMP"; $OLDPWD/$CC -S $TMP/out1.c $TMP/out2.c)
 if [ -f "$TMP/out1.s" ] && [ -f "$TMP/out2.s" ]; then
-    passed "out1.c -> out1.s, out2.c -> out2.s"
+    passed "multiple input files: out1.c -> out1.s, out2.c -> out2.s"
 else
-    failed "out1.c -> out1.s, out2.c -> out2.s"
+    failed "multiple input files: out1.c -> out1.s, out2.c -> out2.s"
+fi
+# .c -> .o
+rm -f "$TMP/out1.o" "$TMP/out2.o"
+(cd "$TMP"; $OLDPWD/$CC -c $TMP/out1.c $TMP/out2.c)
+if [ -f "$TMP/out1.o" ] && [ -f "$TMP/out2.o" ]; then
+    passed "multiple input files: out1.c -> out1.o, out2.c -> out2.o"
+else
+    failed "multiple input files: out1.c -> out1.o, out2.c -> out2.o"
+fi
+# .c -> a.out
+rm -f "$TMP/a.out"
+(cd "$TMP"; $OLDPWD/$CC $TMP/out1.c $TMP/out2.c)
+if [ -f "$TMP/a.out" ]; then
+    passed "multiple input files: out1.c, out2.c -> a.out"
+else
+    failed "multiple input files: out1.c, out2.c -> a.out"
 fi
 
-# no input files
+# validate no input files
 if $CC 2>&1 | grep -q 'no input files'; then
-  passed 'no input files'
+  passed 'validate: no input files'
 else
-  failed 'no input files'
+  failed 'validate: no input files'
 fi
 
-# -o and multiple input files
-if $CC -o out.o out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with multiple filenames"; then
-  passed '-o and multiple input files'
+# validate multiple input files, -o and -c
+if $CC -c -o out.o out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with '-c' or '-S' with multiple files"; then
+  passed 'validate: multiple input files with -o and -c'
 else
-  failed '-o and multiple input files'
+  failed 'validate: multiple input files with -o and -c'
+fi
+# validate multiple input files, -o and -S
+if $CC -S -o out.s out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with '-c' or '-S' with multiple files"; then
+  passed 'validate: multiple input files with -o and -S'
+else
+  failed 'validate: multiple input files with -o and -S'
 fi
 
 echo "OK"
