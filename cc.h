@@ -37,6 +37,7 @@ struct Token {
 
   int line;
   char* loc;
+  bool is_bol;
 
   int len;
 

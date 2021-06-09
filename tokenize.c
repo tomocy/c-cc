@@ -1,6 +1,7 @@
 #include "cc.h"
 
 static char* user_input;
+static bool is_bol;
 
 static Token* new_token(TokenKind kind, char* loc, int len);
 
@@ -23,8 +24,14 @@ Token* tokenize(void) {
 
   Token head = {};
   Token* cur = &head;
-
+  is_bol = true;
   while (*c) {
+    if (*c == '\n') {
+      is_bol = true;
+      c++;
+      continue;
+    }
+
     if (isspace(*c)) {
       c++;
       continue;
@@ -108,6 +115,8 @@ static Token* new_token(TokenKind kind, char* loc, int len) {
   tok->kind = kind;
   tok->loc = loc;
   tok->len = len;
+  tok->is_bol = is_bol;
+  is_bol = false;
   return tok;
 }
 
@@ -384,6 +393,7 @@ static bool consume_punct(Token** dst, char** c) {
     "!",
     "~",
     "?",
+    "#",
   };
   static int plen = sizeof(puncts) / sizeof(char*);
 

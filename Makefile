@@ -17,6 +17,11 @@ S2_TESTS=$(TESTS:%=s2/%)
 cc: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
+test/macro_test: cc test/adapter.c test/macro_test.c
+	./cc -c -o $@.o $@.c
+	$(CC) -o $@ test/adapter.c $@.o
+	rm $@.o
+
 test/%: cc test/adapter.c test/%.c
 	$(CC) -o - -E -P -C test/$*.c | ./cc -c -o test/$*.o -
 	$(CC) -o $@ test/adapter.c test/$*.o
@@ -48,6 +53,11 @@ s2/%.o: cc s2/%.c
 
 s2/%.c: self.py %.c
 	./self.py cc.h $*.c > s2/$*.c
+
+s2/test/macro_test: s2/cc test/adapter.c test/macro_test.c
+	./s2/cc -c -o $@.o test/macro_test.c
+	$(CC) -o $@ test/adapter.c $@.o
+	rm -rf $@.o
 
 s2/test/%: s2/cc test/adapter.c test/%.c
 	$(CC) -o - -E -P -C test/$*.c | ./s2/cc -c -o s2/test/$*.o -
