@@ -1,5 +1,17 @@
 #include "cc.h"
 
+Token* skip_to_bol(Token* token) {
+  if (token->is_bol) {
+    return token;
+  }
+
+  warn_token(token, "extra token");
+  while (!token->is_bol) {
+    token = token->next;
+  }
+  return token;
+}
+
 Token* append(Token* former, Token* latter) {
   Token head = {};
   Token* cur = &head;
@@ -22,6 +34,8 @@ static Token* include(Token* token) {
   }
   char* fname = format("%s/%s", dirname(strdup(token->file->name)), token->str_val);
   token = token->next;
+
+  token = skip_to_bol(token);
 
   Token* included = tokenize(fname);
   return append(included, token);

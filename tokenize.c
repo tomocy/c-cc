@@ -188,11 +188,16 @@ static Token* new_token(TokenKind kind, char* loc, int len) {
 void error_token(Token* token, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  verror_at(token->file->name, token->file->contents, token->loc, fmt, args);
+  vprint_at(token->file->name, token->file->contents, token->loc, fmt, args);
+  va_end(args);
+  exit(1);
 }
 
-void warn_token(Token* token) {
-  warn_at(token->file->name, token->file->contents, token->loc);
+void warn_token(Token* token, char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  vprint_at(token->file->name, token->file->contents, token->loc, fmt, args);
+  va_end(args);
 }
 
 static bool isbdigit(char c) {

@@ -52,23 +52,25 @@ static void print_loc(char* fname, char* contents, char* loc) {
 }
 
 // NOLINTNEXTLINE
-void verror_at(char* fname, char* contents, char* loc, char* fmt, va_list args) {
+void vprint_at(char* fname, char* contents, char* loc, char* fmt, va_list args) {
   print_loc(fname, contents, loc);
   vfprintf(stderr, fmt, args);
   fprintf(stderr, "\n");
+}
+
+// NOLINTNEXTLINE
+void warn_at(char* fname, char* contents, char* loc, char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  vprint_at(fname, contents, loc, fmt, args);
   va_end(args);
-  exit(1);
 }
 
 // NOLINTNEXTLINE
 void error_at(char* fname, char* contents, char* loc, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  verror_at(fname, contents, loc, fmt, args);
-}
-
-// NOLINTNEXTLINE
-void warn_at(char* fname, char* contents, char* loc) {
-  print_loc(fname, contents, loc);
-  fprintf(stderr, "\n");
+  vprint_at(fname, contents, loc, fmt, args);
+  va_end(args);
+  exit(1);
 }

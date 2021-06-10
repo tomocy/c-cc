@@ -238,9 +238,9 @@ struct Relocation {
 extern File* files;
 
 void error(char* fmt, ...);
-void verror_at(char* fname, char* contents, char* loc, char* fmt, va_list args);
+void vprint_at(char* fname, char* contents, char* loc, char* fmt, va_list args);
 void error_at(char* fname, char* contents, char* loc, char* fmt, ...);
-void warn_at(char* fname, char* contents, char* loc);
+void warn_at(char* fname, char* contents, char* loc, char* fmt, ...);
 
 char* format(char* fmt, ...);
 bool equal_to_str(char* s, char* other);
@@ -259,7 +259,7 @@ bool is_integer(Type* type);
 bool is_float(Type* type);
 
 void error_token(Token* token, char* fmt, ...);
-void warn_token(Token* token);
+void warn_token(Token* token, char* fmt, ...);
 
 bool equal_to_token(Token* token, char* s);
 bool consume_token(Token** token, char* s);
