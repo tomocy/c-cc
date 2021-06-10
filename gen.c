@@ -904,26 +904,14 @@ static void gen_text(TopLevelObj* codes) {
   }
 }
 
-static void open_output_file(char* fname) {
-  if (!fname || equal_to_str(fname, "-")) {
-    output_file = stdout;
-    return;
-  }
-
-  output_file = fopen(fname, "w");
-  if (!output_file) {
-    error("cannot open output file: %s: %s", fname, strerror(errno));
-  }
-}
-
-static void assert_depth_offset(char* name, int d) {
-  if (d != 0) {
-    error("%s: push and pop do not offset each other: %d", name, d);
+static void assert_depth_offset(char* name, int depth) {
+  if (depth != 0) {
+    error("%s: push and pop do not offset each other: %d", name, depth);
   }
 }
 
 void gen(char* output_filename, TopLevelObj* codes) {
-  open_output_file(output_filename);
+  output_file = open_output_file(output_filename);
 
   genln(".intel_syntax noprefix");
   for (File* file = files; file; file = file->next) {
@@ -931,6 +919,8 @@ void gen(char* output_filename, TopLevelObj* codes) {
   }
   gen_data(codes);
   gen_text(codes);
+
+  fclose(output_file);
 
   assert_depth_offset("depth_outside_frame", depth_outside_frame);
   assert_depth_offset("depth", depth);

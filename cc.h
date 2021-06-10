@@ -237,6 +237,10 @@ struct Relocation {
 
 extern File* files;
 
+FILE* open_input_file(char* fname);
+FILE* open_output_file(char* fname);
+char* read_file_contents(char* fname);
+
 void error(char* fmt, ...);
 void vprint_at(char* fname, char* contents, char* loc, char* fmt, va_list args);
 void error_at(char* fname, char* contents, char* loc, char* fmt, ...);
@@ -267,5 +271,6 @@ void expect_token(Token** token, char* s);
 
 Token* tokenize(char* input_filename);
 Token* preprocess(Token* tokens);
+void print_tokens(char* output_filename, Token* tokens);
 TopLevelObj* parse(Token* tokens);
 void gen(char* output_filename, TopLevelObj* codes);

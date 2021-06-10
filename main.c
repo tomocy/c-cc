@@ -15,6 +15,7 @@ static bool do_log_args;
 static bool do_exec;
 static bool in_obj;
 static bool in_asm;
+static bool in_c;
 
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
@@ -89,6 +90,7 @@ static void usage(int status) {
   exit(status);
 }
 
+// NOLINTNEXTLINE
 static void parse_args(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     if (equal_to_str(argv[i], "--help")) {
@@ -104,10 +106,17 @@ static void parse_args(int argc, char** argv) {
       do_exec = true;
       continue;
     }
+
+    if (equal_to_str(argv[i], "-exec/E")) {
+      in_c = true;
+      continue;
+    }
+
     if (equal_to_str(argv[i], "-exec/input")) {
       input_filename = argv[++i];
       continue;
     }
+
     if (equal_to_str(argv[i], "-exec/output")) {
       output_filename = argv[++i];
       continue;
@@ -120,6 +129,11 @@ static void parse_args(int argc, char** argv) {
 
     if (equal_to_str(argv[i], "-S")) {
       in_asm = true;
+      continue;
+    }
+
+    if (equal_to_str(argv[i], "-E")) {
+      in_c = true;
       continue;
     }
 
@@ -168,6 +182,11 @@ static int run_subprocess(int argc, char** argv) {
   int status = 0;
   while (wait(&status) > 0) {}
   return status == 0 ? 0 : 1;
+}
+
+static int preprocesss(char* input, char* output) {
+  char* args[] = {"/proc/self/exe", "-exec", "-exec/E", "-exec/input", input, "-exec/output", output, NULL};
+  return run_subprocess(7, args);
 }
 
 static int compile(char* input, char* output) {
@@ -238,24 +257,29 @@ static int linkk(Str* inputs, char* output) {
   return run_subprocess(argc, args);
 }
 
-static int exec() {
+static int exec(void) {
   if (!input_filename) {
     error("no input file to exec");
   }
 
   Token* tokens = tokenize(input_filename);
   tokens = preprocess(tokens);
+  if (in_c) {
+    print_tokens(output_filename, tokens);
+    return 0;
+  }
   TopLevelObj* codes = parse(tokens);
   gen(output_filename, codes);
   return 0;
 }
 
+// NOLINTNEXTLINE
 static int run(int argc, char** argv) {
   if (!input_filenames) {
     error("no input files");
   }
-  if (input_filenames->next && output_filename && (in_obj || in_asm)) {
-    error("cannot specify '-o' with '-c' or '-S' with multiple files");
+  if (input_filenames->next && output_filename && (in_obj || in_asm || in_c)) {
+    error("cannot specify '-o' with '-c', '-S' or '-E' with multiple files");
   }
 
   atexit(unlink_tmp_file);
@@ -269,7 +293,7 @@ static int run(int argc, char** argv) {
       output = replace_ext(input->data, ext);
     }
 
-    // compile and assemble
+    // preprocess, compile and assemble
     if (in_obj) {
       int status = assemble(input->data, output);
       if (status != 0) {
@@ -278,9 +302,17 @@ static int run(int argc, char** argv) {
       continue;
     }
 
-    // compile
+    // preprocess and compile
     if (in_asm) {
       int status = compile(input->data, output);
+      if (status != 0) {
+        return status;
+      }
+      continue;
+    }
+
+    if (in_c) {
+      int status = preprocesss(input->data, output_filename ? output_filename : NULL);
       if (status != 0) {
         return status;
       }

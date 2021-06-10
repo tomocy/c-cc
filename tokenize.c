@@ -96,46 +96,9 @@ static File* new_file(int index, char* name, char* contents) {
   return file;
 }
 
-static void read_file_contents(char** contents, char* fname) {
-  FILE* f;
-  if (equal_to_str(fname, "-")) {
-    f = stdin;
-  } else {
-    f = fopen(fname, "r");
-    if (!f) {
-      error("cannot open input file %s: %s", fname, strerror(errno));
-    }
-  }
-
-  size_t len;
-  FILE* stream = open_memstream(contents, &len);
-
-  for (;;) {
-    char tmp[4096];
-    int n = fread(tmp, 1, sizeof(tmp), f);
-    if (n == 0) {
-      break;
-    }
-    fwrite(tmp, 1, n, stream);
-  }
-
-  if (f != stdin) {
-    fclose(f);
-  }
-
-  fflush(stream);
-
-  if (len == 0 || (*contents)[len - 1] != '\n') {
-    fputc('\n', stream);
-  }
-  fputc('\0', stream);
-  fclose(stream);
-}
-
 static File* read_file(char* fname) {
   static int index = 0;
-  File* file = new_file(++index, fname, NULL);
-  read_file_contents(&file->contents, fname);
+  File* file = new_file(++index, fname, read_file_contents(fname));
   return file;
 }
 
@@ -183,6 +146,23 @@ static Token* new_token(TokenKind kind, char* loc, int len) {
   tok->is_bol = is_bol;
   is_bol = false;
   return tok;
+}
+
+void print_tokens(char* output_filename, Token* tokens) {
+  FILE* file = open_output_file(output_filename);
+
+  for (Token* token = tokens; token; token = token->next) {
+    if (token->line > 1 && token->is_bol) {
+      fprintf(file, "\n");
+    }
+    if (!token->is_bol) {
+      fprintf(file, " ");
+    }
+    fprintf(file, "%.*s", token->len, token->loc);
+  }
+  fprintf(file, "\n");
+
+  fclose(file);
 }
 
 void error_token(Token* token, char* fmt, ...) {

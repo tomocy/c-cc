@@ -32,7 +32,8 @@ static Token* include(Token* token) {
   if (token->kind != TK_STR) {
     error_token(token, "expected a filename");
   }
-  char* fname = format("%s/%s", dirname(strdup(token->file->name)), token->str_val);
+  char* fname = !start_with(token->str_val, "/") ? format("%s/%s", dirname(strdup(token->file->name)), token->str_val)
+                                                 : token->str_val;
   token = token->next;
 
   token = skip_to_bol(token);
