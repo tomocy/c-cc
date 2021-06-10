@@ -265,7 +265,7 @@ static void gen_addr(Node* node) {
 
 // NOLINTNEXTLINE
 static void gen_expr(Node* node) {
-  genln("  .loc 1 %d", node->token->line);
+  genln("  .loc %d %d", node->token->file->index, node->token->line);
 
   switch (node->kind) {
     case ND_ASSIGN:
@@ -668,7 +668,7 @@ static void gen_expr(Node* node) {
 }
 
 static void gen_stmt(Node* node) {
-  genln("  .loc 1 %d", node->token->line);
+  genln("  .loc %d %d", node->token->file->index, node->token->line);
 
   switch (node->kind) {
     case ND_BLOCK:
@@ -904,15 +904,15 @@ static void gen_text(TopLevelObj* codes) {
   }
 }
 
-static void open_output_file(void) {
-  if (!output_filename || strcmp(output_filename, "-") == 0) {
+static void open_output_file(char* fname) {
+  if (!fname || equal_to_str(fname, "-")) {
     output_file = stdout;
     return;
   }
 
-  output_file = fopen(output_filename, "w");
+  output_file = fopen(fname, "w");
   if (!output_file) {
-    error("cannot open output file: %s: %s", output_filename, strerror(errno));
+    error("cannot open output file: %s: %s", fname, strerror(errno));
   }
 }
 
@@ -922,11 +922,13 @@ static void assert_depth_offset(char* name, int d) {
   }
 }
 
-void gen(TopLevelObj* codes) {
-  open_output_file();
+void gen(char* output_filename, TopLevelObj* codes) {
+  open_output_file(output_filename);
 
   genln(".intel_syntax noprefix");
-  genln(".file 1 \"%s\"", input_filename);
+  for (File* file = files; file; file = file->next) {
+    genln(".file %d \"%s\"", file->index, file->name);
+  }
   gen_data(codes);
   gen_text(codes);
 

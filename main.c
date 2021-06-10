@@ -7,8 +7,8 @@ struct Str {
   char* data;
 };
 
-char* input_filename;
-char* output_filename;
+static char* input_filename;
+static char* output_filename;
 static Str* tmp_filenames;
 static Str* input_filenames;
 static bool do_log_args;
@@ -243,10 +243,10 @@ static int exec() {
     error("no input file to exec");
   }
 
-  Token* tokens = tokenize();
+  Token* tokens = tokenize(input_filename);
   tokens = preprocess(tokens);
   TopLevelObj* codes = parse(tokens);
-  gen(codes);
+  gen(output_filename, codes);
   return 0;
 }
 

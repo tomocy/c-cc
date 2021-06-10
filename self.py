@@ -64,6 +64,7 @@ static void va_end(va_list ap) {}
 long strtoul(char* nptr, char** endptr, int base);
 void exit(int code);
 char* basename(char* path);
+char* dirname(char *path);
 char* strrchr(char* s, int c);
 int unlink(char* pathname);
 int mkstemp(char* template);

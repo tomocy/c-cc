@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+typedef struct File File;
 typedef struct Token Token;
 typedef struct Node Node;
 typedef struct TopLevelObj TopLevelObj;
@@ -20,6 +21,13 @@ typedef struct Obj Obj;
 typedef struct Relocation Relocation;
 typedef struct Type Type;
 typedef struct Member Member;
+
+struct File {
+  File* next;
+  int index;
+  char* name;
+  char* contents;
+};
 
 typedef enum {
   TK_RESERVED,
@@ -35,6 +43,7 @@ struct Token {
 
   Type* type;
 
+  File* file;
   int line;
   char* loc;
   bool is_bol;
@@ -226,8 +235,7 @@ struct Relocation {
   long addend;
 };
 
-extern char* input_filename;
-extern char* output_filename;
+extern File* files;
 
 void error(char* fmt, ...);
 void verror_at(char* fname, char* contents, char* loc, char* fmt, va_list args);
@@ -257,7 +265,7 @@ bool equal_to_token(Token* token, char* s);
 bool consume_token(Token** token, char* s);
 void expect_token(Token** token, char* s);
 
-Token* tokenize();
+Token* tokenize(char* input_filename);
 Token* preprocess(Token* tokens);
 TopLevelObj* parse(Token* tokens);
-void gen(TopLevelObj* codes);
+void gen(char* output_filename, TopLevelObj* codes);

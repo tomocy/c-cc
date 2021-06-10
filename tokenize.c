@@ -1,12 +1,13 @@
 #include "cc.h"
 
-static char* user_input;
+File* files;
+static File* file;
 static bool is_bol;
 
-static Token* new_token(TokenKind kind, char* loc, int len);
-
-static void read_file(char** content);
+static File* read_file(char* fname);
 static void add_line_number(Token* token);
+
+static Token* new_token(TokenKind kind, char* loc, int len);
 
 static bool consume_comment(char** c);
 static bool consume_keyword(Token** dst, char** c);
@@ -16,9 +17,10 @@ static bool consume_number(Token** dst, char** c);
 static bool consume_char(Token** dst, char** c);
 static bool consume_str(Token** dst, char** c);
 
-Token* tokenize(void) {
-  read_file(&user_input);
-  char* c = user_input;
+Token* tokenize(char* input_filename) {
+  file = read_file(input_filename);
+
+  char* c = file->contents;
 
   Token head = {};
   Token* cur = &head;
@@ -69,75 +71,39 @@ Token* tokenize(void) {
       continue;
     }
 
-    error_at(input_filename, user_input, c, "invalid character");
+    error_at(file->name, file->contents, c, "invalid character");
   }
 
   cur->next = new_token(TK_EOF, c, 0);
+  file = NULL;
 
   Token* tokens = head.next;
   add_line_number(tokens);
   return tokens;
 }
 
-bool equal_to_token(Token* token, char* s) {
-  return memcmp(token->loc, s, token->len) == 0 && s[token->len] == '\0';
+static void add_file(File* file) {
+  file->next = files;
+  files = file;
 }
 
-bool consume_token(Token** token, char* s) {
-  if (!equal_to_token(*token, s)) {
-    return false;
-  }
-
-  *token = (*token)->next;
-  return true;
+static File* new_file(int index, char* name, char* contents) {
+  File* file = calloc(1, sizeof(File));
+  file->index = index;
+  file->name = name;
+  file->contents = contents;
+  add_file(file);
+  return file;
 }
 
-void expect_token(Token** token, char* s) {
-  if (!consume_token(token, s)) {
-    error_at(input_filename, user_input, (*token)->loc, "expected '%s'", s);
-  }
-}
-
-static Token* new_token(TokenKind kind, char* loc, int len) {
-  Token* tok = calloc(1, sizeof(Token));
-  tok->kind = kind;
-  tok->loc = loc;
-  tok->len = len;
-  tok->is_bol = is_bol;
-  is_bol = false;
-  return tok;
-}
-
-void error_token(Token* token, char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  verror_at(input_filename, user_input, token->loc, fmt, args);
-}
-
-void warn_token(Token* token) {
-  warn_at(input_filename, user_input, token->loc);
-}
-
-static bool isbdigit(char c) {
-  return c == '0' || c == '1';
-}
-
-static bool can_be_ident(char c) {
-  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
-}
-
-static bool can_be_ident2(char c) {
-  return can_be_ident(c) || ('0' <= c && c <= '9');
-}
-
-static void read_file(char** contents) {
+static void read_file_contents(char** contents, char* fname) {
   FILE* f;
-  if (equal_to_str(input_filename, "-")) {
+  if (equal_to_str(fname, "-")) {
     f = stdin;
   } else {
-    f = fopen(input_filename, "r");
+    f = fopen(fname, "r");
     if (!f) {
-      error("cannot open input file %s: %s", input_filename, strerror(errno));
+      error("cannot open input file %s: %s", fname, strerror(errno));
     }
   }
 
@@ -166,9 +132,16 @@ static void read_file(char** contents) {
   fclose(stream);
 }
 
+static File* read_file(char* fname) {
+  static int index = 0;
+  File* file = new_file(++index, fname, NULL);
+  read_file_contents(&file->contents, fname);
+  return file;
+}
+
 static void add_line_number(Token* token) {
   int line = 1;
-  for (char* loc = user_input; *loc; loc++) {
+  for (char* loc = token->file->contents; *loc; loc++) {
     if (*loc == '\n') {
       line++;
       continue;
@@ -182,6 +155,58 @@ static void add_line_number(Token* token) {
   }
 }
 
+bool equal_to_token(Token* token, char* s) {
+  return memcmp(token->loc, s, token->len) == 0 && s[token->len] == '\0';
+}
+
+bool consume_token(Token** token, char* s) {
+  if (!equal_to_token(*token, s)) {
+    return false;
+  }
+
+  *token = (*token)->next;
+  return true;
+}
+
+void expect_token(Token** token, char* s) {
+  if (!consume_token(token, s)) {
+    error_at(file->name, file->contents, (*token)->loc, "expected '%s'", s);
+  }
+}
+
+static Token* new_token(TokenKind kind, char* loc, int len) {
+  Token* tok = calloc(1, sizeof(Token));
+  tok->kind = kind;
+  tok->file = file;
+  tok->loc = loc;
+  tok->len = len;
+  tok->is_bol = is_bol;
+  is_bol = false;
+  return tok;
+}
+
+void error_token(Token* token, char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  verror_at(token->file->name, token->file->contents, token->loc, fmt, args);
+}
+
+void warn_token(Token* token) {
+  warn_at(token->file->name, token->file->contents, token->loc);
+}
+
+static bool isbdigit(char c) {
+  return c == '0' || c == '1';
+}
+
+static bool can_be_ident(char c) {
+  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+static bool can_be_ident2(char c) {
+  return can_be_ident(c) || ('0' <= c && c <= '9');
+}
+
 static bool consume_comment(char** c) {
   if (start_with(*c, "//")) {
     while (**c != '\n') {
@@ -193,7 +218,7 @@ static bool consume_comment(char** c) {
   if (start_with(*c, "/*")) {
     char* close = strstr(*c + 2, "*/");
     if (!close) {
-      error_at(input_filename, user_input, *c, "unclosed block comment");
+      error_at(file->name, file->contents, *c, "unclosed block comment");
     }
     *c = close + 2;
     return true;
@@ -490,7 +515,7 @@ static int read_escaped_char(char** c) {
   if (**c == 'x') {
     (*c)++;
     if (!isxdigit(**c)) {
-      error_at(input_filename, user_input, *c, "expected a hex escape sequence");
+      error_at(file->name, file->contents, *c, "expected a hex escape sequence");
     }
 
     int digit = 0;
@@ -532,7 +557,7 @@ static bool consume_char(Token** dst, char** c) {
   char* start = (*c)++;
 
   if (**c == '\n' || **c == '\0') {
-    error_at(input_filename, user_input, start, "unclosed string literal");
+    error_at(file->name, file->contents, start, "unclosed string literal");
   }
 
   char read;
@@ -546,7 +571,7 @@ static bool consume_char(Token** dst, char** c) {
 
   char* end = (*c)++;
   if (*end != '\'') {
-    error_at(input_filename, user_input, start, "unclosed string literal");
+    error_at(file->name, file->contents, start, "unclosed string literal");
   }
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
@@ -564,7 +589,7 @@ static bool consume_str(Token** dst, char** c) {
   char* start = (*c)++;
   for (; **c != '"'; (*c)++) {
     if (**c == '\n' || **c == '\0') {
-      error_at(input_filename, user_input, start, "unclosed string literal");
+      error_at(file->name, file->contents, start, "unclosed string literal");
     }
     if (**c == '\\') {
       (*c)++;
