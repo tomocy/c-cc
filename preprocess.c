@@ -5,6 +5,7 @@ typedef struct IfDir IfDir;
 struct IfDir {
   IfDir* next;
   Token* token;
+  bool cond;
 };
 
 static IfDir* if_dirs;
@@ -14,14 +15,15 @@ static void add_if_dir(IfDir* dir) {
   if_dirs = dir;
 }
 
-static IfDir* new_if_dir(Token* token) {
+static IfDir* new_if_dir(Token* token, bool cond) {
   IfDir* dir = calloc(1, sizeof(IfDir));
   dir->token = token;
+  dir->cond = cond;
   add_if_dir(dir);
   return dir;
 }
 
-static Token* skip_to_bol(Token* token) {
+static Token* skip_extra_tokens(Token* token) {
   if (token->is_bol) {
     return token;
   }
@@ -70,7 +72,7 @@ static Token* include_dir(Token* token) {
                                                  : token->str_val;
   token = token->next;
 
-  token = skip_to_bol(token);
+  token = skip_extra_tokens(token);
 
   Token* included = tokenize(fname);
   return append(included, token);
@@ -83,8 +85,18 @@ static Token* skip_to_endif_dir(Token* token) {
       expect_dir(&token, "endif");
       continue;
     }
-    if (is_dir(token, "endif")) {
-      break;
+
+    token = token->next;
+  }
+  return token;
+}
+
+static Token* skip_if_block(Token* token) {
+  while (!is_dir(token, "else") && !is_dir(token, "endif")) {
+    if (is_dir(token, "if")) {
+      token = skip_to_endif_dir(token->next);
+      expect_dir(&token, "endif");
+      continue;
     }
 
     token = token->next;
@@ -95,11 +107,26 @@ static Token* skip_to_endif_dir(Token* token) {
 static Token* if_dir(Token* token) {
   Token* start = token;
   expect_dir(&token, "if");
-  new_if_dir(start);
 
-  int64_t cond = const_expr(&token);
-  if (!cond) {
-    token = skip_to_endif_dir(token);
+  IfDir* dir = new_if_dir(start, const_expr(&token) != 0);
+  if (!dir->cond) {
+    token = skip_if_block(token);
+  }
+
+  return token;
+}
+
+static Token* else_dir(Token* token) {
+  Token* start = token;
+  expect_dir(&token, "else");
+  if (!if_dirs) {
+    error_token(start, "stray #else");
+  }
+
+  token = skip_extra_tokens(token);
+
+  if (if_dirs->cond) {
+    token = skip_to_endif_dir(token->next);
   }
 
   return token;
@@ -113,7 +140,7 @@ static Token* endif_dir(Token* token) {
   }
   if_dirs = if_dirs->next;
 
-  return skip_to_bol(token);
+  return skip_extra_tokens(token);
 }
 
 Token* preprocess(Token* tokens) {
@@ -131,9 +158,15 @@ Token* preprocess(Token* tokens) {
 
     if (is_dir(token, "if")) {
       token->next = if_dir(token);
+      continue;
+    }
+    if (is_dir(token, "else")) {
+      token->next = else_dir(token);
+      continue;
     }
     if (is_dir(token, "endif")) {
       token->next = endif_dir(token);
+      continue;
     }
 
     // null directive
