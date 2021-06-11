@@ -1,6 +1,13 @@
 #include "cc.h"
 
+typedef struct Macro Macro;
 typedef struct IfDir IfDir;
+
+struct Macro {
+  Macro* next;
+  char* name;
+  Token* body;
+};
 
 struct IfDir {
   IfDir* next;
@@ -9,6 +16,7 @@ struct IfDir {
   IfDir* elifs;
 };
 
+static Macro* macros;
 static IfDir* if_dirs;
 
 static void add_if_dir_to(IfDir** dirs, IfDir* dir) {
@@ -16,8 +24,21 @@ static void add_if_dir_to(IfDir** dirs, IfDir* dir) {
   *dirs = dir;
 }
 
+static void add_macro(Macro* macro) {
+  macro->next = macros;
+  macros = macro;
+}
+
 static void add_if_dir(IfDir* dir) {
   add_if_dir_to(&if_dirs, dir);
+}
+
+static Macro* new_macro(char* name, Token* body) {
+  Macro* macro = calloc(1, sizeof(Macro));
+  macro->name = name;
+  macro->body = body;
+  add_macro(macro);
+  return macro;
 }
 
 static IfDir* new_stray_if_dir(Token* token, bool cond) {
@@ -31,6 +52,18 @@ static IfDir* new_if_dir(Token* token, bool cond) {
   IfDir* dir = new_stray_if_dir(token, cond);
   add_if_dir(dir);
   return dir;
+}
+
+static Macro* find_macro(char* c, int len) {
+  for (Macro* macro = macros; macro; macro = macro->next) {
+    if (!equal_to_n_chars(macro->name, c, len)) {
+      continue;
+    }
+
+    return macro;
+  }
+
+  return NULL;
 }
 
 static Token* skip_extra_tokens(Token* token) {
@@ -70,6 +103,49 @@ static Token* append(Token* former, Token* latter) {
   cur->next = latter;
 
   return head.next;
+}
+
+static Token* consume_inline_tokens(Token** tokens) {
+  Token head = {};
+  Token* cur = &head;
+  for (; *tokens && !(*tokens)->is_bol; *tokens = (*tokens)->next) {
+    cur = cur->next = *tokens;
+  }
+  cur->next = new_eof_token_in(cur->file);
+
+  return head.next;
+}
+
+static bool can_expand_macro(Token* token) {
+  if (token->kind != TK_IDENT) {
+    return false;
+  }
+
+  return find_macro(token->loc, token->len) != NULL;
+}
+
+static Token* expand_macro(Token* token) {
+  Token* ident = expect_ident(&token);
+  Macro* macro = find_macro(ident->loc, ident->len);
+  if (!macro) {
+    error_token(ident, "undefined macro");
+  }
+
+  return append(macro->body, token);
+}
+
+static Token* define_dir(Token* token) {
+  expect_dir(&token, "define");
+
+  if (token->kind != TK_IDENT) {
+    error_token(token, "macro name must be an identifier");
+  }
+  char* name = strndup(token->loc, token->len);
+  token = token->next;
+
+  new_macro(name, consume_inline_tokens(&token));
+
+  return token;
 }
 
 static Token* include_dir(Token* token) {
@@ -262,8 +338,18 @@ Token* preprocess(Token* tokens) {
   Token head = {};
   Token* cur = &head;
   for (Token* token = tokens; token; token = token->next) {
+    if (can_expand_macro(token)) {
+      token->next = expand_macro(token);
+      continue;
+    }
+
     if (!equal_to_token(token, "#")) {
       cur = cur->next = token;
+      continue;
+    }
+
+    if (is_dir(token, "define")) {
+      token->next = define_dir(token);
       continue;
     }
 

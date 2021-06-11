@@ -131,5 +131,28 @@ int main() {
 #endif
   assert("mm", 2, mm);
 
+  // NOLINTNEXTLINE
+  int M1 = 5;
+
+#define M1 3
+  assert("M1", 3, M1);
+  // NOLINTNEXTLINE
+#define M1 4
+  assert("M1", 4, M1);
+
+// NOLINTNEXTLINE
+#define M1 3 + 4 +
+  assert("M1 5", 12, M1 5);
+
+// NOLINTNEXTLINE
+#define M1 3 + 4
+  assert("M1 * 5", 23, M1 * 5);
+
+#define ASSERT_ assert(
+#define if 5
+#define five "5"
+#define END )
+  ASSERT_ five, 5, if END;
+
   ok();
 }
