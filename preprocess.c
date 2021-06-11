@@ -6,19 +6,29 @@ struct IfDir {
   IfDir* next;
   Token* token;
   bool cond;
+  IfDir* elifs;
 };
 
 static IfDir* if_dirs;
 
-static void add_if_dir(IfDir* dir) {
-  dir->next = if_dirs;
-  if_dirs = dir;
+static void add_if_dir_to(IfDir** dirs, IfDir* dir) {
+  dir->next = *dirs;
+  *dirs = dir;
 }
 
-static IfDir* new_if_dir(Token* token, bool cond) {
+static void add_if_dir(IfDir* dir) {
+  add_if_dir_to(&if_dirs, dir);
+}
+
+static IfDir* new_stray_if_dir(Token* token, bool cond) {
   IfDir* dir = calloc(1, sizeof(IfDir));
   dir->token = token;
   dir->cond = cond;
+  return dir;
+}
+
+static IfDir* new_if_dir(Token* token, bool cond) {
+  IfDir* dir = new_stray_if_dir(token, cond);
   add_if_dir(dir);
   return dir;
 }
@@ -92,7 +102,7 @@ static Token* skip_to_endif_dir(Token* token) {
 }
 
 static Token* skip_if_block(Token* token) {
-  while (!is_dir(token, "else") && !is_dir(token, "endif")) {
+  while (!is_dir(token, "elif") && !is_dir(token, "else") && !is_dir(token, "endif")) {
     if (is_dir(token, "if")) {
       token = skip_to_endif_dir(token->next);
       expect_dir(&token, "endif");
@@ -102,6 +112,20 @@ static Token* skip_if_block(Token* token) {
     token = token->next;
   }
   return token;
+}
+
+static bool have_expanded_if_block(IfDir* dir) {
+  if (dir->cond) {
+    return true;
+  }
+
+  for (IfDir* elif = dir->elifs; elif; elif = elif->next) {
+    if (elif->cond) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 static Token* if_dir(Token* token) {
@@ -116,6 +140,23 @@ static Token* if_dir(Token* token) {
   return token;
 }
 
+static Token* elif_dir(Token* token) {
+  Token* start = token;
+  expect_dir(&token, "elif");
+  if (!if_dirs) {
+    error_token(start, "stray #elif");
+  }
+
+  IfDir* dir = new_stray_if_dir(start, const_expr(&token) != 0);
+  if (have_expanded_if_block(if_dirs) || !dir->cond) {
+    token = skip_if_block(token);
+  }
+
+  add_if_dir_to(&if_dirs->elifs, dir);
+
+  return token;
+}
+
 static Token* else_dir(Token* token) {
   Token* start = token;
   expect_dir(&token, "else");
@@ -125,7 +166,7 @@ static Token* else_dir(Token* token) {
 
   token = skip_extra_tokens(token);
 
-  if (if_dirs->cond) {
+  if (have_expanded_if_block(if_dirs)) {
     token = skip_to_endif_dir(token->next);
   }
 
@@ -158,6 +199,10 @@ Token* preprocess(Token* tokens) {
 
     if (is_dir(token, "if")) {
       token->next = if_dir(token);
+      continue;
+    }
+    if (is_dir(token, "elif")) {
+      token->next = elif_dir(token);
       continue;
     }
     if (is_dir(token, "else")) {
