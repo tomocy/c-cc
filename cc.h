@@ -270,7 +270,11 @@ bool consume_token(Token** token, char* s);
 void expect_token(Token** token, char* s);
 
 Token* tokenize(char* input_filename);
-Token* preprocess(Token* tokens);
 void print_tokens(char* output_filename, Token* tokens);
+
+Token* preprocess(Token* tokens);
+
+int64_t const_expr(Token** tokens);
 TopLevelObj* parse(Token* tokens);
+
 void gen(char* output_filename, TopLevelObj* codes);

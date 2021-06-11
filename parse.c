@@ -1151,7 +1151,6 @@ static Type* type_suffix(Token** tokens, Type* type);
 static Type* func_params(Token** tokens, Type* type);
 static Type* array_dimensions(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Type* type);
-static int64_t const_expr(Token** tokens);
 static int64_t eval(Node* node);
 static double eval_float(Node* node);
 static int64_t eval_reloc(Node* node, char** label);
@@ -2484,7 +2483,7 @@ static int64_t eval_reloc(Node* node, char** label) {
   }
 }
 
-static int64_t const_expr(Token** tokens) {
+int64_t const_expr(Token** tokens) {
   Node* node = conditional(tokens);
   return eval(node);
 }
