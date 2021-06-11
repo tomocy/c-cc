@@ -184,6 +184,80 @@ static Token* endif_dir(Token* token) {
   return skip_extra_tokens(token);
 }
 
+static bool is_keyword(char* c, int len) {
+  static char* keywords[] = {
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "return",
+    "sizeof",
+    "void",
+    "_Bool",
+    "char",
+    "short",
+    "int",
+    "long",
+    "float",
+    "double",
+    "struct",
+    "union",
+    "enum",
+    "typedef",
+    "static",
+    "goto",
+    "break",
+    "continue",
+    "switch",
+    "case",
+    "default",
+    "_Alignof",
+    "_Alignas",
+    "signed",
+    "unsigned",
+    "const",
+    "volatile",
+    "auto",
+    "register",
+    "restrict",
+    "__restrict",
+    "__restrict__",
+    "_Noreturn",
+  };
+  static int klen = sizeof(keywords) / sizeof(char*);
+
+  for (int i = 0; i < klen; i++) {
+    if (!can_be_keyword(c, len)) {
+      continue;
+    }
+    if (equal_to_n_chars(keywords[i], c, len)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static Token* convert_keywords(Token* tokens) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = tokens; token; token = token->next) {
+    cur = cur->next = token;
+
+    if (token->kind != TK_IDENT) {
+      continue;
+    }
+    if (!is_keyword(token->loc, token->len)) {
+      continue;
+    }
+
+    cur->kind = TK_RESERVED;
+  }
+
+  return head.next;
+}
+
 Token* preprocess(Token* tokens) {
   Token head = {};
   Token* cur = &head;
@@ -226,5 +300,5 @@ Token* preprocess(Token* tokens) {
     error_token(if_dirs->token, "unterminated if directive");
   }
 
-  return head.next;
+  return convert_keywords(head.next);
 }

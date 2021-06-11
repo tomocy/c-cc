@@ -7,10 +7,10 @@ static bool is_bol;
 static File* read_file(char* fname);
 static void add_line_number(Token* token);
 
-static Token* new_token(TokenKind kind, char* loc, int len);
+static Token* new_token_in_file(TokenKind kind, char* loc, int len);
+static Token* new_eof_token_in_file();
 
 static bool consume_comment(char** c);
-static bool consume_keyword(Token** dst, char** c);
 static bool consume_punct(Token** dst, char** c);
 static bool consume_ident(Token** dst, char** c);
 static bool consume_number(Token** dst, char** c);
@@ -56,11 +56,6 @@ Token* tokenize(char* input_filename) {
       continue;
     }
 
-    if (consume_keyword(&cur->next, &c)) {
-      cur = cur->next;
-      continue;
-    }
-
     if (consume_ident(&cur->next, &c)) {
       cur = cur->next;
       continue;
@@ -74,7 +69,7 @@ Token* tokenize(char* input_filename) {
     error_at(file->name, file->contents, c, "invalid character");
   }
 
-  cur->next = new_token(TK_EOF, c, 0);
+  cur->next = new_eof_token_in_file();
   file = NULL;
 
   Token* tokens = head.next;
@@ -137,15 +132,30 @@ void expect_token(Token** token, char* s) {
   }
 }
 
-static Token* new_token(TokenKind kind, char* loc, int len) {
-  Token* tok = calloc(1, sizeof(Token));
-  tok->kind = kind;
-  tok->file = file;
-  tok->loc = loc;
-  tok->len = len;
-  tok->is_bol = is_bol;
+static Token* new_token(TokenKind kind) {
+  Token* token = calloc(1, sizeof(Token));
+  token->kind = kind;
+  return token;
+}
+
+static Token* new_token_in_file(TokenKind kind, char* loc, int len) {
+  Token* token = new_token(kind);
+  token->file = file;
+  token->loc = loc;
+  token->len = len;
+  token->is_bol = is_bol;
   is_bol = false;
-  return tok;
+  return token;
+}
+
+static Token* new_eof_token_in_file() {
+  return new_token_in_file(TK_EOF, NULL, 0);
+}
+
+Token* copy_token(Token* src) {
+  Token* token = calloc(1, sizeof(Token));
+  *token = *src;
+  return token;
 }
 
 void print_tokens(char* output_filename, Token* tokens) {
@@ -212,65 +222,8 @@ static bool consume_comment(char** c) {
   return false;
 }
 
-static bool can_be_keyword(char* s, char* keyword) {
-  return start_with(s, keyword) && !can_be_ident2(s[strlen(keyword)]);
-}
-
-static bool consume_keyword(Token** dst, char** c) {
-  static char* kws[] = {
-    "if",
-    "else",
-    "for",
-    "while",
-    "do",
-    "return",
-    "sizeof",
-    "void",
-    "_Bool",
-    "char",
-    "short",
-    "int",
-    "long",
-    "float",
-    "double",
-    "struct",
-    "union",
-    "enum",
-    "typedef",
-    "static",
-    "goto",
-    "break",
-    "continue",
-    "switch",
-    "case",
-    "default",
-    "_Alignof",
-    "_Alignas",
-    "signed",
-    "unsigned",
-    "const",
-    "volatile",
-    "auto",
-    "register",
-    "restrict",
-    "__restrict",
-    "__restrict__",
-    "_Noreturn",
-  };
-  static int klen = sizeof(kws) / sizeof(char*);
-
-  for (int i = 0; i < klen; i++) {
-    if (!can_be_keyword(*c, kws[i])) {
-      continue;
-    }
-
-    int len = strlen(kws[i]);
-    *dst = new_token(TK_RESERVED, *c, len);
-    *c += len;
-    return true;
-  }
-
-  return false;
+bool can_be_keyword(char* c, int len) {
+  return !can_be_ident2(c[len]);
 }
 
 static bool consume_punct(Token** dst, char** c) {
@@ -331,7 +284,7 @@ static bool consume_punct(Token** dst, char** c) {
     }
 
     int len = strlen(puncts[i]);
-    *dst = new_token(TK_RESERVED, *c, len);
+    *dst = new_token_in_file(TK_RESERVED, *c, len);
     *c += len;
     return true;
   }
@@ -349,7 +302,7 @@ static bool consume_ident(Token** dst, char** c) {
     (*c)++;
   } while (can_be_ident2(**c));
 
-  *dst = new_token(TK_IDENT, start, *c - start);
+  *dst = new_token_in_file(TK_IDENT, start, *c - start);
   return true;
 }
 
@@ -421,7 +374,7 @@ static Token* read_int(char** c) {
     }
   }
 
-  Token* token = new_token(TK_NUM, start, *c - start);
+  Token* token = new_token_in_file(TK_NUM, start, *c - start);
   token->type = type;
   token->int_val = val;
   return token;
@@ -443,7 +396,7 @@ static Token* read_float(char** c) {
     type = new_double_type();
   }
 
-  Token* token = new_token(TK_NUM, start, *c - start);
+  Token* token = new_token_in_file(TK_NUM, start, *c - start);
   token->type = type;
   token->float_val = val;
   return token;
@@ -559,7 +512,7 @@ static bool consume_char(Token** dst, char** c) {
     error_at(file->name, file->contents, start, "unclosed string literal");
   }
 
-  Token* token = new_token(TK_NUM, start, end - start + 1);
+  Token* token = new_token_in_file(TK_NUM, start, end - start + 1);
   token->type = new_int_type();
   token->int_val = read;
   *dst = token;
@@ -593,7 +546,7 @@ static bool consume_str(Token** dst, char** c) {
     val[val_len++] = *c++;
   }
 
-  Token* token = new_token(TK_STR, start, end - start + 1);
+  Token* token = new_token_in_file(TK_STR, start, end - start + 1);
   token->str_val = val;
   token->str_val_len = val_len;
   *dst = token;

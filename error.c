@@ -21,7 +21,7 @@ static char* bol(char* contents, char* c) {
 // NOLINTNEXTLINE
 static char* eol(char* contents, char* c) {
   char* end = c;
-  while (*end != '\n') {
+  while (*end && *end != '\n') {
     end++;
   }
   return end;
@@ -30,7 +30,7 @@ static char* eol(char* contents, char* c) {
 // NOLINTNEXTLINE
 static int count_lines(char* contents, char* loc) {
   int line = 1;
-  for (char* c = contents; c < loc; c++) {
+  for (char* c = contents; *c && c < loc; c++) {
     if (*c == '\n') {
       line++;
     }
