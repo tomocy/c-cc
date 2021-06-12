@@ -159,6 +159,7 @@ static Token* new_eof_token() {
 Token* copy_token(Token* src) {
   Token* token = calloc(1, sizeof(Token));
   *token = *src;
+  token->next = NULL;
   return token;
 }
 

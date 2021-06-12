@@ -154,5 +154,16 @@ int main() {
 #define END )
   ASSERT_ five, 5, if END;
 
+#undef ASSERT_
+#undef if
+#undef five
+#undef END
+  if (1) {
+    assert("1", 1, 1);
+  }
+  if (0) {
+    assert("unreachable", 1, 0);
+  }
+
   ok();
 }
