@@ -165,5 +165,21 @@ int main() {
     assert("unreachable", 1, 0);
   }
 
+#define M 5
+#if M
+  mm = 5;
+#else
+  m = 6;
+#endif
+  assert("mm", 5, mm);
+
+#define M 5
+#if M - 5
+  m = 6;
+#elif M
+  mm = 8;
+#endif
+  assert("mm", 8, mm);
+
   ok();
 }

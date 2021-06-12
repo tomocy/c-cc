@@ -19,6 +19,8 @@ struct IfDir {
 static Macro* macros;
 static IfDir* if_dirs;
 
+static Token* preprocess_tokens(Token* tokens);
+
 static Macro* find_macro(char* c, int len) {
   for (Macro* macro = macros; macro; macro = macro->next) {
     if (!equal_to_n_chars(macro->name, c, len)) {
@@ -119,7 +121,7 @@ static Token* append(Token* former, Token* latter) {
   return head.next;
 }
 
-static Token* consume_inline_tokens(Token** tokens) {
+static Token* inline_tokens(Token** tokens) {
   Token head = {};
   Token* cur = &head;
   for (; *tokens && !(*tokens)->is_bol; *tokens = (*tokens)->next) {
@@ -157,7 +159,7 @@ static Token* define_dir(Token* token) {
   char* name = strndup(token->loc, token->len);
   token = token->next;
 
-  new_macro(name, consume_inline_tokens(&token));
+  new_macro(name, inline_tokens(&token));
 
   return token;
 }
@@ -232,11 +234,17 @@ static bool have_expanded_if_block(IfDir* dir) {
   return false;
 }
 
+static bool cond(Token** tokens) {
+  Token* cond = inline_tokens(tokens);
+  cond = preprocess_tokens(cond);
+  return const_expr(&cond) != 0;
+}
+
 static Token* if_dir(Token* token) {
   Token* start = token;
   expect_dir(&token, "if");
 
-  IfDir* dir = new_if_dir(start, const_expr(&token) != 0);
+  IfDir* dir = new_if_dir(start, cond(&token));
   if (!dir->cond) {
     token = skip_if_block(token);
   }
@@ -251,7 +259,7 @@ static Token* elif_dir(Token* token) {
     error_token(start, "stray #elif");
   }
 
-  IfDir* dir = new_stray_if_dir(start, const_expr(&token) != 0);
+  IfDir* dir = new_stray_if_dir(start, cond(&token));
   if (have_expanded_if_block(if_dirs) || !dir->cond) {
     token = skip_if_block(token);
   }
@@ -362,7 +370,7 @@ static Token* convert_keywords(Token* tokens) {
   return head.next;
 }
 
-Token* preprocess(Token* tokens) {
+static Token* preprocess_tokens(Token* tokens) {
   Token head = {};
   Token* cur = &head;
   for (Token* token = tokens; token; token = token->next) {
@@ -414,9 +422,14 @@ Token* preprocess(Token* tokens) {
     error_token(token, "invalid preprocessor directive");
   }
 
+  return head.next;
+}
+
+Token* preprocess(Token* tokens) {
+  tokens = preprocess_tokens(tokens);
   if (if_dirs) {
     error_token(if_dirs->token, "unterminated if directive");
   }
 
-  return convert_keywords(head.next);
+  return convert_keywords(tokens);
 }
