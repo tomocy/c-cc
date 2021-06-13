@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+typedef struct Str Str;
 typedef struct File File;
 typedef struct Token Token;
 typedef struct Node Node;
@@ -21,6 +22,11 @@ typedef struct Obj Obj;
 typedef struct Relocation Relocation;
 typedef struct Type Type;
 typedef struct Member Member;
+
+struct Str {
+  Str* next;
+  char* data;
+};
 
 struct File {
   File* next;
@@ -237,6 +243,9 @@ struct Relocation {
 
 extern File* files;
 
+char* replace_file_ext(char* name, char* ext);
+char* create_tmp_file();
+void unlink_files(Str* names);
 FILE* open_input_file(char* fname);
 FILE* open_output_file(char* fname);
 char* read_file_contents(char* fname);
@@ -246,6 +255,8 @@ void vprint_at(char* fname, char* contents, char* loc, char* fmt, va_list args);
 void error_at(char* fname, char* contents, char* loc, char* fmt, ...);
 void warn_at(char* fname, char* contents, char* loc, char* fmt, ...);
 
+void add_str(Str** strs, Str* str);
+Str* new_str(char* data);
 char* format(char* fmt, ...);
 bool equal_to_str(char* s, char* other);
 bool equal_to_n_chars(char* s, char* c, int n);

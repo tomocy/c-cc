@@ -1,12 +1,5 @@
 #include "cc.h"
 
-typedef struct Str Str;
-
-struct Str {
-  Str* next;
-  char* data;
-};
-
 static char* input_filename;
 static char* output_filename;
 static Str* tmp_filenames;
@@ -20,21 +13,6 @@ static bool in_c;
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
 
-static char* replace_ext(char* name, char* ext) {
-  name = basename(strdup(name));
-  char* dot = strrchr(name, '.');
-  if (dot) {
-    *dot = '\0';
-  }
-
-  return format("%s%s", name, ext);
-}
-
-static void add_str(Str** strs, Str* str) {
-  str->next = *strs;
-  *strs = str;
-}
-
 static void add_tmp_filename(Str* fname) {
   add_str(&tmp_filenames, fname);
 }
@@ -43,10 +21,14 @@ static void add_input_filename(Str* fname) {
   add_str(&input_filenames, fname);
 }
 
-static Str* new_str(char* data) {
-  Str* str = calloc(1, sizeof(Str));
-  str->data = data;
-  return str;
+static char* new_tmp_file() {
+  char* name = create_tmp_file();
+  add_tmp_filename(new_str(name));
+  return name;
+}
+
+static void unlink_tmp_files() {
+  unlink_files(tmp_filenames);
 }
 
 static char** new_args(int* argc, Str* strs) {
@@ -64,25 +46,6 @@ static char** new_args(int* argc, Str* strs) {
 
   *argc = len;
   return args;
-}
-
-static char* create_tmp_file() {
-  char* name = strdup("/tmp/cc-XXXXXX");
-  int fd = mkstemp(name);
-  if (fd == -1) {
-    fprintf(stderr, "failed to create a tmp file: %s\n", strerror(errno));
-  }
-  close(fd);
-
-  add_tmp_filename(new_str(name));
-
-  return name;
-}
-
-static void unlink_tmp_file() {
-  for (Str* fname = tmp_filenames; fname; fname = fname->next) {
-    unlink(fname->data);
-  }
 }
 
 static void usage(int status) {
@@ -195,7 +158,7 @@ static int compile(char* input, char* output) {
 }
 
 static int assemble(char* input, char* output) {
-  char* tmp_fname = create_tmp_file();
+  char* tmp_fname = new_tmp_file();
   int status = compile(input, tmp_fname);
   if (status != 0) {
     return status;
@@ -209,7 +172,7 @@ static int linkk(Str* inputs, char* output) {
   Str head_link_inputs = {};
   Str* link_inputs = &head_link_inputs;
   for (Str* input = inputs; input; input = input->next) {
-    char* tmp_fname = create_tmp_file();
+    char* tmp_fname = new_tmp_file();
     int status = assemble(input->data, tmp_fname);
     if (status != 0) {
       return status;
@@ -282,7 +245,7 @@ static int run(int argc, char** argv) {
     error("cannot specify '-o' with '-c', '-S' or '-E' with multiple files");
   }
 
-  atexit(unlink_tmp_file);
+  atexit(unlink_tmp_files);
 
   Str head_link_inputs = {};
   Str* link_inputs = &head_link_inputs;
@@ -290,7 +253,7 @@ static int run(int argc, char** argv) {
     char* output = output_filename;
     if (!output) {
       char* ext = in_asm ? ".s" : ".o";
-      output = replace_ext(input->data, ext);
+      output = replace_file_ext(input->data, ext);
     }
 
     // preprocess, compile and assemble

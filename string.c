@@ -1,5 +1,16 @@
 #include "cc.h"
 
+void add_str(Str** strs, Str* str) {
+  str->next = *strs;
+  *strs = str;
+}
+
+Str* new_str(char* data) {
+  Str* str = calloc(1, sizeof(Str));
+  str->data = data;
+  return str;
+}
+
 char* format(char* fmt, ...) {
   char* dst = NULL;
   size_t dst_len = 0;

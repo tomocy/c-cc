@@ -36,8 +36,8 @@ struct Initer {
 
 struct DesignatedIniter {
   DesignatedIniter* next;
+  int index;
   Obj* var;
-  int i;
   Member* mem;
 };
 
@@ -335,7 +335,7 @@ static void add_second_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
   scope->second_class_objs = scoped;
 }
 
-static void add_func_to_scope(Scope* scope, char* key, Obj* func) {
+static void add_func_obj_to_scope(Scope* scope, char* key, Obj* func) {
   if (func->kind != OJ_FUNC) {
     error("expected a function");
   }
@@ -343,7 +343,7 @@ static void add_func_to_scope(Scope* scope, char* key, Obj* func) {
   add_first_class_obj_to_scope(scope, key, func);
 }
 
-static void add_var_to_scope(Scope* scope, char* key, Obj* var) {
+static void add_var_obj_to_scope(Scope* scope, char* key, Obj* var) {
   if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
     error("expected a variable");
   }
@@ -351,7 +351,7 @@ static void add_var_to_scope(Scope* scope, char* key, Obj* var) {
   add_first_class_obj_to_scope(scope, key, var);
 }
 
-static void add_enum_to_scope(Scope* scope, char* key, Obj* enu) {
+static void add_enum_obj_to_scope(Scope* scope, char* key, Obj* enu) {
   if (enu->kind != OJ_ENUM) {
     error("expected an enum");
   }
@@ -359,7 +359,7 @@ static void add_enum_to_scope(Scope* scope, char* key, Obj* enu) {
   add_first_class_obj_to_scope(scope, key, enu);
 }
 
-static void add_def_type_to_scope(Scope* scope, char* key, Obj* def_type) {
+static void add_def_type_obj_to_scope(Scope* scope, char* key, Obj* def_type) {
   if (def_type->kind != OJ_DEF_TYPE) {
     error("expected a defined type");
   }
@@ -367,7 +367,7 @@ static void add_def_type_to_scope(Scope* scope, char* key, Obj* def_type) {
   add_first_class_obj_to_scope(scope, key, def_type);
 }
 
-static void add_tag_to_scope(Scope* scope, char* key, Obj* tag) {
+static void add_tag_obj_to_scope(Scope* scope, char* key, Obj* tag) {
   if (tag->kind != OJ_TAG) {
     error("expected a tag");
   }
@@ -379,15 +379,15 @@ static bool is_gscope(Scope* scope) {
   return !scope->next;
 }
 
-static void add_func(Obj* func) {
+static void add_func_obj(Obj* func) {
   if (func->kind != OJ_FUNC) {
     error("expected a function");
   }
 
-  add_func_to_scope(current_scope, func->name, func);
+  add_func_obj_to_scope(current_scope, func->name, func);
 }
 
-static void add_gvar(Obj* var) {
+static void add_gvar_obj(Obj* var) {
   if (var->kind != OJ_GVAR) {
     error("expected a global var");
   }
@@ -395,10 +395,10 @@ static void add_gvar(Obj* var) {
     error("expected a global scope");
   }
 
-  add_var_to_scope(gscope, var->name, var);
+  add_var_obj_to_scope(gscope, var->name, var);
 }
 
-static void add_var_to_current_local_scope(char* key, Obj* var) {
+static void add_var_obj_to_current_local_scope(char* key, Obj* var) {
   if (is_gscope(current_scope)) {
     error("expected a local scope");
   }
@@ -410,39 +410,39 @@ static void add_var_to_current_local_scope(char* key, Obj* var) {
 
   var->next = current_lvars;
   current_lvars = var;
-  add_var_to_scope(current_scope, key, var);
+  add_var_obj_to_scope(current_scope, key, var);
 }
 
-static void add_lvar(Obj* var) {
+static void add_lvar_obj(Obj* var) {
   if (var->kind != OJ_LVAR) {
     error("expected a local var");
   }
 
-  add_var_to_current_local_scope(var->name, var);
+  add_var_obj_to_current_local_scope(var->name, var);
 }
 
-static void add_tag(Obj* tag) {
+static void add_tag_obj(Obj* tag) {
   if (tag->kind != OJ_TAG) {
     error("expected a tag");
   }
 
-  add_tag_to_scope(current_scope, tag->name, tag);
+  add_tag_obj_to_scope(current_scope, tag->name, tag);
 }
 
-static void add_def_type(Obj* def_type) {
+static void add_def_type_obj(Obj* def_type) {
   if (def_type->kind != OJ_DEF_TYPE) {
     error("expected a defined type");
   }
 
-  add_def_type_to_scope(current_scope, def_type->name, def_type);
+  add_def_type_obj_to_scope(current_scope, def_type->name, def_type);
 }
 
-static void add_enum(Obj* enu) {
+static void add_enum_obj(Obj* enu) {
   if (enu->kind != OJ_ENUM) {
     error("expected an enum");
   }
 
-  add_enum_to_scope(current_scope, enu->name, enu);
+  add_enum_obj_to_scope(current_scope, enu->name, enu);
 }
 
 static Obj* new_obj(ObjKind kind) {
@@ -451,16 +451,16 @@ static Obj* new_obj(ObjKind kind) {
   return obj;
 }
 
-static Obj* new_func(Type* type) {
+static Obj* new_func_obj(Type* type) {
   Obj* func = new_obj(OJ_FUNC);
   func->type = type;
   func->name = type->name;
-  add_func(func);
+  add_func_obj(func);
   add_code(func);
   return func;
 }
 
-static Obj* prepare_gvar(Type* type, char* name) {
+static Obj* prepare_gvar_obj(Type* type, char* name) {
   Obj* var = new_obj(OJ_GVAR);
   var->type = type;
   var->name = name;
@@ -469,36 +469,36 @@ static Obj* prepare_gvar(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_stray_gvar(Type* type, char* name) {
-  Obj* var = prepare_gvar(type, name);
-  add_gvar(var);
+static Obj* new_stray_gvar_obj(Type* type, char* name) {
+  Obj* var = prepare_gvar_obj(type, name);
+  add_gvar_obj(var);
   return var;
 }
 
-static Obj* new_gvar_as(Type* type, char* name) {
-  Obj* var = new_stray_gvar(type, name);
+static Obj* new_gvar_obj_as(Type* type, char* name) {
+  Obj* var = new_stray_gvar_obj(type, name);
   add_code(var);
   return var;
 }
 
-static Obj* new_gvar(Type* type) {
-  return new_gvar_as(type, type->name);
+static Obj* new_gvar_obj(Type* type) {
+  return new_gvar_obj_as(type, type->name);
 }
 
-static Obj* new_anon_gvar(Type* type) {
-  return new_gvar_as(type, new_id());
+static Obj* new_anon_gvar_obj(Type* type) {
+  return new_gvar_obj_as(type, new_id());
 }
 
-static Obj* new_str(char* val, int len) {
+static Obj* new_str_obj(char* val, int len) {
   Type* type = new_chars_type(len + 1);
-  Obj* str = new_stray_gvar(type, new_id());
+  Obj* str = new_stray_gvar_obj(type, new_id());
   str->is_static = true;
   str->val = strdup(val);
   add_code(str);
   return str;
 }
 
-static void adjust_lvar_offset(Obj* vars, Obj* var, Type* type) {
+static void adjust_lvar_obj_offset(Obj* vars, Obj* var, Type* type) {
   if (var->kind != OJ_LVAR) {
     error("expected a local var");
   }
@@ -510,55 +510,55 @@ static void adjust_lvar_offset(Obj* vars, Obj* var, Type* type) {
   var->offset = align(vars ? vars->offset + size : size, var->alignment);
 }
 
-static Obj* new_static_lvar(Type* type) {
-  Obj* var = new_anon_gvar(type);
+static Obj* new_static_lvar_obj(Type* type) {
+  Obj* var = new_anon_gvar_obj(type);
   var->is_static = true;
   // Inherit the current offset so that other lvars can extend their offset on it
   var->offset = current_lvars ? current_lvars->offset : 0;
-  add_var_to_current_local_scope(type->name, var);
+  add_var_obj_to_current_local_scope(type->name, var);
   return var;
 }
 
-static Obj* new_lvar_as(Type* type, char* name) {
+static Obj* new_lvar_obj_as(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
   var->alignment = type->alignment;
-  adjust_lvar_offset(current_lvars, var, type);
-  add_lvar(var);
+  adjust_lvar_obj_offset(current_lvars, var, type);
+  add_lvar_obj(var);
   return var;
 }
 
-static Obj* new_lvar(Type* type) {
-  return new_lvar_as(type, type->name);
+static Obj* new_lvar_obj(Type* type) {
+  return new_lvar_obj_as(type, type->name);
 }
 
-static Obj* new_enum(char* name, int64_t val) {
+static Obj* new_enum_obj(char* name, int64_t val) {
   Obj* enu = new_obj(OJ_ENUM);
   enu->name = name;
   // NOLINTNEXTLINE
   enu->val = (char*)val;
-  add_enum(enu);
+  add_enum_obj(enu);
   return enu;
 }
 
-static Obj* new_def_type(Type* type) {
+static Obj* new_def_type_obj(Type* type) {
   Obj* def_type = new_obj(OJ_DEF_TYPE);
   def_type->type = type;
   def_type->name = type->name;
-  add_def_type(def_type);
+  add_def_type_obj(def_type);
   return def_type;
 }
 
-static Obj* new_tag(Type* type, char* name) {
+static Obj* new_tag_obj(Type* type, char* name) {
   Obj* tag = new_obj(OJ_TAG);
   tag->type = type;
   tag->name = name;
-  add_tag(tag);
+  add_tag_obj(tag);
   return tag;
 }
 
-static Obj* find_datum(char* name, int len) {
+static Obj* find_datum_obj(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
       if (!equal_to_n_chars(var->key, name, len)) {
@@ -579,7 +579,7 @@ static Obj* find_datum(char* name, int len) {
   return NULL;
 }
 
-static Obj* find_def_type(char* name, int len) {
+static Obj* find_def_type_obj(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* def_type = s->first_class_objs; def_type; def_type = def_type->next) {
       if (!equal_to_n_chars(def_type->key, name, len)) {
@@ -592,7 +592,7 @@ static Obj* find_def_type(char* name, int len) {
   return NULL;
 }
 
-static Obj* find_tag_in_current_scope(char* name, int len) {
+static Obj* find_tag_obj_in_current_scope(char* name, int len) {
   for (ScopedObj* tag = current_scope->second_class_objs; tag; tag = tag->next) {
     if (!equal_to_n_chars(tag->key, name, len)) {
       continue;
@@ -603,7 +603,7 @@ static Obj* find_tag_in_current_scope(char* name, int len) {
   return NULL;
 }
 
-static Obj* find_tag(char* name, int len) {
+static Obj* find_tag_obj(char* name, int len) {
   for (Scope* s = current_scope; s; s = s->next) {
     for (ScopedObj* tag = s->second_class_objs; tag; tag = tag->next) {
       if (!equal_to_n_chars(tag->key, name, len)) {
@@ -652,7 +652,7 @@ static bool equal_to_decl_specifier(Token* token) {
     }
   }
 
-  return find_def_type(token->loc, token->len) != NULL;
+  return find_def_type_obj(token->loc, token->len) != NULL;
 }
 
 static bool equal_to_abstract_decl_start(Token* token) {
@@ -1222,7 +1222,7 @@ static Node* new_func_params(Type* params) {
       error_token(param->ident, "parameter name omitted");
     }
 
-    Obj* var = new_lvar_as(param, param->name);
+    Obj* var = new_lvar_obj_as(param, param->name);
     cur = cur->next = new_var_node(param->ident, var);
   }
 
@@ -1236,7 +1236,7 @@ static void func(Token** tokens) {
     error_token(type->ident, "function name omitted");
   }
 
-  Obj* func = new_func(type);
+  Obj* func = new_func_obj(type);
   current_func = func;
 
   func->is_static = attr.is_static;
@@ -1251,7 +1251,7 @@ static void func(Token** tokens) {
   func->params = new_func_params(func->type->params);
 
   if (func->type->is_variadic) {
-    func->va_area = new_lvar_as(new_chars_type(136), "__va_area__");
+    func->va_area = new_lvar_obj_as(new_chars_type(136), "__va_area__");
   }
 
   func->body = block_stmt(tokens);
@@ -1373,7 +1373,7 @@ static void gvar(Token** tokens) {
       type->alignment = attr.alignment;
     }
 
-    Obj* var = new_gvar(type);
+    Obj* var = new_gvar_obj(type);
     var->is_static = attr.is_static;
     var->is_definition = !attr.is_extern;
 
@@ -1402,7 +1402,7 @@ static void tydef(Token** tokens) {
     if (!type->name) {
       error_token(type->ident, "typedef name omitted");
     }
-    new_def_type(type);
+    new_def_type_obj(type);
   }
 }
 
@@ -1784,7 +1784,7 @@ static Node* expr(Token** tokens) {
 }
 
 static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
-  Obj* tmp_var = new_lvar_as(new_ptr_type(lhs->type), "");
+  Obj* tmp_var = new_lvar_obj_as(new_ptr_type(lhs->type), "");
 
   Node* tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs));
 
@@ -2249,19 +2249,19 @@ static Node* compound_literal(Token** tokens) {
   expect_token(tokens, ")");
 
   if (is_gscope(current_scope)) {
-    Obj* var = new_anon_gvar(type);
+    Obj* var = new_anon_gvar_obj(type);
     gvar_initer(tokens, var);
     return new_var_node(*tokens, var);
   }
 
-  Obj* var = new_lvar_as(type, "");
+  Obj* var = new_lvar_obj_as(type, "");
   Node* assign = lvar_initer(tokens, var);
   return new_comma_node(*tokens, assign, new_var_node(*tokens, var));
 }
 
 static Node* datum(Token** tokens) {
   Token* ident = expect_ident(tokens);
-  Obj* datum = find_datum(ident->loc, ident->len);
+  Obj* datum = find_datum_obj(ident->loc, ident->len);
   if (!datum) {
     if (equal_to_token(*tokens, "(")) {
       error_token(ident, "implicit declaration of a function");
@@ -2311,7 +2311,7 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_STR) {
-    Obj* str = new_str((*tokens)->str_val, (*tokens)->str_val_len);
+    Obj* str = new_str_obj((*tokens)->str_val, (*tokens)->str_val_len);
     Node* node = new_var_node(*tokens, str);
     *tokens = (*tokens)->next;
     return node;
@@ -2763,7 +2763,7 @@ static Node* designated_expr(Token* token, DesignatedIniter* init) {
   }
 
   Node* lhs = designated_expr(token, init->next);
-  Node* rhs = new_int_node(token, init->i);
+  Node* rhs = new_int_node(token, init->index);
   return new_deref_node(token, new_add_node(token, lhs, rhs));
 }
 
@@ -2773,7 +2773,7 @@ static Node* lvar_init(Token* token, Initer* init, DesignatedIniter* designated)
 
     int i = 0;
     for (Member* mem = init->type->members; mem; mem = mem->next) {
-      DesignatedIniter next = {designated, NULL, 0, mem};
+      DesignatedIniter next = {designated, 0, NULL, mem};
       node = new_comma_node(token, node, lvar_init(token, init->children[i], &next));
       i++;
     }
@@ -2782,7 +2782,7 @@ static Node* lvar_init(Token* token, Initer* init, DesignatedIniter* designated)
   }
 
   if (init->type->kind == TY_UNION) {
-    DesignatedIniter next = {designated, NULL, 0, init->type->members};
+    DesignatedIniter next = {designated, 0, NULL, init->type->members};
     return lvar_init(token, init->children[0], &next);
   }
 
@@ -2790,7 +2790,7 @@ static Node* lvar_init(Token* token, Initer* init, DesignatedIniter* designated)
     Node* node = new_null_node(token);
 
     for (int i = 0; i < init->type->len; i++) {
-      DesignatedIniter next = {designated, NULL, i};
+      DesignatedIniter next = {designated, i, NULL};
       node = new_comma_node(token, node, lvar_init(token, init->children[i], &next));
     }
 
@@ -2806,9 +2806,9 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
   Type* type = var->type;
   Initer* init = initer(tokens, &type);
   // Adjust the offset of the var from the previous one (var->next)
-  adjust_lvar_offset(var->next, var, type);
+  adjust_lvar_obj_offset(var->next, var, type);
 
-  DesignatedIniter designated = {NULL, var};
+  DesignatedIniter designated = {NULL, 0, var};
   return new_comma_node(start, new_memzero_node(var->type, start, var->offset), lvar_init(start, init, &designated));
 }
 
@@ -2834,7 +2834,7 @@ static Node* lvar_decl(Token** tokens) {
     }
 
     if (attr.is_static) {
-      Obj* var = new_static_lvar(type);
+      Obj* var = new_static_lvar_obj(type);
       if (consume_token(tokens, "=")) {
         gvar_initer(tokens, var);
       }
@@ -2845,7 +2845,7 @@ static Node* lvar_decl(Token** tokens) {
       type->alignment = attr.alignment;
     }
 
-    Obj* var = new_lvar(type);
+    Obj* var = new_lvar_obj(type);
     Node* node = new_var_node(type->ident, var);
 
     if (consume_token(tokens, "=")) {
@@ -2871,7 +2871,7 @@ static Type* enum_specifier(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found_tag = find_tag(tag->loc, tag->len);
+    Obj* found_tag = find_tag_obj(tag->loc, tag->len);
     if (!found_tag) {
       error_token(tag, "undefined tag");
     }
@@ -2894,13 +2894,13 @@ static Type* enum_specifier(Token** tokens) {
       val = const_expr(tokens);
     }
 
-    new_enum(strndup(ident->loc, ident->len), val++);
+    new_enum_obj(strndup(ident->loc, ident->len), val++);
   }
 
   Type* enu = new_int_type();
 
   if (tag) {
-    new_tag(enu, strndup(tag->loc, tag->len));
+    new_tag_obj(enu, strndup(tag->loc, tag->len));
   }
 
   return enu;
@@ -2915,13 +2915,13 @@ static Type* struct_decl(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found = find_tag(tag->loc, tag->len);
+    Obj* found = find_tag_obj(tag->loc, tag->len);
     if (found) {
       return found->type;
     }
 
     Type* struc = new_struct_type(-1, 1, NULL);
-    new_tag(struc, strndup(tag->loc, tag->len));
+    new_tag_obj(struc, strndup(tag->loc, tag->len));
     return struc;
   }
 
@@ -2960,13 +2960,13 @@ static Type* struct_decl(Token** tokens) {
     return struc;
   }
 
-  Obj* found = find_tag_in_current_scope(tag->loc, tag->len);
+  Obj* found = find_tag_obj_in_current_scope(tag->loc, tag->len);
   if (found) {
     *found->type = *struc;
     return found->type;
   }
 
-  new_tag(struc, strndup(tag->loc, tag->len));
+  new_tag_obj(struc, strndup(tag->loc, tag->len));
   return struc;
 }
 
@@ -2979,13 +2979,13 @@ static Type* union_decl(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found = find_tag(tag->loc, tag->len);
+    Obj* found = find_tag_obj(tag->loc, tag->len);
     if (found) {
       return found->type;
     }
 
     Type* uni = new_union_type(-1, 1, NULL);
-    new_tag(uni, strndup(tag->loc, tag->len));
+    new_tag_obj(uni, strndup(tag->loc, tag->len));
     return uni;
   }
 
@@ -3017,13 +3017,13 @@ static Type* union_decl(Token** tokens) {
     return uni;
   }
 
-  Obj* found = find_tag_in_current_scope(tag->loc, tag->len);
+  Obj* found = find_tag_obj_in_current_scope(tag->loc, tag->len);
   if (found) {
     *found->type = *uni;
     return found->type;
   }
 
-  new_tag(uni, strndup(tag->loc, tag->len));
+  new_tag_obj(uni, strndup(tag->loc, tag->len));
   return uni;
 }
 
@@ -3127,7 +3127,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       continue;
     }
 
-    Obj* def_type = find_def_type((*tokens)->loc, (*tokens)->len);
+    Obj* def_type = find_def_type_obj((*tokens)->loc, (*tokens)->len);
     if (def_type) {
       if (counter > 0) {
         break;

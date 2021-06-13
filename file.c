@@ -1,5 +1,32 @@
 #include "cc.h"
 
+char* replace_file_ext(char* name, char* ext) {
+  name = basename(strdup(name));
+  char* dot = strrchr(name, '.');
+  if (dot) {
+    *dot = '\0';
+  }
+
+  return format("%s%s", name, ext);
+}
+
+char* create_tmp_file() {
+  char* name = strdup("/tmp/cc-XXXXXX");
+  int fd = mkstemp(name);
+  if (fd == -1) {
+    fprintf(stderr, "failed to create a tmp file: %s\n", strerror(errno));
+  }
+  close(fd);
+
+  return name;
+}
+
+void unlink_files(Str* names) {
+  for (Str* name = names; name; name = name->next) {
+    unlink(name->data);
+  }
+}
+
 static FILE* open_file(char* fname, char* mode) {
   FILE* file = fopen(fname, mode);
   if (!file) {
