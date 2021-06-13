@@ -169,13 +169,13 @@ int main() {
 #if M
   mm = 5;
 #else
-  m = 6;
+  mm = 6;
 #endif
   assert("mm", 5, mm);
 
 #define M 5
 #if M - 5
-  m = 6;
+  mm = 6;
 #elif M
   mm = 8;
 #endif
@@ -192,6 +192,52 @@ int main() {
 #define M4 M5 * 5
 #define M5 M4 + 2
   assert("M4", 13, M4);
+
+#ifdef M6
+  mm = 5;
+  assert("unreachable", 1, 0);
+#else
+  mm = 3;
+#endif
+  assert("mm", 3, mm);
+
+#define M6
+#ifdef M6
+  mm = 5;
+#else
+  mm = 3;
+  assert("unreachable", 1, 0);
+#endif
+  assert("mm", 5, mm);
+
+#ifndef M7
+  mm = 3;
+#else
+  mm = 5;
+  assert("unreachable", 1, 0);
+#endif
+  assert("mm", 3, mm);
+
+#define M7
+#ifndef M7
+  mm = 3;
+  assert("unreachable", 1, 0);
+#else
+  mm = 5;
+#endif
+  assert("mm", 5, mm);
+
+#if 0
+#ifdef NO_SUCH_MACRO
+  assert("unreachable", 1, 0);
+#endif
+#ifndef NO_SUCH_MACRO
+  assert("unreachable", 1, 0);
+#endif
+  assert("unreachable", 1, 0);
+#else
+  assert("1", 1, 1);
+#endif
 
   ok();
 }

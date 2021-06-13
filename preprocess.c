@@ -237,7 +237,7 @@ static Token* skip_to_endif_dir(Token* token) {
 
 static Token* skip_if_block(Token* token) {
   while (!is_dir(token, "elif") && !is_dir(token, "else") && !is_dir(token, "endif")) {
-    if (is_dir(token, "if")) {
+    if (is_dir(token, "if") || is_dir(token, "ifdef") || is_dir(token, "ifndef")) {
       token = skip_to_endif_dir(token->next);
       expect_dir(&token, "endif");
       continue;
@@ -266,6 +266,34 @@ static bool cond(Token** tokens) {
   Token* cond = inline_tokens(tokens);
   cond = preprocess_tokens(cond);
   return const_expr(&cond) != 0;
+}
+
+static Token* ifdef_dir(Token* token) {
+  Token* start = token;
+  expect_dir(&token, "ifdef");
+
+  Macro* macro = find_macro(token->loc, token->len);
+  token = token->next;
+  IfDir* dir = new_if_dir(start, macro != NULL);
+  if (!dir->cond) {
+    token = skip_if_block(token);
+  }
+
+  return token;
+}
+
+static Token* ifndef_dir(Token* token) {
+  Token* start = token;
+  expect_dir(&token, "ifndef");
+
+  Macro* macro = find_macro(token->loc, token->len);
+  token = token->next;
+  IfDir* dir = new_if_dir(start, macro == NULL);
+  if (!dir->cond) {
+    token = skip_if_block(token);
+  }
+
+  return token;
 }
 
 static Token* if_dir(Token* token) {
@@ -423,6 +451,15 @@ static Token* preprocess_tokens(Token* tokens) {
 
     if (is_dir(token, "include")) {
       token->next = include_dir(token);
+    }
+
+    if (is_dir(token, "ifdef")) {
+      token->next = ifdef_dir(token);
+      continue;
+    }
+    if (is_dir(token, "ifndef")) {
+      token->next = ifndef_dir(token);
+      continue;
     }
 
     if (is_dir(token, "if")) {
