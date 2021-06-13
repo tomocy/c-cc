@@ -54,6 +54,7 @@ struct Token {
   char* loc;
   int len;
   bool is_bol;
+  bool has_leading_space;
 
   Str* hideset;
 

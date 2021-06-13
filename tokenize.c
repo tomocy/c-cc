@@ -3,6 +3,7 @@
 File* files;
 static File* file;
 static bool is_bol;
+static bool was_space;
 
 static File* read_file(char* fname);
 static void add_line_number(Token* token);
@@ -25,6 +26,7 @@ Token* tokenize(char* input_filename) {
   Token head = {};
   Token* cur = &head;
   is_bol = true;
+  was_space = false;
   while (*c) {
     if (*c == '\n') {
       is_bol = true;
@@ -33,6 +35,7 @@ Token* tokenize(char* input_filename) {
     }
 
     if (isspace(*c)) {
+      was_space = true;
       c++;
       continue;
     }
@@ -149,6 +152,8 @@ static Token* new_token(TokenKind kind, char* loc, int len) {
   Token* token = new_token_in(kind, file, loc, len);
   token->is_bol = is_bol;
   is_bol = false;
+  token->has_leading_space = was_space;
+  was_space = false;
   return token;
 }
 
@@ -170,7 +175,7 @@ void print_tokens(char* output_filename, Token* tokens) {
     if (token->line > 1 && token->is_bol) {
       fprintf(file, "\n");
     }
-    if (!token->is_bol) {
+    if (token->has_leading_space) {
       fprintf(file, " ");
     }
     fprintf(file, "%.*s", token->len, token->loc);
