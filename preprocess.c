@@ -7,6 +7,7 @@ struct Macro {
   Macro* next;
   char* name;
   Token* body;
+  bool is_like_func;
 };
 
 struct IfDir {
@@ -21,6 +22,10 @@ static IfDir* if_dirs;
 
 static Token* preprocess_tokens(Token* tokens);
 
+static bool is_funclike_macro_parens(Token* token) {
+  return !token->has_leading_space && equal_to_token(token, "(") && equal_to_token(token->next, ")");
+}
+
 static Macro* find_macro(char* c, int len) {
   for (Macro* macro = macros; macro; macro = macro->next) {
     if (!equal_to_n_chars(macro->name, c, len)) {
@@ -31,6 +36,19 @@ static Macro* find_macro(char* c, int len) {
   }
 
   return NULL;
+}
+
+static Macro* find_macro_by_token(Token* token) {
+  if (token->kind != TK_IDENT) {
+    return NULL;
+  }
+
+  Macro* macro = find_macro(token->loc, token->len);
+  if (!macro) {
+    return NULL;
+  }
+
+  return macro->is_like_func == is_funclike_macro_parens(token->next) ? macro : NULL;
 }
 
 static void delete_macro(char* name) {
@@ -52,10 +70,11 @@ static void add_macro(Macro* macro) {
   macros = macro;
 }
 
-static Macro* new_macro(char* name, Token* body) {
+static Macro* new_macro(char* name, Token* body, bool is_like_func) {
   Macro* macro = calloc(1, sizeof(Macro));
   macro->name = name;
   macro->body = body;
+  macro->is_like_func = is_like_func;
   add_macro(macro);
   return macro;
 }
@@ -121,6 +140,16 @@ static Token* append(Token* former, Token* latter) {
   return head.next;
 }
 
+static Token* expect_macro_ident(Token** tokens) {
+  if ((*tokens)->kind != TK_IDENT) {
+    error_token(*tokens, "macro name must be an identifier");
+  }
+  Token* ident = *tokens;
+  *tokens = (*tokens)->next;
+
+  return ident;
+}
+
 static Token* inline_tokens(Token** tokens) {
   Token head = {};
   Token* cur = &head;
@@ -140,7 +169,7 @@ static bool can_expand_macro(Token* token) {
     return false;
   }
 
-  return find_macro(token->loc, token->len) != NULL;
+  return find_macro_by_token(token) != NULL;
 }
 
 static Token* inherit_hideset(Token* dst, Str* hideset) {
@@ -166,10 +195,15 @@ static Token* add_hideset(Token* tokens, Str* hideset) {
 }
 
 static Token* expand_macro(Token* token) {
-  Token* ident = expect_ident(&token);
-  Macro* macro = find_macro(ident->loc, ident->len);
+  Macro* macro = find_macro_by_token(token);
   if (!macro) {
-    error_token(ident, "undefined macro");
+    error_token(token, "undefined macro");
+  }
+  token = token->next;
+
+  if (macro->is_like_func) {
+    expect_token(&token, "(");
+    expect_token(&token, ")");
   }
 
   Token* body = inherit_hideset(macro->body, token->hideset);
@@ -181,13 +215,16 @@ static Token* expand_macro(Token* token) {
 static Token* define_dir(Token* token) {
   expect_dir(&token, "define");
 
-  if (token->kind != TK_IDENT) {
-    error_token(token, "macro name must be an identifier");
-  }
-  char* name = strndup(token->loc, token->len);
-  token = token->next;
+  Token* ident = expect_macro_ident(&token);
+  char* name = strndup(ident->loc, ident->len);
 
-  new_macro(name, inline_tokens(&token));
+  bool is_like_func = is_funclike_macro_parens(token);
+  if (is_like_func) {
+    expect_token(&token, "(");
+    expect_token(&token, ")");
+  }
+
+  new_macro(name, inline_tokens(&token), is_like_func);
 
   return token;
 }
@@ -195,11 +232,8 @@ static Token* define_dir(Token* token) {
 static Token* undef_dir(Token* token) {
   expect_dir(&token, "undef");
 
-  if (token->kind != TK_IDENT) {
-    error_token(token, "macro name must be an identifier");
-  }
-  char* name = strndup(token->loc, token->len);
-  token = token->next;
+  Token* ident = expect_macro_ident(&token);
+  char* name = strndup(ident->loc, ident->len);
 
   delete_macro(name);
 

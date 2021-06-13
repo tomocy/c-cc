@@ -123,7 +123,7 @@ static char* new_id(void) {
   return name;
 }
 
-Token* expect_ident(Token** tokens) {
+static Token* expect_ident(Token** tokens) {
   if ((*tokens)->kind != TK_IDENT) {
     error_token(*tokens, "expected an ident");
   }

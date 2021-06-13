@@ -293,7 +293,6 @@ void print_tokens(char* output_filename, Token* tokens);
 Token* preprocess(Token* tokens);
 
 TopLevelObj* parse(Token* tokens);
-Token* expect_ident(Token** tokens);
 int64_t const_expr(Token** tokens);
 
 void gen(char* output_filename, TopLevelObj* codes);

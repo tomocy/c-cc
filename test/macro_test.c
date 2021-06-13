@@ -74,6 +74,10 @@ int g3 = 8;
 
 int mm = 0;
 
+int ret3(void) {
+  return 3;
+}
+
 int main() {
   assert("include1", 5, include1);
   assert("include2", 7, include2);
@@ -238,6 +242,17 @@ int main() {
 #else
   assert("1", 1, 1);
 #endif
+
+// NOLINTNEXTLINE
+#define M7() 1
+  // NOLINTNEXTLINE
+  int M7 = 5;
+  assert("M7()", 1, M7());
+  assert("M7", 5, M7);
+
+// NOLINTNEXTLINE
+#define M7 ()
+  assert("ret3 M7", 3, ret3 M7);
 
   ok();
 }
