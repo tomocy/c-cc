@@ -8,6 +8,7 @@ struct Macro {
   char* name;
   Token* body;
   bool is_like_func;
+  Str* params;
 };
 
 struct IfDir {
@@ -23,7 +24,7 @@ static IfDir* if_dirs;
 static Token* preprocess_tokens(Token* tokens);
 
 static bool is_funclike_macro_parens(Token* token) {
-  return !token->has_leading_space && equal_to_token(token, "(") && equal_to_token(token->next, ")");
+  return !token->has_leading_space && equal_to_token(token, "(");
 }
 
 static Macro* find_macro(char* c, int len) {
@@ -76,6 +77,16 @@ static Macro* new_macro(char* name, Token* body, bool is_like_func) {
   macro->body = body;
   macro->is_like_func = is_like_func;
   add_macro(macro);
+  return macro;
+}
+
+static Macro* new_objlike_macro(char* name, Token* body) {
+  return new_macro(name, body, false);
+}
+
+static Macro* new_funclike_macro(char* name, Token* body, Str* params) {
+  Macro* macro = new_macro(name, body, true);
+  macro->params = params;
   return macro;
 }
 
@@ -194,6 +205,102 @@ static Token* add_hideset(Token* tokens, Str* hideset) {
   return head.next;
 }
 
+static void proceed_tokens(Token** dst, Token* src) {
+  Token* cur = *dst;
+  for (Token* token = src; token; token = token->next) {
+    cur = cur->next = token;
+  }
+  *dst = cur;
+}
+
+static Token* replace_ident_tokens(Token* tokens, char* name, Token* subtokens) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = tokens; token; token = token->next) {
+    if (token->kind != TK_IDENT || !equal_to_n_chars(name, token->loc, token->len)) {
+      cur = cur->next = copy_token(token);
+      continue;
+    }
+
+    proceed_tokens(&cur, subtokens);
+  }
+
+  return head.next;
+}
+
+static bool is_funccall(Token* token) {
+  return token->kind == TK_IDENT && equal_to_token(token->next, "(");
+}
+
+static Token* funclike_macro_funccall_arg(Token** tokens) {
+  Token head = {};
+  Token* cur = &head;
+
+  if ((*tokens)->kind != TK_IDENT) {
+    error_token(*tokens, "expected an ident");
+  }
+  cur = cur->next = copy_token(*tokens);
+  *tokens = (*tokens)->next;
+
+  if (!equal_to_token(*tokens, "(")) {
+    error_token(*tokens, "expected '('");
+  }
+  cur = cur->next = *tokens;
+  *tokens = (*tokens)->next;
+
+  while (!equal_to_token(*tokens, ")")) {
+    if (is_funccall(*tokens)) {
+      proceed_tokens(&cur, funclike_macro_funccall_arg(tokens));
+      continue;
+    }
+
+    cur = cur->next = copy_token(*tokens);
+    *tokens = (*tokens)->next;
+  }
+  cur = cur->next = copy_token(*tokens);
+  *tokens = (*tokens)->next;
+
+  return head.next;
+}
+
+static Token* funclike_macro_arg(Token** tokens) {
+  Token head = {};
+  Token* cur = &head;
+  while (!equal_to_token(*tokens, ",") && !equal_to_token(*tokens, ")")) {
+    if (is_funccall(*tokens)) {
+      proceed_tokens(&cur, funclike_macro_funccall_arg(tokens));
+      continue;
+    }
+
+    cur = cur->next = copy_token(*tokens);
+    *tokens = (*tokens)->next;
+  }
+
+  return head.next;
+}
+
+static Token* funclike_macro_body(Macro* macro, Token** tokens) {
+  expect_token(tokens, "(");
+
+  Token* body = macro->body;
+  Str* param = macro->params;
+  bool is_first = true;
+  while (!consume_token(tokens, ")")) {
+    if (!is_first) {
+      expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    Token* arg = funclike_macro_arg(tokens);
+
+    body = replace_ident_tokens(body, param->data, arg);
+
+    param = param->next;
+  }
+
+  return body;
+}
+
 static Token* expand_macro(Token* token) {
   Macro* macro = find_macro_by_token(token);
   if (!macro) {
@@ -201,15 +308,35 @@ static Token* expand_macro(Token* token) {
   }
   token = token->next;
 
-  if (macro->is_like_func) {
-    expect_token(&token, "(");
-    expect_token(&token, ")");
-  }
+  Token* start = token;
 
-  Token* body = inherit_hideset(macro->body, token->hideset);
+  Token* body = macro->is_like_func ? funclike_macro_body(macro, &token) : macro->body;
+  body = inherit_hideset(body, start->hideset);
   body = add_hideset(body, new_str(macro->name));
 
   return append(body, token);
+}
+
+static Str* funclike_macro_params(Token** tokens) {
+  expect_token(tokens, "(");
+
+  Str head = {};
+  Str* cur = &head;
+  while (!consume_token(tokens, ")")) {
+    if (cur != &head) {
+      expect_token(tokens, ",");
+    }
+
+    if ((*tokens)->kind != TK_IDENT) {
+      error_token(*tokens, "expected an ident");
+    }
+    char* name = strndup((*tokens)->loc, (*tokens)->len);
+    *tokens = (*tokens)->next;
+
+    cur = cur->next = new_str(name);
+  }
+
+  return head.next;
 }
 
 static Token* define_dir(Token* token) {
@@ -220,11 +347,11 @@ static Token* define_dir(Token* token) {
 
   bool is_like_func = is_funclike_macro_parens(token);
   if (is_like_func) {
-    expect_token(&token, "(");
-    expect_token(&token, ")");
+    Str* params = funclike_macro_params(&token);
+    new_funclike_macro(name, inline_tokens(&token), params);
+  } else {
+    new_objlike_macro(name, inline_tokens(&token));
   }
-
-  new_macro(name, inline_tokens(&token), is_like_func);
 
   return token;
 }

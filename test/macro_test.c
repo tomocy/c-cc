@@ -254,5 +254,26 @@ int main() {
 #define M7 ()
   assert("ret3 M7", 3, ret3 M7);
 
+#define ARGS(a, b, c) 1
+  assert("ARGS(1, 2, 3)", 1, ARGS(1, 2, 3));
+
+#define ADD(x, y) x + y
+#define SUB(x, y) x - y
+
+#define M8(x, y) x + y
+  assert("M8(3, 4)", 7, M8(3, 4));
+
+// NOLINTNEXTLINE
+#define M8(x, y) x* y
+  assert("M8(3 + 4, 4 + 5)", 24, M8(3 + 4, 4 + 5));
+
+// NOLINTNEXTLINE
+#define M8(x, y) (x) * (y)
+  assert("M8(ADD(SUB(6, 3), 4), 4 + 5)", 63, M8(ADD(SUB(6, 3), 4), 4 + 5));
+
+// NOLINTNEXTLINE
+#define M8(x, y) x y
+  assert("M8(, 4+5)", 9, M8(, 4 + 5));
+
   ok();
 }

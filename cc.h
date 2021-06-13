@@ -286,6 +286,7 @@ void expect_token(Token** token, char* s);
 
 Token* tokenize(char* input_filename);
 Token* copy_token(Token* src);
+Token* copy_tokens(Token* src);
 Token* new_eof_token_in(File* file);
 bool can_be_keyword(char* c, int len);
 void print_tokens(char* output_filename, Token* tokens);

@@ -168,6 +168,16 @@ Token* copy_token(Token* src) {
   return token;
 }
 
+Token* copy_tokens(Token* src) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = src; token; token = token->next) {
+    cur = cur->next = copy_token(token);
+  }
+
+  return head.next;
+}
+
 void print_tokens(char* output_filename, Token* tokens) {
   FILE* file = open_output_file(output_filename);
 
