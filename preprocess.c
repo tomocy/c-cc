@@ -136,8 +136,33 @@ static bool can_expand_macro(Token* token) {
   if (token->kind != TK_IDENT) {
     return false;
   }
+  if (contain_str(token->hideset, token->loc, token->len)) {
+    return false;
+  }
 
   return find_macro(token->loc, token->len) != NULL;
+}
+
+static Token* inherit_hideset(Token* dst, Str* hideset) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = dst; token; token = token->next) {
+    cur = cur->next = copy_token(token);
+    cur->hideset = append_strs(hideset, cur->hideset);
+  }
+
+  return head.next;
+}
+
+static Token* add_hideset(Token* tokens, Str* hideset) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = tokens; token; token = token->next) {
+    cur = cur->next = copy_token(token);
+    add_str(&cur->hideset, hideset);
+  }
+
+  return head.next;
 }
 
 static Token* expand_macro(Token* token) {
@@ -147,7 +172,10 @@ static Token* expand_macro(Token* token) {
     error_token(ident, "undefined macro");
   }
 
-  return append(macro->body, token);
+  Token* body = inherit_hideset(macro->body, token->hideset);
+  body = add_hideset(body, new_str(macro->name));
+
+  return append(body, token);
 }
 
 static Token* define_dir(Token* token) {

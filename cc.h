@@ -52,9 +52,10 @@ struct Token {
   File* file;
   int line;
   char* loc;
+  int len;
   bool is_bol;
 
-  int len;
+  Str* hideset;
 
   int64_t int_val;
   double float_val;
@@ -257,6 +258,8 @@ void warn_at(char* fname, char* contents, char* loc, char* fmt, ...);
 
 void add_str(Str** strs, Str* str);
 Str* new_str(char* data);
+Str* append_strs(Str* former, Str* latter);
+bool contain_str(Str* strs, char* c, int len);
 char* format(char* fmt, ...);
 bool equal_to_str(char* s, char* other);
 bool equal_to_n_chars(char* s, char* c, int n);

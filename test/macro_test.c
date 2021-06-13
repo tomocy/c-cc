@@ -181,5 +181,17 @@ int main() {
 #endif
   assert("mm", 8, mm);
 
+  int M2 = 6;
+#define M2 M2 + 3
+  assert("M2", 9, M2);
+
+#define M3 M2 + 3
+  assert("M3", 12, M3);
+
+  int M4 = 3;
+#define M4 M5 * 5
+#define M5 M4 + 2
+  assert("M4", 13, M4);
+
   ok();
 }

@@ -1,6 +1,9 @@
 #include "cc.h"
 
 void add_str(Str** strs, Str* str) {
+  if (!str) {
+    return;
+  }
   str->next = *strs;
   *strs = str;
 }
@@ -9,6 +12,33 @@ Str* new_str(char* data) {
   Str* str = calloc(1, sizeof(Str));
   str->data = data;
   return str;
+}
+
+static Str* copy_str(Str* src) {
+  Str* str = calloc(1, sizeof(Str));
+  *str = *src;
+  str->next = NULL;
+  return str;
+}
+
+Str* append_strs(Str* former, Str* latter) {
+  Str head = {};
+  Str* cur = &head;
+  for (Str* str = former; str; str = str->next) {
+    cur = cur->next = copy_str(str);
+  }
+  cur->next = latter;
+
+  return head.next;
+}
+
+bool contain_str(Str* strs, char* c, int len) {
+  for (Str* str = strs; str; str = str->next) {
+    if (equal_to_n_chars(str->data, c, len)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 char* format(char* fmt, ...) {
