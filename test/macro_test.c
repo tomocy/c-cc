@@ -275,5 +275,13 @@ int main() {
 #define M8(x, y) x y
   assert("M8(, 4+5)", 9, M8(, 4 + 5));
 
+//  NOLINTNEXTLINE
+#define M8(x, y) x* y
+  assert("M8((2+3), 4)", 20, M8((2 + 3), 4));
+
+// NOLINTNEXTLINE
+#define M8(x, y) x* y
+  assert("M8((2,3), 4)", 12, M8((2, 3), 4));
+
   ok();
 }

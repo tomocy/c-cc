@@ -123,16 +123,6 @@ static char* new_id(void) {
   return name;
 }
 
-static Token* expect_ident(Token** tokens) {
-  if ((*tokens)->kind != TK_IDENT) {
-    error_token(*tokens, "expected an ident");
-  }
-
-  Token* ident = *tokens;
-  *tokens = (*tokens)->next;
-  return ident;
-}
-
 static int align(int n, int align) {
   return (n + align - 1) / align * align;
 }
@@ -1658,7 +1648,7 @@ static Node* return_stmt(Token** tokens) {
 static Node* label_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  Token* ident = expect_ident(tokens);
+  Token* ident = expect_ident_token(tokens);
   expect_token(tokens, ":");
 
   return new_label_node(start, strndup(ident->loc, ident->len), stmt(tokens));
@@ -1669,7 +1659,7 @@ static Node* goto_stmt(Token** tokens) {
 
   expect_token(tokens, "goto");
 
-  Token* ident = expect_ident(tokens);
+  Token* ident = expect_ident_token(tokens);
   expect_token(tokens, ";");
 
   return new_goto_node(start, strndup(ident->loc, ident->len));
@@ -2175,7 +2165,7 @@ static Node* member(Token** tokens, Token* token, Node* lhs) {
     error_token(*tokens, "expected a struct or union");
   }
 
-  Token* ident = expect_ident(tokens);
+  Token* ident = expect_ident_token(tokens);
 
   for (Member* mem = lhs->type->members; mem; mem = mem->next) {
     if (!equal_to_n_chars(mem->name, ident->loc, ident->len)) {
@@ -2260,7 +2250,7 @@ static Node* compound_literal(Token** tokens) {
 }
 
 static Node* datum(Token** tokens) {
-  Token* ident = expect_ident(tokens);
+  Token* ident = expect_ident_token(tokens);
   Obj* datum = find_datum_obj(ident->loc, ident->len);
   if (!datum) {
     if (equal_to_token(*tokens, "(")) {
@@ -2867,7 +2857,7 @@ static Type* enum_specifier(Token** tokens) {
 
   Token* tag = NULL;
   if ((*tokens)->kind == TK_IDENT) {
-    tag = expect_ident(tokens);
+    tag = expect_ident_token(tokens);
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
@@ -2888,7 +2878,7 @@ static Type* enum_specifier(Token** tokens) {
     }
     is_first = false;
 
-    Token* ident = expect_ident(tokens);
+    Token* ident = expect_ident_token(tokens);
 
     if (consume_token(tokens, "=")) {
       val = const_expr(tokens);
@@ -2911,7 +2901,7 @@ static Type* struct_decl(Token** tokens) {
 
   Token* tag = NULL;
   if ((*tokens)->kind == TK_IDENT) {
-    tag = expect_ident(tokens);
+    tag = expect_ident_token(tokens);
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
@@ -2975,7 +2965,7 @@ static Type* union_decl(Token** tokens) {
 
   Token* tag = NULL;
   if ((*tokens)->kind == TK_IDENT) {
-    tag = expect_ident(tokens);
+    tag = expect_ident_token(tokens);
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
@@ -3296,7 +3286,7 @@ static Type* declarator(Token** tokens, Type* type) {
     return declarator(&start, type);
   }
 
-  Token* ident = (*tokens)->kind == TK_IDENT ? expect_ident(tokens) : *tokens;
+  Token* ident = (*tokens)->kind == TK_IDENT ? expect_ident_token(tokens) : *tokens;
 
   type = type_suffix(tokens, type);
 

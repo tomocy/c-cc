@@ -282,7 +282,8 @@ void warn_token(Token* token, char* fmt, ...);
 
 bool equal_to_token(Token* token, char* s);
 bool consume_token(Token** token, char* s);
-void expect_token(Token** token, char* s);
+Token* expect_token(Token** token, char* s);
+Token* expect_ident_token(Token** tokens);
 
 Token* tokenize(char* input_filename);
 Token* copy_token(Token* src);

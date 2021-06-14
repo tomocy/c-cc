@@ -151,7 +151,7 @@ static Token* append(Token* former, Token* latter) {
   return head.next;
 }
 
-static Token* expect_macro_ident(Token** tokens) {
+static Token* expect_macro_ident_token(Token** tokens) {
   if ((*tokens)->kind != TK_IDENT) {
     error_token(*tokens, "macro name must be an identifier");
   }
@@ -168,6 +168,34 @@ static Token* inline_tokens(Token** tokens) {
     cur = cur->next = copy_token(*tokens);
   }
   cur->next = new_eof_token_in(cur->file);
+
+  return head.next;
+}
+
+static void proceed_token(Token** dst, Token** src) {
+  *dst = (*dst)->next = copy_token(*src);
+  *src = (*src)->next;
+}
+
+static void hand_over_tokens(Token** dst, Token* src) {
+  Token* cur = *dst;
+  for (Token* token = src; token; token = token->next) {
+    cur = cur->next = token;
+  }
+  *dst = cur;
+}
+
+static Token* replace_ident_tokens(Token* tokens, char* name, Token* subtokens) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = tokens; token; token = token->next) {
+    if (token->kind != TK_IDENT || !equal_to_n_chars(name, token->loc, token->len)) {
+      cur = cur->next = copy_token(token);
+      continue;
+    }
+
+    hand_over_tokens(&cur, subtokens);
+  }
 
   return head.next;
 }
@@ -205,29 +233,6 @@ static Token* add_hideset(Token* tokens, Str* hideset) {
   return head.next;
 }
 
-static void proceed_tokens(Token** dst, Token* src) {
-  Token* cur = *dst;
-  for (Token* token = src; token; token = token->next) {
-    cur = cur->next = token;
-  }
-  *dst = cur;
-}
-
-static Token* replace_ident_tokens(Token* tokens, char* name, Token* subtokens) {
-  Token head = {};
-  Token* cur = &head;
-  for (Token* token = tokens; token; token = token->next) {
-    if (token->kind != TK_IDENT || !equal_to_n_chars(name, token->loc, token->len)) {
-      cur = cur->next = copy_token(token);
-      continue;
-    }
-
-    proceed_tokens(&cur, subtokens);
-  }
-
-  return head.next;
-}
-
 static bool is_funccall(Token* token) {
   return token->kind == TK_IDENT && equal_to_token(token->next, "(");
 }
@@ -236,29 +241,37 @@ static Token* funclike_macro_funccall_arg(Token** tokens) {
   Token head = {};
   Token* cur = &head;
 
-  if ((*tokens)->kind != TK_IDENT) {
-    error_token(*tokens, "expected an ident");
-  }
-  cur = cur->next = copy_token(*tokens);
-  *tokens = (*tokens)->next;
-
-  if (!equal_to_token(*tokens, "(")) {
-    error_token(*tokens, "expected '('");
-  }
-  cur = cur->next = *tokens;
-  *tokens = (*tokens)->next;
+  cur = cur->next = copy_token(expect_ident_token(tokens));
+  cur = cur->next = copy_token(expect_token(tokens, "("));
 
   while (!equal_to_token(*tokens, ")")) {
     if (is_funccall(*tokens)) {
-      proceed_tokens(&cur, funclike_macro_funccall_arg(tokens));
+      hand_over_tokens(&cur, funclike_macro_funccall_arg(tokens));
       continue;
     }
 
-    cur = cur->next = copy_token(*tokens);
-    *tokens = (*tokens)->next;
+    proceed_token(&cur, tokens);
   }
-  cur = cur->next = copy_token(*tokens);
-  *tokens = (*tokens)->next;
+  proceed_token(&cur, tokens);
+
+  return head.next;
+}
+
+static Token* funclike_macro_parenthesized_arg(Token** tokens) {
+  Token head = {};
+  Token* cur = &head;
+
+  cur = cur->next = copy_token(expect_token(tokens, "("));
+
+  while (!equal_to_token(*tokens, ")")) {
+    if (equal_to_token(*tokens, "(")) {
+      hand_over_tokens(&cur, funclike_macro_parenthesized_arg(tokens));
+      continue;
+    }
+
+    proceed_token(&cur, tokens);
+  }
+  proceed_token(&cur, tokens);
 
   return head.next;
 }
@@ -268,12 +281,16 @@ static Token* funclike_macro_arg(Token** tokens) {
   Token* cur = &head;
   while (!equal_to_token(*tokens, ",") && !equal_to_token(*tokens, ")")) {
     if (is_funccall(*tokens)) {
-      proceed_tokens(&cur, funclike_macro_funccall_arg(tokens));
+      hand_over_tokens(&cur, funclike_macro_funccall_arg(tokens));
       continue;
     }
 
-    cur = cur->next = copy_token(*tokens);
-    *tokens = (*tokens)->next;
+    if (equal_to_token(*tokens, "(")) {
+      hand_over_tokens(&cur, funclike_macro_parenthesized_arg(tokens));
+      continue;
+    }
+
+    proceed_token(&cur, tokens);
   }
 
   return head.next;
@@ -292,6 +309,7 @@ static Token* funclike_macro_body(Macro* macro, Token** tokens) {
     is_first = false;
 
     Token* arg = funclike_macro_arg(tokens);
+    arg = preprocess_tokens(arg);
 
     body = replace_ident_tokens(body, param->data, arg);
 
@@ -302,16 +320,15 @@ static Token* funclike_macro_body(Macro* macro, Token** tokens) {
 }
 
 static Token* expand_macro(Token* token) {
+  Token* ident = token;
   Macro* macro = find_macro_by_token(token);
   if (!macro) {
     error_token(token, "undefined macro");
   }
   token = token->next;
 
-  Token* start = token;
-
   Token* body = macro->is_like_func ? funclike_macro_body(macro, &token) : macro->body;
-  body = inherit_hideset(body, start->hideset);
+  body = inherit_hideset(body, ident->hideset);
   body = add_hideset(body, new_str(macro->name));
 
   return append(body, token);
@@ -327,11 +344,8 @@ static Str* funclike_macro_params(Token** tokens) {
       expect_token(tokens, ",");
     }
 
-    if ((*tokens)->kind != TK_IDENT) {
-      error_token(*tokens, "expected an ident");
-    }
-    char* name = strndup((*tokens)->loc, (*tokens)->len);
-    *tokens = (*tokens)->next;
+    Token* ident = copy_token(expect_ident_token(tokens));
+    char* name = strndup(ident->loc, ident->len);
 
     cur = cur->next = new_str(name);
   }
@@ -342,7 +356,7 @@ static Str* funclike_macro_params(Token** tokens) {
 static Token* define_dir(Token* token) {
   expect_dir(&token, "define");
 
-  Token* ident = expect_macro_ident(&token);
+  Token* ident = expect_macro_ident_token(&token);
   char* name = strndup(ident->loc, ident->len);
 
   bool is_like_func = is_funclike_macro_parens(token);
@@ -359,7 +373,7 @@ static Token* define_dir(Token* token) {
 static Token* undef_dir(Token* token) {
   expect_dir(&token, "undef");
 
-  Token* ident = expect_macro_ident(&token);
+  Token* ident = expect_macro_ident_token(&token);
   char* name = strndup(ident->loc, ident->len);
 
   delete_macro(name);

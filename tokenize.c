@@ -129,10 +129,23 @@ bool consume_token(Token** token, char* s) {
   return true;
 }
 
-void expect_token(Token** token, char* s) {
+Token* expect_token(Token** token, char* s) {
+  Token* start = *token;
   if (!consume_token(token, s)) {
     error_at(file->name, file->contents, (*token)->loc, "expected '%s'", s);
   }
+
+  return start;
+}
+
+Token* expect_ident_token(Token** tokens) {
+  if ((*tokens)->kind != TK_IDENT) {
+    error_token(*tokens, "expected an ident");
+  }
+
+  Token* ident = *tokens;
+  *tokens = (*tokens)->next;
+  return ident;
 }
 
 static Token* new_token_in(TokenKind kind, File* file, char* loc, int len) {
