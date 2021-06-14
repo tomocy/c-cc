@@ -41,6 +41,18 @@ bool contain_str(Str* strs, char* c, int len) {
   return false;
 }
 
+Str* intersect_strs(Str* a, Str* b) {
+  Str head = {};
+  Str* cur = &head;
+  for (Str* s = b; s; s = s->next) {
+    if (contain_str(a, s->data, strlen(s->data))) {
+      cur = cur->next = copy_str(s);
+    }
+  }
+
+  return head.next;
+}
+
 char* format(char* fmt, ...) {
   char* dst = NULL;
   size_t dst_len = 0;

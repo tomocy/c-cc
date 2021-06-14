@@ -261,6 +261,7 @@ void add_str(Str** strs, Str* str);
 Str* new_str(char* data);
 Str* append_strs(Str* former, Str* latter);
 bool contain_str(Str* strs, char* c, int len);
+Str* intersect_strs(Str* a, Str* b);
 char* format(char* fmt, ...);
 bool equal_to_str(char* s, char* other);
 bool equal_to_n_chars(char* s, char* c, int n);

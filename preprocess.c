@@ -180,7 +180,7 @@ static void proceed_token(Token** dst, Token** src) {
 static void hand_over_tokens(Token** dst, Token* src) {
   Token* cur = *dst;
   for (Token* token = src; token; token = token->next) {
-    cur = cur->next = token;
+    cur = cur->next = copy_token(token);
   }
   *dst = cur;
 }
@@ -297,12 +297,10 @@ static Token* funclike_macro_arg(Token** tokens) {
 }
 
 static Token* funclike_macro_body(Macro* macro, Token** tokens) {
-  expect_token(tokens, "(");
-
   Token* body = macro->body;
   Str* param = macro->params;
   bool is_first = true;
-  while (!consume_token(tokens, ")")) {
+  while (!equal_to_token(*tokens, ")")) {
     if (!is_first) {
       expect_token(tokens, ",");
     }
@@ -327,8 +325,15 @@ static Token* expand_macro(Token* token) {
   }
   token = token->next;
 
-  Token* body = macro->is_like_func ? funclike_macro_body(macro, &token) : macro->body;
-  body = inherit_hideset(body, ident->hideset);
+  Token* body = macro->body;
+  Str* hideset = ident->hideset;
+  if (macro->is_like_func) {
+    expect_token(&token, "(");
+    body = funclike_macro_body(macro, &token);
+    hideset = intersect_strs(hideset, expect_token(&token, ")")->hideset);
+  }
+
+  body = inherit_hideset(body, hideset);
   body = add_hideset(body, new_str(macro->name));
 
   return append(body, token);

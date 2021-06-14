@@ -78,6 +78,14 @@ int ret3(void) {
   return 3;
 }
 
+int dbl(int x) {
+  return x * x;
+}
+
+int tri(int x) {
+  return x * x * x;
+}
+
 int main() {
   assert("include1", 5, include1);
   assert("include2", 7, include2);
@@ -95,8 +103,8 @@ int main() {
   assert("mm", 2, mm);
 
 #if 0
-  assert("unreachable", 1, 0);
-  mm = 1;
+    assert("unreachable", 1, 0);
+    mm = 1;
 #elif 0
   assert("unreachable", 1, 0);
   mm = 2;
@@ -120,8 +128,8 @@ int main() {
   assert("mm", 1, mm);
 
 #if 0
-  assert("unreachable", 1, 0);
-  mm = 1;
+    assert("unreachable", 1, 0);
+    mm = 1;
 #elif 1
 #if 1
   mm = 2;
@@ -233,12 +241,12 @@ int main() {
 
 #if 0
 #ifdef NO_SUCH_MACRO
-  assert("unreachable", 1, 0);
+    assert("unreachable", 1, 0);
 #endif
 #ifndef NO_SUCH_MACRO
-  assert("unreachable", 1, 0);
+    assert("unreachable", 1, 0);
 #endif
-  assert("unreachable", 1, 0);
+    assert("unreachable", 1, 0);
 #else
   assert("1", 1, 1);
 #endif
@@ -282,6 +290,11 @@ int main() {
 // NOLINTNEXTLINE
 #define M8(x, y) x* y
   assert("M8((2,3), 4)", 12, M8((2, 3), 4));
+
+#define dbl(x) M10(x) * x
+#define M10(x) dbl(x) + dbl(3)
+
+  assert("dbl(2)", 22, dbl(2));
 
   ok();
 }
