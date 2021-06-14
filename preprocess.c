@@ -167,7 +167,6 @@ static Token* inline_tokens(Token** tokens) {
   for (; *tokens && !(*tokens)->is_bol; *tokens = (*tokens)->next) {
     cur = cur->next = copy_token(*tokens);
   }
-  cur->next = new_eof_token_in(cur->file);
 
   return head.next;
 }
@@ -444,6 +443,7 @@ static bool have_expanded_if_block(IfDir* dir) {
 
 static bool cond(Token** tokens) {
   Token* cond = inline_tokens(tokens);
+  cond = append(cond, new_eof_token_in(cond->file));
   cond = preprocess_tokens(cond);
   return const_expr(&cond) != 0;
 }

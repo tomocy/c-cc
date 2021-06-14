@@ -1,5 +1,13 @@
 #include "cc.h"
 
+File* new_file(int index, char* name, char* contents) {
+  File* file = calloc(1, sizeof(File));
+  file->index = index;
+  file->name = name;
+  file->contents = contents;
+  return file;
+}
+
 char* replace_file_ext(char* name, char* ext) {
   name = basename(strdup(name));
   char* dot = strrchr(name, '.');
@@ -10,7 +18,7 @@ char* replace_file_ext(char* name, char* ext) {
   return format("%s%s", name, ext);
 }
 
-char* create_tmp_file() {
+char* new_tmp_file() {
   char* name = strdup("/tmp/cc-XXXXXX");
   int fd = mkstemp(name);
   if (fd == -1) {

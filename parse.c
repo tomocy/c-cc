@@ -441,7 +441,7 @@ static Obj* new_obj(ObjKind kind) {
   return obj;
 }
 
-static Obj* new_func_obj(Type* type) {
+static Obj* create_func_obj(Type* type) {
   Obj* func = new_obj(OJ_FUNC);
   func->type = type;
   func->name = type->name;
@@ -459,29 +459,29 @@ static Obj* prepare_gvar_obj(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_stray_gvar_obj(Type* type, char* name) {
+static Obj* create_stray_gvar_obj(Type* type, char* name) {
   Obj* var = prepare_gvar_obj(type, name);
   add_gvar_obj(var);
   return var;
 }
 
-static Obj* new_gvar_obj_as(Type* type, char* name) {
-  Obj* var = new_stray_gvar_obj(type, name);
+static Obj* create_gvar_obj_as(Type* type, char* name) {
+  Obj* var = create_stray_gvar_obj(type, name);
   add_code(var);
   return var;
 }
 
-static Obj* new_gvar_obj(Type* type) {
-  return new_gvar_obj_as(type, type->name);
+static Obj* create_gvar_obj(Type* type) {
+  return create_gvar_obj_as(type, type->name);
 }
 
-static Obj* new_anon_gvar_obj(Type* type) {
-  return new_gvar_obj_as(type, new_id());
+static Obj* create_anon_gvar_obj(Type* type) {
+  return create_gvar_obj_as(type, new_id());
 }
 
-static Obj* new_str_obj(char* val, int len) {
+static Obj* create_str_obj(char* val, int len) {
   Type* type = new_chars_type(len + 1);
-  Obj* str = new_stray_gvar_obj(type, new_id());
+  Obj* str = create_stray_gvar_obj(type, new_id());
   str->is_static = true;
   str->val = strdup(val);
   add_code(str);
@@ -500,8 +500,8 @@ static void adjust_lvar_obj_offset(Obj* vars, Obj* var, Type* type) {
   var->offset = align(vars ? vars->offset + size : size, var->alignment);
 }
 
-static Obj* new_static_lvar_obj(Type* type) {
-  Obj* var = new_anon_gvar_obj(type);
+static Obj* create_static_lvar_obj(Type* type) {
+  Obj* var = create_anon_gvar_obj(type);
   var->is_static = true;
   // Inherit the current offset so that other lvars can extend their offset on it
   var->offset = current_lvars ? current_lvars->offset : 0;
@@ -509,7 +509,7 @@ static Obj* new_static_lvar_obj(Type* type) {
   return var;
 }
 
-static Obj* new_lvar_obj_as(Type* type, char* name) {
+static Obj* create_lvar_obj_as(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
@@ -519,11 +519,11 @@ static Obj* new_lvar_obj_as(Type* type, char* name) {
   return var;
 }
 
-static Obj* new_lvar_obj(Type* type) {
-  return new_lvar_obj_as(type, type->name);
+static Obj* create_lvar_obj(Type* type) {
+  return create_lvar_obj_as(type, type->name);
 }
 
-static Obj* new_enum_obj(char* name, int64_t val) {
+static Obj* create_enum_obj(char* name, int64_t val) {
   Obj* enu = new_obj(OJ_ENUM);
   enu->name = name;
   // NOLINTNEXTLINE
@@ -532,7 +532,7 @@ static Obj* new_enum_obj(char* name, int64_t val) {
   return enu;
 }
 
-static Obj* new_def_type_obj(Type* type) {
+static Obj* create_def_type_obj(Type* type) {
   Obj* def_type = new_obj(OJ_DEF_TYPE);
   def_type->type = type;
   def_type->name = type->name;
@@ -540,7 +540,7 @@ static Obj* new_def_type_obj(Type* type) {
   return def_type;
 }
 
-static Obj* new_tag_obj(Type* type, char* name) {
+static Obj* create_tag_obj(Type* type, char* name) {
   Obj* tag = new_obj(OJ_TAG);
   tag->type = type;
   tag->name = name;
@@ -1071,7 +1071,7 @@ static Node* new_expr_stmt_node(Node* lhs) {
   return stmt;
 }
 
-static Node* new_label_node(Token* token, char* label, Node* lhs) {
+static Node* create_label_node(Token* token, char* label, Node* lhs) {
   Node* l = new_unary_node(ND_LABEL, lhs);
   l->token = token;
   l->label = label;
@@ -1080,7 +1080,7 @@ static Node* new_label_node(Token* token, char* label, Node* lhs) {
   return l;
 }
 
-static Node* new_goto_node(Token* token, char* label) {
+static Node* create_goto_node(Token* token, char* label) {
   Node* g = new_node(ND_GOTO);
   g->token = token;
   g->label = label;
@@ -1212,7 +1212,7 @@ static Node* new_func_params(Type* params) {
       error_token(param->ident, "parameter name omitted");
     }
 
-    Obj* var = new_lvar_obj_as(param, param->name);
+    Obj* var = create_lvar_obj_as(param, param->name);
     cur = cur->next = new_var_node(param->ident, var);
   }
 
@@ -1226,7 +1226,7 @@ static void func(Token** tokens) {
     error_token(type->ident, "function name omitted");
   }
 
-  Obj* func = new_func_obj(type);
+  Obj* func = create_func_obj(type);
   current_func = func;
 
   func->is_static = attr.is_static;
@@ -1241,7 +1241,7 @@ static void func(Token** tokens) {
   func->params = new_func_params(func->type->params);
 
   if (func->type->is_variadic) {
-    func->va_area = new_lvar_obj_as(new_chars_type(136), "__va_area__");
+    func->va_area = create_lvar_obj_as(new_chars_type(136), "__va_area__");
   }
 
   func->body = block_stmt(tokens);
@@ -1363,7 +1363,7 @@ static void gvar(Token** tokens) {
       type->alignment = attr.alignment;
     }
 
-    Obj* var = new_gvar_obj(type);
+    Obj* var = create_gvar_obj(type);
     var->is_static = attr.is_static;
     var->is_definition = !attr.is_extern;
 
@@ -1392,7 +1392,7 @@ static void tydef(Token** tokens) {
     if (!type->name) {
       error_token(type->ident, "typedef name omitted");
     }
-    new_def_type_obj(type);
+    create_def_type_obj(type);
   }
 }
 
@@ -1651,7 +1651,7 @@ static Node* label_stmt(Token** tokens) {
   Token* ident = expect_ident_token(tokens);
   expect_token(tokens, ":");
 
-  return new_label_node(start, strndup(ident->loc, ident->len), stmt(tokens));
+  return create_label_node(start, strndup(ident->loc, ident->len), stmt(tokens));
 }
 
 static Node* goto_stmt(Token** tokens) {
@@ -1662,7 +1662,7 @@ static Node* goto_stmt(Token** tokens) {
   Token* ident = expect_ident_token(tokens);
   expect_token(tokens, ";");
 
-  return new_goto_node(start, strndup(ident->loc, ident->len));
+  return create_goto_node(start, strndup(ident->loc, ident->len));
 }
 
 static Node* break_stmt(Token** tokens) {
@@ -1774,7 +1774,7 @@ static Node* expr(Token** tokens) {
 }
 
 static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
-  Obj* tmp_var = new_lvar_obj_as(new_ptr_type(lhs->type), "");
+  Obj* tmp_var = create_lvar_obj_as(new_ptr_type(lhs->type), "");
 
   Node* tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs));
 
@@ -2239,12 +2239,12 @@ static Node* compound_literal(Token** tokens) {
   expect_token(tokens, ")");
 
   if (is_gscope(current_scope)) {
-    Obj* var = new_anon_gvar_obj(type);
+    Obj* var = create_anon_gvar_obj(type);
     gvar_initer(tokens, var);
     return new_var_node(*tokens, var);
   }
 
-  Obj* var = new_lvar_obj_as(type, "");
+  Obj* var = create_lvar_obj_as(type, "");
   Node* assign = lvar_initer(tokens, var);
   return new_comma_node(*tokens, assign, new_var_node(*tokens, var));
 }
@@ -2301,7 +2301,7 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_STR) {
-    Obj* str = new_str_obj((*tokens)->str_val, (*tokens)->str_val_len);
+    Obj* str = create_str_obj((*tokens)->str_val, (*tokens)->str_val_len);
     Node* node = new_var_node(*tokens, str);
     *tokens = (*tokens)->next;
     return node;
@@ -2824,7 +2824,7 @@ static Node* lvar_decl(Token** tokens) {
     }
 
     if (attr.is_static) {
-      Obj* var = new_static_lvar_obj(type);
+      Obj* var = create_static_lvar_obj(type);
       if (consume_token(tokens, "=")) {
         gvar_initer(tokens, var);
       }
@@ -2835,7 +2835,7 @@ static Node* lvar_decl(Token** tokens) {
       type->alignment = attr.alignment;
     }
 
-    Obj* var = new_lvar_obj(type);
+    Obj* var = create_lvar_obj(type);
     Node* node = new_var_node(type->ident, var);
 
     if (consume_token(tokens, "=")) {
@@ -2884,13 +2884,13 @@ static Type* enum_specifier(Token** tokens) {
       val = const_expr(tokens);
     }
 
-    new_enum_obj(strndup(ident->loc, ident->len), val++);
+    create_enum_obj(strndup(ident->loc, ident->len), val++);
   }
 
   Type* enu = new_int_type();
 
   if (tag) {
-    new_tag_obj(enu, strndup(tag->loc, tag->len));
+    create_tag_obj(enu, strndup(tag->loc, tag->len));
   }
 
   return enu;
@@ -2911,7 +2911,7 @@ static Type* struct_decl(Token** tokens) {
     }
 
     Type* struc = new_struct_type(-1, 1, NULL);
-    new_tag_obj(struc, strndup(tag->loc, tag->len));
+    create_tag_obj(struc, strndup(tag->loc, tag->len));
     return struc;
   }
 
@@ -2956,7 +2956,7 @@ static Type* struct_decl(Token** tokens) {
     return found->type;
   }
 
-  new_tag_obj(struc, strndup(tag->loc, tag->len));
+  create_tag_obj(struc, strndup(tag->loc, tag->len));
   return struc;
 }
 
@@ -2975,7 +2975,7 @@ static Type* union_decl(Token** tokens) {
     }
 
     Type* uni = new_union_type(-1, 1, NULL);
-    new_tag_obj(uni, strndup(tag->loc, tag->len));
+    create_tag_obj(uni, strndup(tag->loc, tag->len));
     return uni;
   }
 
@@ -3013,7 +3013,7 @@ static Type* union_decl(Token** tokens) {
     return found->type;
   }
 
-  new_tag_obj(uni, strndup(tag->loc, tag->len));
+  create_tag_obj(uni, strndup(tag->loc, tag->len));
   return uni;
 }
 

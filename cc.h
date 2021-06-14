@@ -245,8 +245,9 @@ struct Relocation {
 
 extern File* files;
 
+File* new_file(int index, char* name, char* contents);
 char* replace_file_ext(char* name, char* ext);
-char* create_tmp_file();
+char* new_tmp_file();
 void unlink_files(Str* names);
 FILE* open_input_file(char* fname);
 FILE* open_output_file(char* fname);

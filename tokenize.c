@@ -85,30 +85,26 @@ static void add_file(File* file) {
   files = file;
 }
 
-static File* new_file(int index, char* name, char* contents) {
-  File* file = calloc(1, sizeof(File));
-  file->index = index;
-  file->name = name;
-  file->contents = contents;
+static File* create_file(int index, char* name, char* contents) {
+  File* file = new_file(index, name, contents);
   add_file(file);
   return file;
 }
 
 static File* read_file(char* fname) {
   static int index = 0;
-  File* file = new_file(++index, fname, read_file_contents(fname));
-  return file;
+  return create_file(++index, fname, read_file_contents(fname));
 }
 
 static void add_line_number(Token* token) {
   int line = 1;
-  for (char* loc = token->file->contents; *loc; loc++) {
-    if (*loc == '\n') {
+  for (char* c = token->file->contents; *c; c++) {
+    if (*c == '\n') {
       line++;
       continue;
     }
 
-    if (loc == token->loc) {
+    if (c == token->loc) {
       token->line = line;
       token = token->next;
       continue;
@@ -129,10 +125,10 @@ bool consume_token(Token** token, char* s) {
   return true;
 }
 
-Token* expect_token(Token** token, char* s) {
-  Token* start = *token;
-  if (!consume_token(token, s)) {
-    error_at(file->name, file->contents, (*token)->loc, "expected '%s'", s);
+Token* expect_token(Token** tokens, char* s) {
+  Token* start = *tokens;
+  if (!consume_token(tokens, s)) {
+    error_at((*tokens)->file->name, (*tokens)->file->contents, (*tokens)->loc, "expected '%s'", s);
   }
 
   return start;

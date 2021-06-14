@@ -138,4 +138,4 @@ clean:
 	rm -f \
 		cc $(TESTS) $(OBJS) $(wildcard test/*.o test/*.s) \
 		beta/cc $(BETA_TESTS) $(BETA_OBJS) $(wildcard beta/*.c) $(wildcard beta/test/*.o beta/test/*.s beta/test/*.c) \
-		s2/cc $(S2_TESTS) $(S2_OBJS) $(wildcard s2/test/*.o s2/test/*.s s2/test/*.c)
+		s2/cc $(S2_TESTS) $(S2_OBJS) $(wildcard s2/*.c) $(wildcard s2/test/*.o s2/test/*.s s2/test/*.c)

@@ -21,8 +21,8 @@ static void add_input_filename(Str* fname) {
   add_str(&input_filenames, fname);
 }
 
-static char* new_tmp_file() {
-  char* name = create_tmp_file();
+static char* create_tmp_file() {
+  char* name = new_tmp_file();
   add_tmp_filename(new_str(name));
   return name;
 }
@@ -158,7 +158,7 @@ static int compile(char* input, char* output) {
 }
 
 static int assemble(char* input, char* output) {
-  char* tmp_fname = new_tmp_file();
+  char* tmp_fname = create_tmp_file();
   int status = compile(input, tmp_fname);
   if (status != 0) {
     return status;
@@ -172,7 +172,7 @@ static int linkk(Str* inputs, char* output) {
   Str head_link_inputs = {};
   Str* link_inputs = &head_link_inputs;
   for (Str* input = inputs; input; input = input->next) {
-    char* tmp_fname = new_tmp_file();
+    char* tmp_fname = create_tmp_file();
     int status = assemble(input->data, tmp_fname);
     if (status != 0) {
       return status;

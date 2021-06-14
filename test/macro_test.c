@@ -103,8 +103,8 @@ int main() {
   assert("mm", 2, mm);
 
 #if 0
-    assert("unreachable", 1, 0);
-    mm = 1;
+  assert("unreachable", 1, 0);
+  mm = 1;
 #elif 0
   assert("unreachable", 1, 0);
   mm = 2;
@@ -128,8 +128,8 @@ int main() {
   assert("mm", 1, mm);
 
 #if 0
-    assert("unreachable", 1, 0);
-    mm = 1;
+  assert("unreachable", 1, 0);
+  mm = 1;
 #elif 1
 #if 1
   mm = 2;
@@ -241,12 +241,12 @@ int main() {
 
 #if 0
 #ifdef NO_SUCH_MACRO
-    assert("unreachable", 1, 0);
+  assert("unreachable", 1, 0);
 #endif
 #ifndef NO_SUCH_MACRO
-    assert("unreachable", 1, 0);
+  assert("unreachable", 1, 0);
 #endif
-    assert("unreachable", 1, 0);
+  assert("unreachable", 1, 0);
 #else
   assert("1", 1, 1);
 #endif
