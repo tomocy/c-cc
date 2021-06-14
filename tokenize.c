@@ -1,7 +1,7 @@
 #include "cc.h"
 
 File* files;
-static File* file;
+static File* current_file;
 static bool is_bol;
 static bool was_space;
 
@@ -19,7 +19,11 @@ static bool consume_char(Token** dst, char** c);
 static bool consume_str(Token** dst, char** c);
 
 Token* tokenize(char* input_filename) {
-  file = read_file(input_filename);
+  return tokenize_in(read_file(input_filename));
+}
+
+Token* tokenize_in(File* file) {
+  current_file = file;
 
   char* c = file->contents;
 
@@ -69,11 +73,11 @@ Token* tokenize(char* input_filename) {
       continue;
     }
 
-    error_at(file->name, file->contents, c, "invalid character");
+    error_at(current_file->name, current_file->contents, c, "invalid character");
   }
 
   cur->next = new_eof_token();
-  file = NULL;
+  current_file = NULL;
 
   Token* tokens = head.next;
   add_line_number(tokens);
@@ -113,7 +117,11 @@ static void add_line_number(Token* token) {
 }
 
 bool equal_to_token(Token* token, char* s) {
-  return memcmp(token->loc, s, token->len) == 0 && s[token->len] == '\0';
+  return equal_to_n_chars(s, token->loc, token->len);
+}
+
+bool equal_to_ident_token(Token* token, char* s) {
+  return token->kind == TK_IDENT && equal_to_token(token, s);
 }
 
 bool consume_token(Token** token, char* s) {
@@ -158,7 +166,7 @@ Token* new_eof_token_in(File* file) {
 }
 
 static Token* new_token(TokenKind kind, char* loc, int len) {
-  Token* token = new_token_in(kind, file, loc, len);
+  Token* token = new_token_in(kind, current_file, loc, len);
   token->is_bol = is_bol;
   is_bol = false;
   token->has_leading_space = was_space;
@@ -242,7 +250,7 @@ static bool consume_comment(char** c) {
   if (start_with(*c, "/*")) {
     char* close = strstr(*c + 2, "*/");
     if (!close) {
-      error_at(file->name, file->contents, *c, "unclosed block comment");
+      error_at(current_file->name, current_file->contents, *c, "unclosed block comment");
     }
     *c = close + 2;
     return true;
@@ -304,6 +312,7 @@ static bool consume_punct(Token** dst, char** c) {
     "~",
     "?",
     "#",
+    "`",
   };
   static int plen = sizeof(puncts) / sizeof(char*);
 
@@ -482,7 +491,7 @@ static int read_escaped_char(char** c) {
   if (**c == 'x') {
     (*c)++;
     if (!isxdigit(**c)) {
-      error_at(file->name, file->contents, *c, "expected a hex escape sequence");
+      error_at(current_file->name, current_file->contents, *c, "expected a hex escape sequence");
     }
 
     int digit = 0;
@@ -524,7 +533,7 @@ static bool consume_char(Token** dst, char** c) {
   char* start = (*c)++;
 
   if (**c == '\n' || **c == '\0') {
-    error_at(file->name, file->contents, start, "unclosed string literal");
+    error_at(current_file->name, current_file->contents, start, "unclosed string literal");
   }
 
   char read;
@@ -538,7 +547,7 @@ static bool consume_char(Token** dst, char** c) {
 
   char* end = (*c)++;
   if (*end != '\'') {
-    error_at(file->name, file->contents, start, "unclosed string literal");
+    error_at(current_file->name, current_file->contents, start, "unclosed string literal");
   }
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
@@ -556,7 +565,7 @@ static bool consume_str(Token** dst, char** c) {
   char* start = (*c)++;
   for (; **c != '"'; (*c)++) {
     if (**c == '\n' || **c == '\0') {
-      error_at(file->name, file->contents, start, "unclosed string literal");
+      error_at(current_file->name, current_file->contents, start, "unclosed string literal");
     }
     if (**c == '\\') {
       (*c)++;

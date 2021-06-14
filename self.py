@@ -66,6 +66,7 @@ void exit(int code);
 char* basename(char* path);
 char* dirname(char *path);
 char* strrchr(char* s, int c);
+char *strncpy(char *dest, char *src, long n);
 int unlink(char* pathname);
 int mkstemp(char* template);
 int close(int fd);

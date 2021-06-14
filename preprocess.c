@@ -71,7 +71,7 @@ static void add_macro(Macro* macro) {
   macros = macro;
 }
 
-static Macro* new_macro(char* name, Token* body, bool is_like_func) {
+static Macro* create_macro(char* name, Token* body, bool is_like_func) {
   Macro* macro = calloc(1, sizeof(Macro));
   macro->name = name;
   macro->body = body;
@@ -80,12 +80,12 @@ static Macro* new_macro(char* name, Token* body, bool is_like_func) {
   return macro;
 }
 
-static Macro* new_objlike_macro(char* name, Token* body) {
-  return new_macro(name, body, false);
+static Macro* create_objlike_macro(char* name, Token* body) {
+  return create_macro(name, body, false);
 }
 
-static Macro* new_funclike_macro(char* name, Token* body, Str* params) {
-  Macro* macro = new_macro(name, body, true);
+static Macro* create_funclike_macro(char* name, Str* params, Token* body) {
+  Macro* macro = create_macro(name, body, true);
   macro->params = params;
   return macro;
 }
@@ -184,16 +184,79 @@ static void hand_over_tokens(Token** dst, Token* src) {
   *dst = cur;
 }
 
-static Token* replace_ident_tokens(Token* tokens, char* name, Token* subtokens) {
+// NOLINTNEXTLINE
+static char* quote_str(char* s) {
+  int len = 3;  // the min len, for ""\0
+  for (int i = 0; s[i]; i++) {
+    // Those characters should be escaped
+    if (s[i] == '\\' || s[i] == '"') {
+      len++;
+    }
+    len++;
+  }
+
+  char* val = calloc(len, sizeof(char));
+  char* c = val;
+  *c++ = '"';
+  for (int i = 0; s[i]; i++) {
+    if (s[i] == '\\' || s[i] == '"') {
+      *c++ = '\\';
+    }
+    *c++ = s[i];
+  }
+  *c++ = '"';
+  *c++ = '\0';
+
+  return val;
+}
+
+static Token* stringize_tokens(Token* tokens) {
+  Token* start = tokens;
+  Token* end = start;
+  int len = 1;
+  while (end->next) {
+    end = end->next;
+    len++;
+  }
+
+  // consecutive spaces should be recognized as one space
+  char* val = calloc(len, sizeof(char));
+  char* c = val;
+  for (Token* token = tokens; token && token->kind != TK_EOF; token = token->next) {
+    if (token != tokens && token->has_leading_space) {
+      *c++ = ' ';
+    }
+    strncpy(c, token->loc, token->len);
+    c += token->len;
+  }
+  *c++ = '\0';
+
+  // it is better to set some values in those tokens to their locations so that
+  // the error reporting can indicate the locations
+  // , so tokenize those tokens as if they are in the file of the tokens which are replaced
+  char* quoted = quote_str(val);
+  return tokenize_in(new_file(start->file->index, start->file->name, quoted));
+}
+
+static Token* replace_funclike_macro_body(Token* body, char* name, Token* arg) {
   Token head = {};
   Token* cur = &head;
-  for (Token* token = tokens; token; token = token->next) {
-    if (token->kind != TK_IDENT || !equal_to_n_chars(name, token->loc, token->len)) {
-      cur = cur->next = copy_token(token);
+  for (Token* token = body; token; token = token->next) {
+    if (equal_to_token(token, "#") && equal_to_ident_token(token->next, name)) {
+      // the ident token is consumed by the inc node
+      // so consume token only once
+      expect_token(&token, "#");
+
+      hand_over_tokens(&cur, stringize_tokens(arg));
       continue;
     }
 
-    hand_over_tokens(&cur, subtokens);
+    if (equal_to_ident_token(token, name)) {
+      hand_over_tokens(&cur, arg);
+      continue;
+    }
+
+    cur = cur->next = copy_token(token);
   }
 
   return head.next;
@@ -308,7 +371,7 @@ static Token* funclike_macro_body(Macro* macro, Token** tokens) {
     Token* arg = funclike_macro_arg(tokens);
     arg = preprocess_tokens(arg);
 
-    body = replace_ident_tokens(body, param->data, arg);
+    body = replace_funclike_macro_body(body, param->data, arg);
 
     param = param->next;
   }
@@ -357,6 +420,18 @@ static Str* funclike_macro_params(Token** tokens) {
   return head.next;
 }
 
+static void validate_funclike_macro_body(Str* params, Token* body) {
+  for (Token* token = body; token; token = token->next) {
+    if (!equal_to_token(token, "#")) {
+      continue;
+    }
+
+    if (!token->next || token->next->kind != TK_IDENT || !contain_str(params, token->next->loc, token->next->len)) {
+      error_token(token, "'#' is not followed by a macro parameter");
+    }
+  }
+}
+
 static Token* define_dir(Token* token) {
   expect_dir(&token, "define");
 
@@ -366,9 +441,11 @@ static Token* define_dir(Token* token) {
   bool is_like_func = is_funclike_macro_parens(token);
   if (is_like_func) {
     Str* params = funclike_macro_params(&token);
-    new_funclike_macro(name, inline_tokens(&token), params);
+    Token* body = inline_tokens(&token);
+    validate_funclike_macro_body(params, body);
+    create_funclike_macro(name, params, body);
   } else {
-    new_objlike_macro(name, inline_tokens(&token));
+    create_objlike_macro(name, inline_tokens(&token));
   }
 
   return token;

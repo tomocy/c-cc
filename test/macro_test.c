@@ -293,8 +293,20 @@ int main() {
 
 #define dbl(x) M10(x) * x
 #define M10(x) dbl(x) + dbl(3)
-
   assert("dbl(2)", 22, dbl(2));
+
+#define M11(x) #x
+  assert("M11(a !b  `\"\"c)[0]", 'a', M11(a !b  `"" c)[0]);
+  assert("M11(a !b  `\"\"c)[0]", ' ', M11(a !b  `"" c)[1]);
+  assert("M11(a !b  `\"\"c)[1]", '!', M11(a !b  `"" c)[2]);
+  assert("M11(a !b  `\"\"c)[2]", 'b', M11(a !b  `"" c)[3]);
+  assert("M11(a !b  `\"\"c)[3]", ' ', M11(a !b  `"" c)[4]);
+  assert("M11(a !b  `\"\"c)[4]", '`', M11(a !b  `"" c)[5]);
+  assert("M11(a !b  `\"\"c)[5]", '"', M11(a !b  `"" c)[6]);
+  assert("M11(a !b  `\"\"c)[6]", '"', M11(a !b  `"" c)[7]);
+  assert("M11(a !b  `\"\"c)[6]", ' ', M11(a !b  `"" c)[8]);
+  assert("M11(a !b  `\"\"c)[7]", 'c', M11(a !b  `"" c)[9]);
+  assert("M11(a !b  `\"\"c)[8]", 0, M11(a !b  `"" c)[10]);
 
   ok();
 }
