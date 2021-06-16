@@ -1,6 +1,7 @@
 #include "cc.h"
 
 typedef struct Macro Macro;
+typedef struct FunclikeMacroArg FunclikeMacroArg;
 typedef struct IfDir IfDir;
 
 struct Macro {
@@ -9,6 +10,12 @@ struct Macro {
   Token* body;
   bool is_like_func;
   Str* params;
+};
+
+struct FunclikeMacroArg {
+  FunclikeMacroArg* next;
+  char* param;
+  Token* token;
 };
 
 struct IfDir {
@@ -21,7 +28,7 @@ struct IfDir {
 static Macro* macros;
 static IfDir* if_dirs;
 
-static Token* preprocess_tokens(Token* tokens);
+static Token* process(Token* tokens);
 
 static bool is_funclike_macro_parens(Token* token) {
   return !token->has_leading_space && equal_to_token(token, "(");
@@ -88,6 +95,25 @@ static Macro* create_funclike_macro(char* name, Str* params, Token* body) {
   Macro* macro = create_macro(name, body, true);
   macro->params = params;
   return macro;
+}
+
+static FunclikeMacroArg* new_funclike_macro_arg(char* param, Token* token) {
+  FunclikeMacroArg* arg = calloc(1, sizeof(FunclikeMacroArg));
+  arg->param = param;
+  arg->token = token;
+  return arg;
+}
+
+static FunclikeMacroArg* find_funclike_macro_arg_from(FunclikeMacroArg* args, char* c, int len) {
+  for (FunclikeMacroArg* arg = args; arg; arg = arg->next) {
+    if (!equal_to_n_chars(arg->param, c, len)) {
+      continue;
+    }
+
+    return arg;
+  }
+
+  return NULL;
 }
 
 static void add_if_dir_to(IfDir** dirs, IfDir* dir) {
@@ -238,30 +264,6 @@ static Token* stringize_tokens(Token* tokens) {
   return tokenize_in(new_file(start->file->index, start->file->name, quoted));
 }
 
-static Token* replace_funclike_macro_body(Token* body, char* name, Token* arg) {
-  Token head = {};
-  Token* cur = &head;
-  for (Token* token = body; token; token = token->next) {
-    if (equal_to_token(token, "#") && equal_to_ident_token(token->next, name)) {
-      // the ident token is consumed by the inc node
-      // so consume token only once
-      expect_token(&token, "#");
-
-      hand_over_tokens(&cur, stringize_tokens(arg));
-      continue;
-    }
-
-    if (equal_to_ident_token(token, name)) {
-      hand_over_tokens(&cur, arg);
-      continue;
-    }
-
-    cur = cur->next = copy_token(token);
-  }
-
-  return head.next;
-}
-
 static bool can_expand_macro(Token* token) {
   if (token->kind != TK_IDENT) {
     return false;
@@ -358,25 +360,62 @@ static Token* funclike_macro_arg(Token** tokens) {
   return head.next;
 }
 
-static Token* funclike_macro_body(Macro* macro, Token** tokens) {
-  Token* body = macro->body;
-  Str* param = macro->params;
-  bool is_first = true;
+static FunclikeMacroArg* funclike_macro_args(Str* params, Token** tokens) {
+  Token* start = *tokens;
+
+  FunclikeMacroArg head = {};
+  FunclikeMacroArg* cur = &head;
+  Str* param = params;
   while (!equal_to_token(*tokens, ")")) {
-    if (!is_first) {
+    if (cur != &head) {
       expect_token(tokens, ",");
     }
-    is_first = false;
 
-    Token* arg = funclike_macro_arg(tokens);
-    arg = preprocess_tokens(arg);
+    Token* token = funclike_macro_arg(tokens);
+    FunclikeMacroArg* arg = new_funclike_macro_arg(param->data, token);
 
-    body = replace_funclike_macro_body(body, param->data, arg);
-
+    cur = cur->next = arg;
     param = param->next;
   }
+  if (param) {
+    error_token(start, "too many arguments");
+  }
 
-  return body;
+  return head.next;
+}
+
+static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = body; token; token = token->next) {
+    if (equal_to_token(token, "#") && token->next) {
+      Token* start = token;
+
+      expect_token(&token, "#");
+      FunclikeMacroArg* arg = find_funclike_macro_arg_from(args, token->loc, token->len);
+      if (!arg) {
+        error_token(start, "'#' is not followed by a macro parameter");
+      }
+
+      hand_over_tokens(&cur, stringize_tokens(arg->token));
+      continue;
+    }
+
+    FunclikeMacroArg* arg = find_funclike_macro_arg_from(args, token->loc, token->len);
+    if (arg) {
+      hand_over_tokens(&cur, process(arg->token));
+      continue;
+    }
+
+    cur = cur->next = copy_token(token);
+  }
+
+  return head.next;
+}
+
+static Token* funclike_macro_body(Macro* macro, Token** tokens) {
+  FunclikeMacroArg* args = funclike_macro_args(macro->params, tokens);
+  return replace_funclike_macro_body(macro->body, args);
 }
 
 static Token* expand_macro(Token* token) {
@@ -420,18 +459,6 @@ static Str* funclike_macro_params(Token** tokens) {
   return head.next;
 }
 
-static void validate_funclike_macro_body(Str* params, Token* body) {
-  for (Token* token = body; token; token = token->next) {
-    if (!equal_to_token(token, "#")) {
-      continue;
-    }
-
-    if (!token->next || token->next->kind != TK_IDENT || !contain_str(params, token->next->loc, token->next->len)) {
-      error_token(token, "'#' is not followed by a macro parameter");
-    }
-  }
-}
-
 static Token* define_dir(Token* token) {
   expect_dir(&token, "define");
 
@@ -441,9 +468,7 @@ static Token* define_dir(Token* token) {
   bool is_like_func = is_funclike_macro_parens(token);
   if (is_like_func) {
     Str* params = funclike_macro_params(&token);
-    Token* body = inline_tokens(&token);
-    validate_funclike_macro_body(params, body);
-    create_funclike_macro(name, params, body);
+    create_funclike_macro(name, params, inline_tokens(&token));
   } else {
     create_objlike_macro(name, inline_tokens(&token));
   }
@@ -521,7 +546,7 @@ static bool have_expanded_if_block(IfDir* dir) {
 static bool cond(Token** tokens) {
   Token* cond = inline_tokens(tokens);
   cond = append(cond, new_eof_token_in(cond->file));
-  cond = preprocess_tokens(cond);
+  cond = process(cond);
   return const_expr(&cond) != 0;
 }
 
@@ -683,7 +708,7 @@ static Token* convert_keywords(Token* tokens) {
   return head.next;
 }
 
-static Token* preprocess_tokens(Token* tokens) {
+static Token* process(Token* tokens) {
   Token head = {};
   Token* cur = &head;
   for (Token* token = tokens; token; token = token->next) {
@@ -748,7 +773,7 @@ static Token* preprocess_tokens(Token* tokens) {
 }
 
 Token* preprocess(Token* tokens) {
-  tokens = preprocess_tokens(tokens);
+  tokens = process(tokens);
   if (if_dirs) {
     error_token(if_dirs->token, "unterminated if directive");
   }

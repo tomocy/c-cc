@@ -117,7 +117,7 @@ static void add_line_number(Token* token) {
 }
 
 bool equal_to_token(Token* token, char* s) {
-  return equal_to_n_chars(s, token->loc, token->len);
+  return token && equal_to_n_chars(s, token->loc, token->len);
 }
 
 bool equal_to_ident_token(Token* token, char* s) {
