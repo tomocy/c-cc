@@ -286,7 +286,8 @@ static bool consume_punct(Token** dst, char** c) {
     "++",
     "--",
     "<<",
-    ">>",  // duo
+    ">>",
+    "##",  // duo
     "+",
     "-",
     "*",

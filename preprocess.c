@@ -264,6 +264,12 @@ static Token* stringize_tokens(Token* tokens) {
   return tokenize_in(new_file(start->file->index, start->file->name, quoted));
 }
 
+static Token* concat_tokens(Token* lhs, Token* rhs) {
+  char* contents = format("%.*s%.*s", lhs->len, lhs->loc, rhs->len, rhs->loc);
+  File* file = lhs->file ? lhs->file : rhs->file;
+  return append(tokenize_in(new_file(file->index, file->name, contents)), NULL);
+}
+
 static bool can_expand_macro(Token* token) {
   if (token->kind != TK_IDENT) {
     return false;
@@ -384,10 +390,55 @@ static FunclikeMacroArg* funclike_macro_args(Str* params, Token** tokens) {
   return head.next;
 }
 
+static Token* concat_funclike_macro_body(Token** tokens, FunclikeMacroArg* args) {
+  Token head = {};
+  Token* cur = &head;
+
+  FunclikeMacroArg* arg = find_funclike_macro_arg_from(args, (*tokens)->loc, (*tokens)->len);
+  if (arg) {
+    hand_over_tokens(&cur, arg->token);
+  } else {
+    cur = cur->next = copy_token(*tokens);
+  }
+
+  while (equal_to_token((*tokens)->next, "##")) {
+    if (!(*tokens)->next->next) {
+      error_token((*tokens)->next, "'##' cannot appear at the end of macro expansion");
+    }
+
+    *tokens = (*tokens)->next->next;
+
+    arg = find_funclike_macro_arg_from(args, (*tokens)->loc, (*tokens)->len);
+    if (arg) {
+      if (arg->token) {
+        if (cur != &head) {
+          *cur = *concat_tokens(cur, arg->token);
+        } else {
+          cur = cur->next = copy_token(arg->token);
+        }
+        hand_over_tokens(&cur, arg->token->next);
+      }
+    } else {
+      *cur = *concat_tokens(cur, *tokens);
+    }
+  }
+
+  return head.next;
+}
+
 static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
   Token head = {};
   Token* cur = &head;
   for (Token* token = body; token; token = token->next) {
+    if (token == body && equal_to_token(token, "##")) {
+      error_token(token, "'##' cannot appear at the start of macro expansion");
+    }
+
+    if (token->next && equal_to_token(token->next, "##")) {
+      hand_over_tokens(&cur, concat_funclike_macro_body(&token, args));
+      continue;
+    }
+
     if (equal_to_token(token, "#") && token->next) {
       Token* start = token;
 

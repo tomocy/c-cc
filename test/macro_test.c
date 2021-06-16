@@ -308,5 +308,27 @@ int main() {
   assert("M11(a !b  `\"\"c)[7]", 'c', M11(a !b  `"" c)[9]);
   assert("M11(a !b  `\"\"c)[8]", 0, M11(a !b  `"" c)[10]);
 
+#define paste(x, y) x##y
+  assert("paste(1,5)", 15, paste(1, 5));
+  assert("paste(0,xff)", 255, paste(0, xff));
+  assert("({ int foobar=3; paste(foo,bar); })", 3, ({
+    int foobar = 3;
+    paste(foo, bar);
+  }));
+  assert("paste(5,)", 5, paste(5, ));
+  assert("paste(,5)", 5, paste(, 5));
+
+#define paste2(x) x##5
+  assert("paste2(1+2)", 26, paste2(1 + 2));
+
+#define paste3(x) 2##x
+  assert("paste3(1+2)", 23, paste3(1 + 2));
+
+#define paste4(x, y, z) x##y##z
+  assert("paste4(1,2,3)", 123, paste4(1, 2, 3));
+
+#define paste5(x, y, z) 1##2##3
+  assert("paste5(1,1,1)", 123, paste5(1, 1, 1));
+
   ok();
 }
