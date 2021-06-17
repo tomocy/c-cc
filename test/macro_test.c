@@ -1,22 +1,20 @@
+#include "adapter.h"
 #include "include1.h"
-
-void assert(char* name, int expected, int actual);
-void ok(void);
 
 #
 #
 
 #if 0
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #if 1
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
 #if nested
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #include "/no/such/file"
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
 
 #if 1
@@ -25,46 +23,46 @@ int g1 = 5;
 
 #if 1
 #if 0
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #if 1
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 foo bar
 #endif
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
 int g2 = 3;
 #endif
 
 #if 1 - 1
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 int g3 = 5;
 #if 1
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
 #if 1
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #if 1
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #else
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #else
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #if 1
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #else
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #if 0
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #else
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 #endif
-assert("unreachable", 1, 0);
+ASSERT(1, 0);
 int g3 = 6;
 #else
 #if 1
@@ -87,78 +85,78 @@ int tri(int x) {
 }
 
 int main() {
-  assert("include1", 5, include1);
-  assert("include2", 7, include2);
+  ASSERT(5, include1);
+  ASSERT(7, include2);
 
-  assert("g1", 5, g1);
-  assert("g2", 3, g2);
-  assert("g3", 8, g3);
+  ASSERT(5, g1);
+  ASSERT(3, g2);
+  ASSERT(8, g3);
 
 #if 1
   mm = 2;
 #else
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 3;
 #endif
-  assert("mm", 2, mm);
+  ASSERT(2, mm);
 
 #if 0
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 1;
 #elif 0
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 2;
 #elif 3 + 5
   mm = 3;
 #elif 1 * 5
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 4;
 #endif
-  assert("mm", 3, mm);
+  ASSERT(3, mm);
 
 #if 1 + 5
   mm = 1;
 #elif 1
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 2;
 #elif 3
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 2;
 #endif
-  assert("mm", 1, mm);
+  ASSERT(1, mm);
 
 #if 0
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 1;
 #elif 1
 #if 1
   mm = 2;
 #else
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 3;
 #endif
 #else
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
   mm = 5;
 #endif
-  assert("mm", 2, mm);
+  ASSERT(2, mm);
 
   // NOLINTNEXTLINE
   int M1 = 5;
 
 #define M1 3
-  assert("M1", 3, M1);
+  ASSERT(3, M1);
   // NOLINTNEXTLINE
 #define M1 4
-  assert("M1", 4, M1);
+  ASSERT(4, M1);
 
 // NOLINTNEXTLINE
 #define M1 3 + 4 +
-  assert("M1 5", 12, M1 5);
+  ASSERT(12, M1 5);
 
 // NOLINTNEXTLINE
 #define M1 3 + 4
-  assert("M1 * 5", 23, M1 * 5);
+  ASSERT(23, M1 * 5);
 
 #define ASSERT_ assert(
 #define if 5
@@ -171,10 +169,10 @@ int main() {
 #undef five
 #undef END
   if (1) {
-    assert("1", 1, 1);
+    ASSERT(1, 1);
   }
   if (0) {
-    assert("unreachable", 1, 0);
+    ASSERT(1, 0);
   }
 
 #define M 5
@@ -183,7 +181,7 @@ int main() {
 #else
   mm = 6;
 #endif
-  assert("mm", 5, mm);
+  ASSERT(5, mm);
 
 #define M 5
 #if M - 5
@@ -191,144 +189,147 @@ int main() {
 #elif M
   mm = 8;
 #endif
-  assert("mm", 8, mm);
+  ASSERT(8, mm);
 
+  // NOLINTNEXTLINE
   int M2 = 6;
 #define M2 M2 + 3
-  assert("M2", 9, M2);
+  ASSERT(9, M2);
 
 #define M3 M2 + 3
-  assert("M3", 12, M3);
+  ASSERT(12, M3);
 
+  // NOLINTNEXTLINE
   int M4 = 3;
 #define M4 M5 * 5
 #define M5 M4 + 2
-  assert("M4", 13, M4);
+  ASSERT(13, M4);
 
 #ifdef M6
   mm = 5;
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
 #else
   mm = 3;
 #endif
-  assert("mm", 3, mm);
+  ASSERT(3, mm);
 
 #define M6
 #ifdef M6
   mm = 5;
 #else
   mm = 3;
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
 #endif
-  assert("mm", 5, mm);
+  ASSERT(5, mm);
 
 #ifndef M7
   mm = 3;
 #else
   mm = 5;
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
 #endif
-  assert("mm", 3, mm);
+  ASSERT(3, mm);
 
 #define M7
 #ifndef M7
   mm = 3;
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
 #else
   mm = 5;
 #endif
-  assert("mm", 5, mm);
+  ASSERT(5, mm);
 
 #if 0
 #ifdef NO_SUCH_MACRO
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
 #endif
 #ifndef NO_SUCH_MACRO
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
 #endif
-  assert("unreachable", 1, 0);
+  ASSERT(1, 0);
 #else
-  assert("1", 1, 1);
+  ASSERT(1, 1);
 #endif
 
-// NOLINTNEXTLINE
+  // NOLINTNEXTLINE
 #define M7() 1
   // NOLINTNEXTLINE
   int M7 = 5;
-  assert("M7()", 1, M7());
-  assert("M7", 5, M7);
+  ASSERT(1, M7());
+  ASSERT(5, M7);
 
 // NOLINTNEXTLINE
 #define M7 ()
-  assert("ret3 M7", 3, ret3 M7);
+  ASSERT(3, ret3 M7);
 
 #define ARGS(a, b, c) 1
-  assert("ARGS(1, 2, 3)", 1, ARGS(1, 2, 3));
+  ASSERT(1, ARGS(1, 2, 3));
 
 #define ADD(x, y) x + y
 #define SUB(x, y) x - y
 
 #define M8(x, y) x + y
-  assert("M8(3, 4)", 7, M8(3, 4));
+  ASSERT(7, M8(3, 4));
 
-// NOLINTNEXTLINE
+  // NOLINTNEXTLINE
 #define M8(x, y) x* y
-  assert("M8(3 + 4, 4 + 5)", 24, M8(3 + 4, 4 + 5));
+  ASSERT(24, M8(3 + 4, 4 + 5));
 
 // NOLINTNEXTLINE
 #define M8(x, y) (x) * (y)
-  assert("M8(ADD(SUB(6, 3), 4), 4 + 5)", 63, M8(ADD(SUB(6, 3), 4), 4 + 5));
+  ASSERT(63, M8(ADD(SUB(6, 3), 4), 4 + 5));
 
 // NOLINTNEXTLINE
 #define M8(x, y) x y
-  assert("M8(, 4+5)", 9, M8(, 4 + 5));
+  ASSERT(9, M8(, 4 + 5));
 
 //  NOLINTNEXTLINE
 #define M8(x, y) x* y
-  assert("M8((2+3), 4)", 20, M8((2 + 3), 4));
+  ASSERT(20, M8((2 + 3), 4));
 
 // NOLINTNEXTLINE
 #define M8(x, y) x* y
-  assert("M8((2,3), 4)", 12, M8((2, 3), 4));
+  // NOLINTNEXTLINE
+  ASSERT(12, M8((2, 3), 4));
 
 #define dbl(x) M10(x) * x
 #define M10(x) dbl(x) + dbl(3)
-  assert("dbl(2)", 22, dbl(2));
+  ASSERT(22, dbl(2));
 
 #define M11(x) #x
-  assert("M11(a !b  `\"\"c)[0]", 'a', M11(a !b  `"" c)[0]);
-  assert("M11(a !b  `\"\"c)[0]", ' ', M11(a !b  `"" c)[1]);
-  assert("M11(a !b  `\"\"c)[1]", '!', M11(a !b  `"" c)[2]);
-  assert("M11(a !b  `\"\"c)[2]", 'b', M11(a !b  `"" c)[3]);
-  assert("M11(a !b  `\"\"c)[3]", ' ', M11(a !b  `"" c)[4]);
-  assert("M11(a !b  `\"\"c)[4]", '`', M11(a !b  `"" c)[5]);
-  assert("M11(a !b  `\"\"c)[5]", '"', M11(a !b  `"" c)[6]);
-  assert("M11(a !b  `\"\"c)[6]", '"', M11(a !b  `"" c)[7]);
-  assert("M11(a !b  `\"\"c)[6]", ' ', M11(a !b  `"" c)[8]);
-  assert("M11(a !b  `\"\"c)[7]", 'c', M11(a !b  `"" c)[9]);
-  assert("M11(a !b  `\"\"c)[8]", 0, M11(a !b  `"" c)[10]);
+  ASSERT('a', M11(a !b  `"" c)[0]);
+  ASSERT(' ', M11(a !b  `"" c)[1]);
+  ASSERT('!', M11(a !b  `"" c)[2]);
+  ASSERT('b', M11(a !b  `"" c)[3]);
+  ASSERT(' ', M11(a !b  `"" c)[4]);
+  ASSERT('`', M11(a !b  `"" c)[5]);
+  ASSERT('"', M11(a !b  `"" c)[6]);
+  ASSERT('"', M11(a !b  `"" c)[7]);
+  ASSERT(' ', M11(a !b  `"" c)[8]);
+  ASSERT('c', M11(a !b  `"" c)[9]);
+  ASSERT(0, M11(a !b  `"" c)[10]);
 
 #define paste(x, y) x##y
-  assert("paste(1,5)", 15, paste(1, 5));
-  assert("paste(0,xff)", 255, paste(0, xff));
-  assert("({ int foobar=3; paste(foo,bar); })", 3, ({
+  ASSERT(15, paste(1, 5));
+  ASSERT(255, paste(0, xff));
+  ASSERT(3, ({
     int foobar = 3;
     paste(foo, bar);
   }));
-  assert("paste(5,)", 5, paste(5, ));
-  assert("paste(,5)", 5, paste(, 5));
+  ASSERT(5, paste(5, ));
+  ASSERT(5, paste(, 5));
 
 #define paste2(x) x##5
-  assert("paste2(1+2)", 26, paste2(1 + 2));
+  ASSERT(26, paste2(1 + 2));
 
 #define paste3(x) 2##x
-  assert("paste3(1+2)", 23, paste3(1 + 2));
+  ASSERT(23, paste3(1 + 2));
 
 #define paste4(x, y, z) x##y##z
-  assert("paste4(1,2,3)", 123, paste4(1, 2, 3));
+  ASSERT(123, paste4(1, 2, 3));
 
 #define paste5(x, y, z) 1##2##3
-  assert("paste5(1,1,1)", 123, paste5(1, 1, 1));
+  ASSERT(123, paste5(1, 1, 1));
 
   ok();
 }

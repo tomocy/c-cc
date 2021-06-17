@@ -17,13 +17,8 @@ S2_TESTS=$(TESTS:%=s2/%)
 cc: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-test/macro_test: cc test/adapter.c test/macro_test.c
-	./cc -c -o $@.o $@.c
-	$(CC) -o $@ test/adapter.c $@.o
-	rm $@.o
-
 test/%: cc test/adapter.c test/%.c
-	$(CC) -o - -E -P -C test/$*.c | ./cc -c -o test/$*.o -
+	./cc -c -o test/$*.o test/$*.c
 	$(CC) -o $@ test/adapter.c test/$*.o
 	rm test/$*.o
 
@@ -54,13 +49,8 @@ s2/%.o: cc s2/%.c
 s2/%.c: self.py %.c
 	./self.py cc.h $*.c > s2/$*.c
 
-s2/test/macro_test: s2/cc test/adapter.c test/macro_test.c
-	./s2/cc -c -o $@.o test/macro_test.c
-	$(CC) -o $@ test/adapter.c $@.o
-	rm -rf $@.o
-
 s2/test/%: s2/cc test/adapter.c test/%.c
-	$(CC) -o - -E -P -C test/$*.c | ./s2/cc -c -o s2/test/$*.o -
+	./s2/cc -c -o s2/test/$*.o test/$*.c
 	$(CC) -o $@ test/adapter.c s2/test/$*.o
 	rm -rf s2/test/$*.o
 
@@ -106,16 +96,18 @@ beta/prepare:
 	make beta/preprocess.s
 	make beta/parse.s
 	make beta/gen.s
+	make beta/file.s
+	make beta/string.s
+	make beta/error.s
 
 .PHONY: beta/test@%
 beta/test@%: test/adapter.c test/%_test.c
 	make beta/prepare
 	make beta/cc
-	$(CC) -o - -E -P -C test/$*_test.c > beta/test/$*_test.c
-	./beta/cc -c -o beta/test/$*_test.o beta/test/$*_test.c
+	./beta/cc -c -o beta/test/$*_test.o test/$*_test.c
 	$(CC) -o beta/test/$*_test test/adapter.c beta/test/$*_test.o
 	./beta/test/$*_test
-	rm -f beta/test/$*_test.o beta/test/$*_test.c beta/test/$*_test
+	rm -f beta/test/$*_test.o beta/test/$*_test
 
 # stage2 test
 .PHONY: s2/test

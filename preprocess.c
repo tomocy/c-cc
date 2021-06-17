@@ -56,6 +56,9 @@ static Macro* find_macro_by_token(Token* token) {
     return NULL;
   }
 
+  if (!token->next) {
+    return NULL;
+  }
   return macro->is_like_func == is_funclike_macro_parens(token->next) ? macro : NULL;
 }
 
@@ -237,18 +240,18 @@ static char* quote_str(char* s) {
 }
 
 static Token* stringize_tokens(Token* tokens) {
-  Token* start = tokens;
-  Token* end = start;
-  int len = 1;
-  while (end->next) {
-    end = end->next;
-    len++;
+  int len = 1;  // the 1 for EOF
+  for (Token* token = tokens; token; token = token->next) {
+    if (token != tokens && token->has_leading_space) {
+      len++;
+    }
+    len += token->len;
   }
 
   // consecutive spaces should be recognized as one space
   char* val = calloc(len, sizeof(char));
   char* c = val;
-  for (Token* token = tokens; token && token->kind != TK_EOF; token = token->next) {
+  for (Token* token = tokens; token; token = token->next) {
     if (token != tokens && token->has_leading_space) {
       *c++ = ' ';
     }
@@ -261,7 +264,7 @@ static Token* stringize_tokens(Token* tokens) {
   // the error reporting can indicate the locations
   // , so tokenize those tokens as if they are in the file of the tokens which are replaced
   char* quoted = quote_str(val);
-  return tokenize_in(new_file(start->file->index, start->file->name, quoted));
+  return append(tokenize_in(new_file(tokens->file->index, tokens->file->name, quoted)), NULL);
 }
 
 static Token* concat_tokens(Token* lhs, Token* rhs) {
@@ -297,51 +300,8 @@ static Token* add_hideset(Token* tokens, Str* hideset) {
   Token* cur = &head;
   for (Token* token = tokens; token; token = token->next) {
     cur = cur->next = copy_token(token);
-    add_str(&cur->hideset, hideset);
+    add_str(&cur->hideset, copy_str(hideset));
   }
-
-  return head.next;
-}
-
-static bool is_funccall(Token* token) {
-  return token->kind == TK_IDENT && equal_to_token(token->next, "(");
-}
-
-static Token* funclike_macro_funccall_arg(Token** tokens) {
-  Token head = {};
-  Token* cur = &head;
-
-  cur = cur->next = copy_token(expect_ident_token(tokens));
-  cur = cur->next = copy_token(expect_token(tokens, "("));
-
-  while (!equal_to_token(*tokens, ")")) {
-    if (is_funccall(*tokens)) {
-      hand_over_tokens(&cur, funclike_macro_funccall_arg(tokens));
-      continue;
-    }
-
-    proceed_token(&cur, tokens);
-  }
-  proceed_token(&cur, tokens);
-
-  return head.next;
-}
-
-static Token* funclike_macro_parenthesized_arg(Token** tokens) {
-  Token head = {};
-  Token* cur = &head;
-
-  cur = cur->next = copy_token(expect_token(tokens, "("));
-
-  while (!equal_to_token(*tokens, ")")) {
-    if (equal_to_token(*tokens, "(")) {
-      hand_over_tokens(&cur, funclike_macro_parenthesized_arg(tokens));
-      continue;
-    }
-
-    proceed_token(&cur, tokens);
-  }
-  proceed_token(&cur, tokens);
 
   return head.next;
 }
@@ -349,15 +309,13 @@ static Token* funclike_macro_parenthesized_arg(Token** tokens) {
 static Token* funclike_macro_arg(Token** tokens) {
   Token head = {};
   Token* cur = &head;
-  while (!equal_to_token(*tokens, ",") && !equal_to_token(*tokens, ")")) {
-    if (is_funccall(*tokens)) {
-      hand_over_tokens(&cur, funclike_macro_funccall_arg(tokens));
-      continue;
-    }
-
+  int depth = 0;
+  while (depth > 0 || (!equal_to_token(*tokens, ",") && !equal_to_token(*tokens, ")"))) {
     if (equal_to_token(*tokens, "(")) {
-      hand_over_tokens(&cur, funclike_macro_parenthesized_arg(tokens));
-      continue;
+      depth++;
+    }
+    if (equal_to_token(*tokens, ")")) {
+      depth--;
     }
 
     proceed_token(&cur, tokens);
@@ -376,6 +334,9 @@ static FunclikeMacroArg* funclike_macro_args(Str* params, Token** tokens) {
     if (cur != &head) {
       expect_token(tokens, ",");
     }
+    if (!param) {
+      error_token(*tokens, "too many arguments");
+    }
 
     Token* token = funclike_macro_arg(tokens);
     FunclikeMacroArg* arg = new_funclike_macro_arg(param->data, token);
@@ -384,7 +345,7 @@ static FunclikeMacroArg* funclike_macro_args(Str* params, Token** tokens) {
     param = param->next;
   }
   if (param) {
-    error_token(start, "too many arguments");
+    error_token(start, "too few arguments");
   }
 
   return head.next;

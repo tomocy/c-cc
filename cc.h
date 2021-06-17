@@ -260,6 +260,7 @@ void warn_at(char* fname, char* contents, char* loc, char* fmt, ...);
 
 void add_str(Str** strs, Str* str);
 Str* new_str(char* data);
+Str* copy_str(Str* src);
 Str* append_strs(Str* former, Str* latter);
 bool contain_str(Str* strs, char* c, int len);
 Str* intersect_strs(Str* a, Str* b);

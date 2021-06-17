@@ -14,7 +14,7 @@ Str* new_str(char* data) {
   return str;
 }
 
-static Str* copy_str(Str* src) {
+Str* copy_str(Str* src) {
   Str* str = calloc(1, sizeof(Str));
   *str = *src;
   str->next = NULL;
