@@ -246,6 +246,7 @@ struct Relocation {
 extern File* files;
 
 File* new_file(int index, char* name, char* contents);
+File* copy_file_with_contents(File* src, char* contents);
 char* replace_file_ext(char* name, char* ext);
 char* new_tmp_file();
 void unlink_files(Str* names);
@@ -291,9 +292,9 @@ Token* expect_ident_token(Token** tokens);
 
 Token* tokenize(char* input_filename);
 Token* tokenize_in(File* file);
+Token* new_eof_token_in(File* file);
 Token* copy_token(Token* src);
 Token* copy_tokens(Token* src);
-Token* new_eof_token_in(File* file);
 bool can_be_keyword(char* c, int len);
 void print_tokens(char* output_filename, Token* tokens);
 

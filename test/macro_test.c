@@ -5,16 +5,16 @@
 #
 
 #if 0
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #if 1
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
 #if nested
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #include "/no/such/file"
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
 
 #if 1
@@ -23,46 +23,46 @@ int g1 = 5;
 
 #if 1
 #if 0
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #if 1
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 foo bar
 #endif
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
 int g2 = 3;
 #endif
 
 #if 1 - 1
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 int g3 = 5;
 #if 1
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
 #if 1
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #if 1
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #else
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #else
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #if 1
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #else
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #if 0
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #else
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 #endif
-ASSERT(1, 0);
+assert("unreachable", 1, 0);
 int g3 = 6;
 #else
 #if 1
@@ -95,21 +95,21 @@ int main() {
 #if 1
   mm = 2;
 #else
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 3;
 #endif
   ASSERT(2, mm);
 
 #if 0
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 1;
 #elif 0
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 2;
 #elif 3 + 5
   mm = 3;
 #elif 1 * 5
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 4;
 #endif
   ASSERT(3, mm);
@@ -117,26 +117,26 @@ int main() {
 #if 1 + 5
   mm = 1;
 #elif 1
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 2;
 #elif 3
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 2;
 #endif
   ASSERT(1, mm);
 
 #if 0
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 1;
 #elif 1
 #if 1
   mm = 2;
 #else
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 3;
 #endif
 #else
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
   mm = 5;
 #endif
   ASSERT(2, mm);
@@ -172,7 +172,7 @@ int main() {
     ASSERT(1, 1);
   }
   if (0) {
-    ASSERT(1, 0);
+    assert("unreachable", 1, 0);
   }
 
 #define M 5
@@ -207,7 +207,7 @@ int main() {
 
 #ifdef M6
   mm = 5;
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
 #else
   mm = 3;
 #endif
@@ -218,7 +218,7 @@ int main() {
   mm = 5;
 #else
   mm = 3;
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
 #endif
   ASSERT(5, mm);
 
@@ -226,14 +226,14 @@ int main() {
   mm = 3;
 #else
   mm = 5;
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
 #endif
   ASSERT(3, mm);
 
 #define M7
 #ifndef M7
   mm = 3;
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
 #else
   mm = 5;
 #endif
@@ -241,12 +241,12 @@ int main() {
 
 #if 0
 #ifdef NO_SUCH_MACRO
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
 #endif
 #ifndef NO_SUCH_MACRO
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
 #endif
-  ASSERT(1, 0);
+  assert("unreachable", 1, 0);
 #else
   ASSERT(1, 1);
 #endif
@@ -330,6 +330,40 @@ int main() {
 
 #define paste5(x, y, z) 1##2##3
   ASSERT(123, paste5(1, 1, 1));
+
+#define M12
+#if defined(M12)
+  mm = 3;
+#else
+  assert("unreachable", 1, 0);
+  mm = 4;
+#endif
+  ASSERT(3, mm);
+
+#define M12
+#if defined M12
+  mm = 3;
+#else
+  assert("unreachable", 1, 0);
+  mm = 4;
+#endif
+  ASSERT(3, mm);
+
+#if defined(M12) - 1
+  assert("unreachable", 1, 0);
+  mm = 3;
+#else
+  mm = 4;
+#endif
+  ASSERT(4, mm);
+
+#if defined(NO_SUCH_MACRO)
+  assert("unreachable", 1, 0);
+  mm = 3;
+#else
+  mm = 4;
+#endif
+  ASSERT(4, mm);
 
   ok();
 }

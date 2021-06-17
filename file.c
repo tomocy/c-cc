@@ -8,6 +8,13 @@ File* new_file(int index, char* name, char* contents) {
   return file;
 }
 
+File* copy_file_with_contents(File* src, char* contents) {
+  File* file = calloc(1, sizeof(File));
+  *file = *src;
+  file->contents = contents;
+  return file;
+}
+
 char* replace_file_ext(char* name, char* ext) {
   name = basename(strdup(name));
   char* dot = strrchr(name, '.');

@@ -180,6 +180,10 @@ static Token* append(Token* former, Token* latter) {
   return head.next;
 }
 
+static Token* tokenize_as_if(File* file, char* contents) {
+  return append(tokenize_in(copy_file_with_contents(file, contents)), NULL);
+}
+
 static Token* expect_macro_ident_token(Token** tokens) {
   if ((*tokens)->kind != TK_IDENT) {
     error_token(*tokens, "macro name must be an identifier");
@@ -264,13 +268,13 @@ static Token* stringize_tokens(Token* tokens) {
   // the error reporting can indicate the locations
   // , so tokenize those tokens as if they are in the file of the tokens which are replaced
   char* quoted = quote_str(val);
-  return append(tokenize_in(new_file(tokens->file->index, tokens->file->name, quoted)), NULL);
+  return tokenize_as_if(tokens->file, quoted);
 }
 
 static Token* concat_tokens(Token* lhs, Token* rhs) {
-  char* contents = format("%.*s%.*s", lhs->len, lhs->loc, rhs->len, rhs->loc);
   File* file = lhs->file ? lhs->file : rhs->file;
-  return append(tokenize_in(new_file(file->index, file->name, contents)), NULL);
+  char* contents = format("%.*s%.*s", lhs->len, lhs->loc, rhs->len, rhs->loc);
+  return tokenize_as_if(file, contents);
 }
 
 static bool can_expand_macro(Token* token) {
@@ -555,8 +559,31 @@ static bool have_expanded_if_block(IfDir* dir) {
   return false;
 }
 
-static bool cond(Token** tokens) {
-  Token* cond = inline_tokens(tokens);
+static Token* if_dir_defined_cond(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "defined");
+  bool with_parens = consume_token(tokens, "(");
+
+  Token* ident = expect_macro_ident_token(tokens);
+  Macro* macro = find_macro(ident->loc, ident->len);
+
+  if (with_parens) {
+    expect_token(tokens, ")");
+  }
+
+  char* contents = format("%d", macro != NULL);
+  Token* cond = tokenize_as_if(start->file, contents);
+
+  if (!(*tokens)->is_bol) {
+    cond = append(cond, inline_tokens(tokens));
+  }
+
+  return cond;
+}
+
+static bool if_dir_cond(Token** tokens) {
+  Token* cond = equal_to_token(*tokens, "defined") ? if_dir_defined_cond(tokens) : inline_tokens(tokens);
   cond = append(cond, new_eof_token_in(cond->file));
   cond = process(cond);
   return const_expr(&cond) != 0;
@@ -594,7 +621,7 @@ static Token* if_dir(Token* token) {
   Token* start = token;
   expect_dir(&token, "if");
 
-  IfDir* dir = new_if_dir(start, cond(&token));
+  IfDir* dir = new_if_dir(start, if_dir_cond(&token));
   if (!dir->cond) {
     token = skip_if_block(token);
   }
@@ -609,7 +636,7 @@ static Token* elif_dir(Token* token) {
     error_token(start, "stray #elif");
   }
 
-  IfDir* dir = new_stray_if_dir(start, cond(&token));
+  IfDir* dir = new_stray_if_dir(start, if_dir_cond(&token));
   if (have_expanded_if_block(if_dirs) || !dir->cond) {
     token = skip_if_block(token);
   }
