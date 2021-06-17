@@ -140,6 +140,10 @@ static IfDir* new_if_dir(Token* token, bool cond) {
 }
 
 static Token* skip_extra_tokens(Token* token) {
+  if (!token) {
+    return NULL;
+  }
+
   if (token->is_bol) {
     return token;
   }
@@ -215,6 +219,30 @@ static void hand_over_tokens(Token** dst, Token* src) {
   *dst = cur;
 }
 
+static char* restore_contents(Token* tokens) {
+  int len = 1;  // the 1 for EOF
+  for (Token* token = tokens; token; token = token->next) {
+    if (token != tokens && token->has_leading_space) {
+      len++;
+    }
+    len += token->len;
+  }
+
+  // consecutive spaces are recognized as one space
+  char* contents = calloc(len, sizeof(char));
+  char* c = contents;
+  for (Token* token = tokens; token; token = token->next) {
+    if (token != tokens && token->has_leading_space) {
+      *c++ = ' ';
+    }
+    strncpy(c, token->loc, token->len);
+    c += token->len;
+  }
+  *c++ = '\0';
+
+  return contents;
+}
+
 // NOLINTNEXTLINE
 static char* quote_str(char* s) {
   int len = 3;  // the min len, for ""\0
@@ -242,30 +270,10 @@ static char* quote_str(char* s) {
 }
 
 static Token* stringize_tokens(Token* tokens) {
-  int len = 1;  // the 1 for EOF
-  for (Token* token = tokens; token; token = token->next) {
-    if (token != tokens && token->has_leading_space) {
-      len++;
-    }
-    len += token->len;
-  }
-
-  // consecutive spaces should be recognized as one space
-  char* val = calloc(len, sizeof(char));
-  char* c = val;
-  for (Token* token = tokens; token; token = token->next) {
-    if (token != tokens && token->has_leading_space) {
-      *c++ = ' ';
-    }
-    strncpy(c, token->loc, token->len);
-    c += token->len;
-  }
-  *c++ = '\0';
-
   // it is better to set some values in those tokens to their locations so that
   // the error reporting can indicate the locations
   // , so tokenize those tokens as if they are in the file of the tokens which are replaced
-  char* quoted = quote_str(val);
+  char* quoted = quote_str(restore_contents(tokens));
   return tokenize_as_if(tokens->file, quoted);
 }
 
@@ -524,20 +532,55 @@ static Token* undef_dir(Token* token) {
   return token;
 }
 
+static Token* include_file(Token* token) {
+  if (consume_token(&token, "<")) {
+    Token head = {};
+    Token* cur = &head;
+    while (!consume_token(&token, ">")) {
+      if (token->is_bol) {
+        error_token(token, "expected '>'");
+      }
+
+      cur = cur->next = copy_token(token);
+      token = token->next;
+    }
+    token = skip_extra_tokens(token);
+
+    char* fname = restore_contents(head.next);
+    if (!start_with(fname, "/")) {
+      fname = format("%s/%s", dirname(strdup(head.next->file->name)), fname);
+    }
+
+    Token* included = tokenize(fname);
+    return append(included, token);
+  }
+
+  if (token->kind == TK_STR) {
+    // str_val cannot be used as a filename as it is escaped
+    char* fname = strndup(token->loc + 1, token->len - 2);
+    if (!start_with(fname, "/")) {
+      fname = format("%s/%s", dirname(strdup(token->file->name)), fname);
+    }
+    token = token->next;
+
+    token = skip_extra_tokens(token);
+
+    Token* included = tokenize(fname);
+    return append(included, token);
+  }
+
+  if (token->kind == TK_IDENT) {
+    Token* next = token->next;
+    return include_file(append(process(copy_token(token)), next));
+  }
+
+  error_token(token, "expected a filename");
+  return NULL;
+}
+
 static Token* include_dir(Token* token) {
   expect_dir(&token, "include");
-
-  if (token->kind != TK_STR) {
-    error_token(token, "expected a filename");
-  }
-  char* fname = !start_with(token->str_val, "/") ? format("%s/%s", dirname(strdup(token->file->name)), token->str_val)
-                                                 : token->str_val;
-  token = token->next;
-
-  token = skip_extra_tokens(token);
-
-  Token* included = tokenize(fname);
-  return append(included, token);
+  return include_file(token);
 }
 
 static Token* skip_to_endif_dir(Token* token) {
@@ -809,6 +852,7 @@ static Token* process(Token* tokens) {
 
     if (is_dir(token, "include")) {
       token->next = include_dir(token);
+      continue;
     }
 
     if (is_dir(token, "ifdef")) {

@@ -401,5 +401,26 @@ int main() {
   assert("sizeof(char)", 1, size\
 of(char));
 
+#include "include3.h"
+  ASSERT(3, foo);
+
+#include "include4.h"
+  ASSERT(4, foo);
+
+// NOLINTNEXTLINE
+#define M13 "include3.h"
+#include M13
+  ASSERT(3, foo);
+
+// clang-format off
+// NOLINTNEXTLINE
+#define M13 < include4.h
+// NOLINTNEXTLINE
+#include M13 >
+  // clang-format on
+  ASSERT(4, foo);
+
+#undef foo
+
   ok();
 }
