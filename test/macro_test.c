@@ -398,5 +398,8 @@ int main() {
   // clang-format on
   ASSERT(0, strcmp(M14(bar), "bar. foo"));
 
+  assert("sizeof(char)", 1, size\
+of(char));
+
   ok();
 }

@@ -6,6 +6,7 @@ static bool is_bol;
 static bool was_space;
 
 static File* read_file(char* fname);
+static void remove_backslach_newlines(char* contents);
 static void add_line_number(Token* token);
 
 static Token* new_token(TokenKind kind, char* loc, int len);
@@ -26,6 +27,7 @@ Token* tokenize_in(File* file) {
   current_file = file;
 
   char* c = file->contents;
+  remove_backslach_newlines(c);
 
   Token head = {};
   Token* cur = &head;
@@ -98,6 +100,22 @@ static File* create_file(int index, char* name, char* contents) {
 static File* read_file(char* fname) {
   static int index = 0;
   return create_file(++index, fname, read_file_contents(fname));
+}
+
+static void remove_backslach_newlines(char* contents) {
+  int peeked = 0;
+  int i = 0;
+
+  while (contents[peeked]) {
+    if (contents[peeked] == '\\' && contents[peeked + 1] == '\n') {
+      peeked += 2;
+      continue;
+    }
+
+    contents[i++] = contents[peeked++];
+  }
+
+  contents[i] = '\0';
 }
 
 static void add_line_number(Token* token) {
