@@ -365,5 +365,13 @@ int main() {
 #endif
   ASSERT(4, mm);
 
+#if no_such_symbol == 0
+  mm = 5;
+#else
+  assert("unreachable", 1, 0);
+  m = 6;
+#endif
+  ASSERT(5, mm);
+
   ok();
 }

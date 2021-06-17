@@ -572,20 +572,36 @@ static Token* if_dir_defined_cond(Token** tokens) {
     expect_token(tokens, ")");
   }
 
-  char* contents = format("%d", macro != NULL);
-  Token* cond = tokenize_as_if(start->file, contents);
-
-  if (!(*tokens)->is_bol) {
-    cond = append(cond, inline_tokens(tokens));
-  }
-
-  return cond;
+  return tokenize_as_if(start->file, format("%d", macro != NULL));
 }
 
 static bool if_dir_cond(Token** tokens) {
-  Token* cond = equal_to_token(*tokens, "defined") ? if_dir_defined_cond(tokens) : inline_tokens(tokens);
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = inline_tokens(tokens); token;) {
+    if (equal_to_token(token, "defined")) {
+      hand_over_tokens(&cur, if_dir_defined_cond(&token));
+      continue;
+    }
+
+    cur = cur->next = token;
+    token = token->next;
+  }
+
+  Token* cond = head.next;
   cond = append(cond, new_eof_token_in(cond->file));
   cond = process(cond);
+
+  for (Token* token = cond; token; token = token->next) {
+    if (token->kind != TK_IDENT) {
+      continue;
+    }
+
+    Token* next = token->next;
+    *token = *tokenize_as_if(token->file, format("%d", 0));
+    token->next = next;
+  }
+
   return const_expr(&cond) != 0;
 }
 
