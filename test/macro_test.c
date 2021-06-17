@@ -373,5 +373,30 @@ int main() {
 #endif
   ASSERT(5, mm);
 
+#define STR(x) #x
+// NOLINTNEXTLINE
+#define M12(x) STR(x)
+#define M13(x) M12(foo.x)
+  ASSERT(0, strcmp(M13(bar), "foo.bar"));
+
+// clang-format off
+// NOLINTNEXTLINE
+#define M13(x) M12(foo. x)
+  // clang-format on
+  ASSERT(0, strcmp(M13(bar), "foo. bar"));
+
+// NOLINTNEXTLINE
+#define M12 foo
+// NOLINTNEXTLINE
+#define M13(x) STR(x)
+#define M14(x) M13(x.M12)
+  ASSERT(0, strcmp(M14(bar), "bar.foo"));
+
+// clang-format off
+// NOLINTNEXTLINE
+#define M14(x) M13(x. M12)
+  // clang-format on
+  ASSERT(0, strcmp(M14(bar), "bar. foo"));
+
   ok();
 }

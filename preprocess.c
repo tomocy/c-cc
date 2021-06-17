@@ -56,10 +56,8 @@ static Macro* find_macro_by_token(Token* token) {
     return NULL;
   }
 
-  if (!token->next) {
-    return NULL;
-  }
-  return macro->is_like_func == is_funclike_macro_parens(token->next) ? macro : NULL;
+  bool is_like_func = token->next ? is_funclike_macro_parens(token->next) : false;
+  return macro->is_like_func == is_like_func ? macro : NULL;
 }
 
 static void delete_macro(char* name) {
@@ -277,6 +275,15 @@ static Token* concat_tokens(Token* lhs, Token* rhs) {
   return tokenize_as_if(file, contents);
 }
 
+static Token* inherit_token_space(Token* dst, Token* src) {
+  Token* next = dst->next;
+  Token* token = copy_token(dst);
+  token->next = next;
+  token->is_bol = src->is_bol;
+  token->has_leading_space = src->has_leading_space;
+  return token;
+}
+
 static bool can_expand_macro(Token* token) {
   if (token->kind != TK_IDENT) {
     return false;
@@ -419,7 +426,11 @@ static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
 
     FunclikeMacroArg* arg = find_funclike_macro_arg_from(args, token->loc, token->len);
     if (arg) {
-      hand_over_tokens(&cur, process(arg->token));
+      Token* processed = process(arg->token);
+      if (processed) {
+        processed = inherit_token_space(processed, token);
+        hand_over_tokens(&cur, processed);
+      }
       continue;
     }
 
@@ -442,7 +453,7 @@ static Token* expand_macro(Token* token) {
   }
   token = token->next;
 
-  Token* body = macro->body;
+  Token* body = inherit_token_space(macro->body, ident);
   Str* hideset = ident->hideset;
   if (macro->is_like_func) {
     expect_token(&token, "(");
@@ -475,6 +486,16 @@ static Str* funclike_macro_params(Token** tokens) {
   return head.next;
 }
 
+static Token* macro_body(Token** tokens) {
+  Token* body = inline_tokens(tokens);
+  if (body) {
+    body->is_bol = false;
+    body->has_leading_space = false;
+  }
+
+  return body;
+}
+
 static Token* define_dir(Token* token) {
   expect_dir(&token, "define");
 
@@ -484,9 +505,9 @@ static Token* define_dir(Token* token) {
   bool is_like_func = is_funclike_macro_parens(token);
   if (is_like_func) {
     Str* params = funclike_macro_params(&token);
-    create_funclike_macro(name, params, inline_tokens(&token));
+    create_funclike_macro(name, params, macro_body(&token));
   } else {
-    create_objlike_macro(name, inline_tokens(&token));
+    create_objlike_macro(name, macro_body(&token));
   }
 
   return token;
