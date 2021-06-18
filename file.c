@@ -42,6 +42,10 @@ void unlink_files(Str* names) {
   }
 }
 
+char* dir(char* name) {
+  return dirname(strdup(name));
+}
+
 bool have_file(char* name) {
   struct stat s;
   return stat(name, &s) == 0;

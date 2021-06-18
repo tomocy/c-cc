@@ -553,7 +553,7 @@ static char* include_filename(Token** tokens) {
     char* raw_fname = strndup((*tokens)->loc + 1, (*tokens)->len - 2);
     char* fname = raw_fname;
     if (!start_with(fname, "/")) {
-      fname = format("%s/%s", dirname(strdup((*tokens)->file->name)), fname);
+      fname = format("%s/%s", dir((*tokens)->file->name), fname);
     }
     if (!have_file(fname)) {
       fname = compensate_include_filename(raw_fname);

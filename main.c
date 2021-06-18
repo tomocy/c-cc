@@ -1,6 +1,9 @@
 #include "cc.h"
 
 Str* include_paths;
+// the location where this program lives is kept
+// so that the include path relative to the location can be resolved
+static char* location;
 static char* input_filename;
 static char* output_filename;
 static Str* tmp_filenames;
@@ -11,6 +14,7 @@ static bool in_obj;
 static bool in_asm;
 static bool in_c;
 
+static char* self_path = "/proc/self/exe";
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
 
@@ -58,8 +62,19 @@ static void usage(int status) {
   exit(status);
 }
 
+static char* take_arg(char* arg) {
+  if (!arg) {
+    usage(1);
+  }
+  return arg;
+}
+
 // NOLINTNEXTLINE
 static void parse_args(int argc, char** argv) {
+  if (!equal_to_str(argv[0], self_path)) {
+    location = dir(argv[0]);
+  }
+
   for (int i = 1; i < argc; i++) {
     if (equal_to_str(argv[i], "--help")) {
       usage(0);
@@ -72,6 +87,11 @@ static void parse_args(int argc, char** argv) {
 
     if (equal_to_str(argv[i], "-exec")) {
       do_exec = true;
+      continue;
+    }
+
+    if (equal_to_str(argv[i], "-exec/location")) {
+      location = dir(take_arg(argv[++i]));
       continue;
     }
 
@@ -107,10 +127,7 @@ static void parse_args(int argc, char** argv) {
 
     // -o output_filename
     if (equal_to_str(argv[i], "-o")) {
-      if (!argv[++i]) {
-        usage(1);
-      }
-      output_filename = argv[i];
+      output_filename = take_arg(argv[++i]);
       continue;
     }
     // -o=output_filename etc
@@ -121,10 +138,7 @@ static void parse_args(int argc, char** argv) {
 
     // -I include_path
     if (equal_to_str(argv[i], "-I")) {
-      if (!argv[++i]) {
-        usage(1);
-      }
-      add_include_path(new_str(argv[i]));
+      add_include_path(new_str(take_arg(argv[++i])));
       continue;
     }
     // -I=include_path etc
@@ -169,12 +183,14 @@ static int run_subprocess(int argc, char** argv) {
 static int preprocesss(char* input, char* output) {
   Str head = {};
   Str* cur = &head;
-  cur = cur->next = new_str("/proc/self/exe");
+  cur = cur->next = new_str(self_path);
   for (Str* path = include_paths; path; path = path->next) {
     cur = cur->next = new_str("-I");
     cur = cur->next = new_str(path->data);
   }
   cur = cur->next = new_str("-exec");
+  cur = cur->next = new_str("-exec/location");
+  cur = cur->next = new_str(location);
   cur = cur->next = new_str("-exec/E");
   cur = cur->next = new_str("-exec/input");
   cur = cur->next = new_str(input);
@@ -189,12 +205,14 @@ static int preprocesss(char* input, char* output) {
 static int compile(char* input, char* output) {
   Str head = {};
   Str* cur = &head;
-  cur = cur->next = new_str("/proc/self/exe");
+  cur = cur->next = new_str(self_path);
   for (Str* path = include_paths; path; path = path->next) {
     cur = cur->next = new_str("-I");
     cur = cur->next = new_str(path->data);
   }
   cur = cur->next = new_str("-exec");
+  cur = cur->next = new_str("-exec/location");
+  cur = cur->next = new_str(location);
   cur = cur->next = new_str("-exec/input");
   cur = cur->next = new_str(input);
   cur = cur->next = new_str("-exec/output");
@@ -268,10 +286,25 @@ static int linkk(Str* inputs, char* output) {
   return run_subprocess(argc, args);
 }
 
+static void add_default_include_paths() {
+  // In order to give priority to user specified files over default ones,
+  // add the user specified files after the default ones
+  Str* paths = include_paths;
+  include_paths = NULL;
+  add_include_path(new_str("/usr/include"));
+  add_include_path(new_str("/usr/include/x86_64-linux-gnu"));
+  add_include_path(new_str(format("%s/include", location)));
+  for (Str* path = paths; path; path = path->next) {
+    add_include_path(copy_str(path));
+  }
+}
+
 static int exec(void) {
   if (!input_filename) {
     error("no input file to exec");
   }
+
+  add_default_include_paths();
 
   Token* tokens = tokenize(input_filename);
   tokens = preprocess(tokens);

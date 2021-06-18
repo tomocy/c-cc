@@ -253,6 +253,7 @@ File* copy_file_with_contents(File* src, char* contents);
 char* replace_file_ext(char* name, char* ext);
 char* new_tmp_file();
 void unlink_files(Str* names);
+char* dir(char* name);
 bool have_file(char* name);
 FILE* open_input_file(char* fname);
 FILE* open_output_file(char* fname);
