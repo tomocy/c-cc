@@ -422,5 +422,7 @@ of(char));
 
 #undef foo
 
+  ASSERT(1, __STDC__);
+
   ok();
 }

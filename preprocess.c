@@ -915,7 +915,59 @@ static Token* process(Token* tokens) {
   return head.next;
 }
 
+static void define_macro(File* file, char* name, char* raw_body) {
+  create_objlike_macro(name, tokenize_as_if(file, raw_body));
+}
+
+static void define_macros(File* file) {
+  define_macro(file, "_LP64", "1");
+  define_macro(file, "__C99_MACRO_WITH_VA_ARGS", "1");
+  define_macro(file, "__ELF__", "1");
+  define_macro(file, "__LP64__", "1");
+  define_macro(file, "__SIZEOF_DOUBLE__", "8");
+  define_macro(file, "__SIZEOF_FLOAT__", "4");
+  define_macro(file, "__SIZEOF_INT__", "4");
+  define_macro(file, "__SIZEOF_LONG_DOUBLE__", "8");
+  define_macro(file, "__SIZEOF_LONG_LONG__", "8");
+  define_macro(file, "__SIZEOF_LONG__", "8");
+  define_macro(file, "__SIZEOF_POINTER__", "8");
+  define_macro(file, "__SIZEOF_PTRDIFF_T__", "8");
+  define_macro(file, "__SIZEOF_SHORT__", "2");
+  define_macro(file, "__SIZEOF_SIZE_T__", "8");
+  define_macro(file, "__SIZE_TYPE__", "unsigned long");
+  define_macro(file, "__STDC_HOSTED__", "1");
+  define_macro(file, "__STDC_NO_ATOMICS__", "1");
+  define_macro(file, "__STDC_NO_COMPLEX__", "1");
+  define_macro(file, "__STDC_NO_THREADS__", "1");
+  define_macro(file, "__STDC_NO_VLA__", "1");
+  define_macro(file, "__STDC_VERSION__", "201112L");
+  define_macro(file, "__STDC__", "1");
+  define_macro(file, "__USER_LABEL_PREFIX__", "");
+  define_macro(file, "__alignof__", "_Alignof");
+  define_macro(file, "__amd64", "1");
+  define_macro(file, "__amd64__", "1");
+  define_macro(file, "__chibicc__", "1");
+  define_macro(file, "__const__", "const");
+  define_macro(file, "__gnu_linux__", "1");
+  define_macro(file, "__inline__", "inline");
+  define_macro(file, "__linux", "1");
+  define_macro(file, "__linux__", "1");
+  define_macro(file, "__signed__", "signed");
+  define_macro(file, "__typeof__", "typeof");
+  define_macro(file, "__unix", "1");
+  define_macro(file, "__unix__", "1");
+  define_macro(file, "__volatile__", "volatile");
+  define_macro(file, "__x86_64", "1");
+  define_macro(file, "__x86_64__", "1");
+  define_macro(file, "linux", "1");
+  define_macro(file, "unix", "1");
+}
+
 Token* preprocess(Token* tokens) {
+  if (tokens) {
+    define_macros(tokens->file);
+  }
+
   tokens = process(tokens);
   if (if_dirs) {
     error_token(if_dirs->token, "unterminated if directive");

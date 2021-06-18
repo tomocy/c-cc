@@ -20,14 +20,16 @@ static bool consume_char(Token** dst, char** c);
 static bool consume_str(Token** dst, char** c);
 
 Token* tokenize(char* input_filename) {
-  return tokenize_in(read_file(input_filename));
+  File* file = read_file(input_filename);
+  remove_backslach_newlines(file->contents);
+
+  return tokenize_in(file);
 }
 
 Token* tokenize_in(File* file) {
   current_file = file;
 
   char* c = file->contents;
-  remove_backslach_newlines(c);
 
   Token head = {};
   Token* cur = &head;
