@@ -182,9 +182,15 @@ static Type* new_union_type(int size, int alignment, Member* mems) {
 }
 
 static Type* copy_type(Type* src) {
-  Type* copied = calloc(1, sizeof(Type));
-  *copied = *src;
-  return copied;
+  Type* type = calloc(1, sizeof(Type));
+  *type = *src;
+  return type;
+}
+
+static Type* copy_type_with_name(Type* src, char* name) {
+  Type* type = copy_type(src);
+  type->name = name;
+  return type;
 }
 
 static Type* copy_composite_type(Type* src, TypeKind kind) {
@@ -507,6 +513,13 @@ static Obj* create_static_lvar_obj(Type* type) {
   var->offset = current_lvars ? current_lvars->offset : 0;
   add_var_obj_to_current_local_scope(type->name, var);
   return var;
+}
+
+static Obj* create_static_str_lvar_obj(char* name, char* s) {
+  Type* type = copy_type_with_name(new_chars_type(strlen(s) + 1), name);
+  Obj* obj = create_static_lvar_obj(type);
+  obj->val = strdup(s);
+  return obj;
 }
 
 static Obj* create_lvar_obj_as(Type* type, char* name) {
@@ -1243,6 +1256,8 @@ static void func(Token** tokens) {
   if (func->type->is_variadic) {
     func->va_area = create_lvar_obj_as(new_chars_type(136), "__va_area__");
   }
+
+  create_static_str_lvar_obj("__func__", func->name);
 
   func->body = block_stmt(tokens);
 
