@@ -845,6 +845,7 @@ static Token* convert_keywords(Token* tokens) {
   return head.next;
 }
 
+// NOLINTNEXTLINE
 static Token* process(Token* tokens) {
   Token head = {};
   Token* cur = &head;
@@ -897,6 +898,10 @@ static Token* process(Token* tokens) {
     if (is_dir(token, "endif")) {
       token->next = endif_dir(token);
       continue;
+    }
+
+    if (is_dir(token, "error")) {
+      error_token(token->next, "error");
     }
 
     // null directive
