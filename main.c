@@ -1,5 +1,6 @@
 #include "cc.h"
 
+Str* include_paths;
 static char* input_filename;
 static char* output_filename;
 static Str* tmp_filenames;
@@ -12,6 +13,10 @@ static bool in_c;
 
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
+
+static void add_include_path(Str* path) {
+  add_str(&include_paths, path);
+}
 
 static void add_tmp_filename(Str* fname) {
   add_str(&tmp_filenames, fname);
@@ -114,6 +119,20 @@ static void parse_args(int argc, char** argv) {
       continue;
     }
 
+    // -I include_path
+    if (equal_to_str(argv[i], "-I")) {
+      if (!argv[++i]) {
+        usage(1);
+      }
+      add_include_path(new_str(argv[i]));
+      continue;
+    }
+    // -I=include_path etc
+    if (start_with(argv[i], "-I")) {
+      add_include_path(new_str(argv[i] + 2));
+      continue;
+    }
+
     if (start_with(argv[i], "-") && !equal_to_str(argv[i], "-")) {
       error("unknown argument: %s", argv[i]);
     }
@@ -148,13 +167,42 @@ static int run_subprocess(int argc, char** argv) {
 }
 
 static int preprocesss(char* input, char* output) {
-  char* args[] = {"/proc/self/exe", "-exec", "-exec/E", "-exec/input", input, "-exec/output", output, NULL};
-  return run_subprocess(7, args);
+  Str head = {};
+  Str* cur = &head;
+  cur = cur->next = new_str("/proc/self/exe");
+  for (Str* path = include_paths; path; path = path->next) {
+    cur = cur->next = new_str("-I");
+    cur = cur->next = new_str(path->data);
+  }
+  cur = cur->next = new_str("-exec");
+  cur = cur->next = new_str("-exec/E");
+  cur = cur->next = new_str("-exec/input");
+  cur = cur->next = new_str(input);
+  cur = cur->next = new_str("-exec/output");
+  cur = cur->next = new_str(output);
+
+  int argc = 0;
+  char** args = new_args(&argc, head.next);
+  return run_subprocess(argc, args);
 }
 
 static int compile(char* input, char* output) {
-  char* args[] = {"/proc/self/exe", "-exec", "-exec/input", input, "-exec/output", output, NULL};
-  return run_subprocess(6, args);
+  Str head = {};
+  Str* cur = &head;
+  cur = cur->next = new_str("/proc/self/exe");
+  for (Str* path = include_paths; path; path = path->next) {
+    cur = cur->next = new_str("-I");
+    cur = cur->next = new_str(path->data);
+  }
+  cur = cur->next = new_str("-exec");
+  cur = cur->next = new_str("-exec/input");
+  cur = cur->next = new_str(input);
+  cur = cur->next = new_str("-exec/output");
+  cur = cur->next = new_str(output);
+
+  int argc = 0;
+  char** args = new_args(&argc, head.next);
+  return run_subprocess(argc, args);
 }
 
 static int assemble(char* input, char* output) {

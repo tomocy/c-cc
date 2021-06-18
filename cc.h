@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -243,6 +244,8 @@ struct Relocation {
   long addend;
 };
 
+extern Str* include_paths;
+
 extern File* files;
 
 File* new_file(int index, char* name, char* contents);
@@ -250,6 +253,7 @@ File* copy_file_with_contents(File* src, char* contents);
 char* replace_file_ext(char* name, char* ext);
 char* new_tmp_file();
 void unlink_files(Str* names);
+bool have_file(char* name);
 FILE* open_input_file(char* fname);
 FILE* open_output_file(char* fname);
 char* read_file_contents(char* fname);

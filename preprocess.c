@@ -532,55 +532,73 @@ static Token* undef_dir(Token* token) {
   return token;
 }
 
-static Token* include_file(Token* token) {
-  if (consume_token(&token, "<")) {
+static char* compensate_include_filename(char* fname) {
+  if (start_with(fname, "/")) {
+    return fname;
+  }
+
+  for (Str* path = include_paths; path; path = path->next) {
+    char* compensated = format("%s/%s", path->data, fname);
+    if (have_file(compensated)) {
+      return compensated;
+    }
+  }
+  return fname;
+}
+
+static char* include_filename(Token** tokens) {
+  // #include "..."
+  if ((*tokens)->kind == TK_STR) {
+    // str_val cannot be used as a filename as it is escaped
+    char* raw_fname = strndup((*tokens)->loc + 1, (*tokens)->len - 2);
+    char* fname = raw_fname;
+    if (!start_with(fname, "/")) {
+      fname = format("%s/%s", dirname(strdup((*tokens)->file->name)), fname);
+    }
+    if (!have_file(fname)) {
+      fname = compensate_include_filename(raw_fname);
+    }
+    *tokens = (*tokens)->next;
+
+    *tokens = skip_extra_tokens(*tokens);
+
+    return fname;
+  }
+
+  // #include <...>
+  if (consume_token(&*tokens, "<")) {
     Token head = {};
     Token* cur = &head;
-    while (!consume_token(&token, ">")) {
-      if (token->is_bol) {
-        error_token(token, "expected '>'");
+    while (!consume_token(&*tokens, ">")) {
+      if ((*tokens)->is_bol) {
+        error_token(*tokens, "expected '>'");
       }
 
-      cur = cur->next = copy_token(token);
-      token = token->next;
+      cur = cur->next = copy_token(*tokens);
+      *tokens = (*tokens)->next;
     }
-    token = skip_extra_tokens(token);
+    *tokens = skip_extra_tokens(*tokens);
 
-    char* fname = restore_contents(head.next);
-    if (!start_with(fname, "/")) {
-      fname = format("%s/%s", dirname(strdup(head.next->file->name)), fname);
-    }
-
-    Token* included = tokenize(fname);
-    return append(included, token);
+    return compensate_include_filename(restore_contents(head.next));
   }
 
-  if (token->kind == TK_STR) {
-    // str_val cannot be used as a filename as it is escaped
-    char* fname = strndup(token->loc + 1, token->len - 2);
-    if (!start_with(fname, "/")) {
-      fname = format("%s/%s", dirname(strdup(token->file->name)), fname);
-    }
-    token = token->next;
-
-    token = skip_extra_tokens(token);
-
-    Token* included = tokenize(fname);
-    return append(included, token);
+  // #include MACRO
+  if ((*tokens)->kind == TK_IDENT) {
+    Token* next = (*tokens)->next;
+    Token* processed = append(process(copy_token(*tokens)), next);
+    char* fname = include_filename(&processed);
+    *tokens = processed;
+    return fname;
   }
 
-  if (token->kind == TK_IDENT) {
-    Token* next = token->next;
-    return include_file(append(process(copy_token(token)), next));
-  }
-
-  error_token(token, "expected a filename");
+  error_token(*tokens, "expected a filename");
   return NULL;
 }
 
 static Token* include_dir(Token* token) {
   expect_dir(&token, "include");
-  return include_file(token);
+  char* fname = include_filename(&token);
+  return append(tokenize(fname), token);
 }
 
 static Token* skip_to_endif_dir(Token* token) {

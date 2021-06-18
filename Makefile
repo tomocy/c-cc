@@ -18,7 +18,7 @@ cc: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test/%: cc test/adapter.c test/%.c
-	./cc -c -o test/$*.o test/$*.c
+	./cc -c -I test -o test/$*.o test/$*.c
 	$(CC) -o $@ test/adapter.c test/$*.o
 	rm test/$*.o
 
@@ -50,7 +50,7 @@ s2/%.c: self.py %.c
 	./self.py cc.h $*.c > s2/$*.c
 
 s2/test/%: s2/cc test/adapter.c test/%.c
-	./s2/cc -c -o s2/test/$*.o test/$*.c
+	./s2/cc -c -I test -o s2/test/$*.o test/$*.c
 	$(CC) -o $@ test/adapter.c s2/test/$*.o
 	rm -rf s2/test/$*.o
 
@@ -74,7 +74,7 @@ test@%:
 # stage1 test
 .PHONY: s1/test
 s1/test: $(TESTS)
-	./test/cli_test.sh ./cc; echo;
+	@echo "test/cli_test"; ./test/cli_test.sh ./cc && echo;
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done;
 	make clean
 
@@ -104,7 +104,7 @@ beta/prepare:
 beta/test@%: test/adapter.c test/%_test.c
 	make beta/prepare
 	make beta/cc
-	./beta/cc -c -o beta/test/$*_test.o test/$*_test.c
+	./beta/cc -c -I test -o beta/test/$*_test.o test/$*_test.c
 	$(CC) -o beta/test/$*_test test/adapter.c beta/test/$*_test.o
 	./beta/test/$*_test
 	rm -f beta/test/$*_test.o beta/test/$*_test
@@ -112,7 +112,7 @@ beta/test@%: test/adapter.c test/%_test.c
 # stage2 test
 .PHONY: s2/test
 s2/test: $(S2_TESTS)
-	./test/cli_test.sh ./s2/cc; echo;
+	@echo "test/cli_test"; ./test/cli_test.sh ./cc && echo;
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done;
 	make clean
 

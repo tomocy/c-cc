@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -eu
+
 CC=$1
 
 TMP=$(mktemp -d /tmp/cc-test-XXXXXX)
@@ -24,17 +26,17 @@ fi
 # preprocess (-E)
 echo "int x;" > "$TMP/out1.c"
 echo "#include \"$TMP/out1.c\"" > "$TMP/out2.c"
-if $CC -E -o - "$TMP/out2.c" | grep -q "int x ;"; then
-    passed 'preprosess (-E)'
+if $CC -E -o - "$TMP/out2.c" | grep -q "int x;"; then
+  passed 'preprosess (-E)'
 else
-    failed 'preprocess (-E)'
+  failed 'preprocess (-E)'
 fi
 
 # compile (-S)
 if echo "int main() {}" | $CC -S -o - - | grep -q "main:"; then
-    passed 'compile (-S)'
+  passed 'compile (-S)'
 else
-    failed 'compile (-S)'
+  failed 'compile (-S)'
 fi
 
 # assemble (-o)
@@ -51,77 +53,114 @@ rm -rf "$TMP/out"
 echo "int bar(); int main() { return bar(); }" > "$TMP/out1.c"
 echo "int bar() { return 0; }" > "$TMP/out2.c"
 $CC -o "$TMP/out" "$TMP/out1.c" "$TMP/out2.c"
-if $TMP/out; then
-    passed link
+if "$TMP/out"; then
+  passed link
 else
-    failed link
+  failed link
 fi
 
 # default output file
 echo "int main() {}" > "$TMP/out.c"
 # .c -> .c (-E)
-if $CC -E $TMP/out.c | grep -q "int main ( ) { }"; then
-    passed "default output file (-E): out.c -> stdout"
+if $CC -E "$TMP/out.c" | grep -q "int main() {}"; then
+  passed "default output file (-E): out.c -> stdout"
 else
-    failed "default output file (-E): out.c -> stdout"
+  failed "default output file (-E): out.c -> stdout"
 fi
 # .c -> .s (-S)
 rm -f "$TMP/out.s"
-(cd "$TMP"; $OLDPWD/$CC -S "$TMP/out.c")
+(
+  cd "$TMP"
+  "$OLDPWD/$CC" -S "$TMP/out.c"
+)
 if [ -f "$TMP/out.s" ]; then
-    passed "default output file (-S): out.c -> out.s"
+  passed "default output file (-S): out.c -> out.s"
 else
-    failed "default output file (-S): out.c -> out.s"
+  failed "default output file (-S): out.c -> out.s"
 fi
 # .c -> .o (-c)
 rm -f "$TMP/out.o"
-(cd "$TMP"; $OLDPWD/$CC -c $TMP/out.c)
+(
+  cd "$TMP"
+  "$OLDPWD/$CC" -c "$TMP/out.c"
+)
 if [ -f "$TMP/out.o" ]; then
-    passed "default output file (-c): out.c -> out.o"
+  passed "default output file (-c): out.c -> out.o"
 else
-    failed "default output file (-c): out.c -> out.o"
+  failed "default output file (-c): out.c -> out.o"
 fi
 # .c -> a.out
 rm -f "$TMP/a.out"
-(cd "$TMP"; $OLDPWD/$CC $TMP/out.c)
+(
+  cd "$TMP"
+  "$OLDPWD/$CC" "$TMP/out.c"
+)
 if [ -f "$TMP/a.out" ]; then
-    passed "default output file: out.c -> a.out"
+  passed "default output file: out.c -> a.out"
 else
-    failed "default output file: out.c -> a.out"
+  failed "default output file: out.c -> a.out"
 fi
 
 # multiple input files
 echo "int x; int y;" > "$TMP/out1.c"
 echo "extern int x; int main() { return x; }" > "$TMP/out2.c"
 # .c -> .c (-E)
-if $CC -E "$TMP/out1.c" "$TMP/out2.c" | grep -q "int y;"; $CC -E "$TMP/out1.c" "$TMP/out2.c" | grep -q "int main"; then
-    passed "multiple input files (-E): out1.c, out2.c -> stdout"
+if
+  $CC -E "$TMP/out1.c" "$TMP/out2.c" | grep -q "int y;"
+  $CC -E "$TMP/out1.c" "$TMP/out2.c" | grep -q "int main"
+then
+  passed "multiple input files (-E): out1.c, out2.c -> stdout"
 else
-    failed "multiple input files (-E): out1.c, out2.c -> stdout"
+  failed "multiple input files (-E): out1.c, out2.c -> stdout"
 fi
 # .c -> .s (-S)
 rm -f "$TMP/out1.s" "$TMP/out2.s"
-(cd "$TMP"; $OLDPWD/$CC -S $TMP/out1.c $TMP/out2.c)
+(
+  cd "$TMP"
+  "$OLDPWD/$CC" -S "$TMP/out1.c" "$TMP/out2.c"
+)
 if [ -f "$TMP/out1.s" ] && [ -f "$TMP/out2.s" ]; then
-    passed "multiple input files (-S): out1.c -> out1.s, out2.c -> out2.s"
+  passed "multiple input files (-S): out1.c -> out1.s, out2.c -> out2.s"
 else
-    failed "multiple input files (-S): out1.c -> out1.s, out2.c -> out2.s"
+  failed "multiple input files (-S): out1.c -> out1.s, out2.c -> out2.s"
 fi
 # .c -> .o (-c)
 rm -f "$TMP/out1.o" "$TMP/out2.o"
-(cd "$TMP"; $OLDPWD/$CC -c $TMP/out1.c $TMP/out2.c)
+(
+  cd "$TMP"
+  "$OLDPWD/$CC" -c "$TMP/out1.c" "$TMP/out2.c"
+)
 if [ -f "$TMP/out1.o" ] && [ -f "$TMP/out2.o" ]; then
-    passed "multiple input files (-c): out1.c -> out1.o, out2.c -> out2.o"
+  passed "multiple input files (-c): out1.c -> out1.o, out2.c -> out2.o"
 else
-    failed "multiple input files (-c): out1.c -> out1.o, out2.c -> out2.o"
+  failed "multiple input files (-c): out1.c -> out1.o, out2.c -> out2.o"
 fi
 # .c -> a.out
 rm -f "$TMP/a.out"
-(cd "$TMP"; $OLDPWD/$CC $TMP/out1.c $TMP/out2.c)
+(
+  cd "$TMP"
+  "$OLDPWD/$CC" "$TMP/out1.c" "$TMP/out2.c"
+)
 if [ -f "$TMP/a.out" ]; then
-    passed "multiple input files: out1.c, out2.c -> a.out"
+  passed "multiple input files: out1.c, out2.c -> a.out"
 else
-    failed "multiple input files: out1.c, out2.c -> a.out"
+  failed "multiple input files: out1.c, out2.c -> a.out"
+fi
+
+# include path (-I)
+mkdir "$TMP/include1"
+mkdir "$TMP/include2"
+echo "int x;" > "$TMP/include1/x.c"
+echo "int y;" > "$TMP/include2/y.c"
+echo "#include \"x.c\"" > "$TMP/out.c"
+echo "#include \"y.c\"" >> "$TMP/out.c"
+if
+  $CC -E -o - -I "$TMP/include1" -I "$TMP/include2" "$TMP/out.c" | grep -q "int x;"
+  $CC -E -o - -I "$TMP/include1" -I "$TMP/include2" "$TMP/out.c" | grep -q "int y;"
+then
+  passed "include path"
+else
+  failed "include path"
 fi
 
 # validate unknown argument

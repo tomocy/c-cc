@@ -65,6 +65,7 @@ long strtoul(char* nptr, char** endptr, int base);
 void exit(int code);
 char* basename(char* path);
 char* dirname(char *path);
+int stat(char *pathname, struct stat *statbuf);
 char* strrchr(char* s, int c);
 char *strncpy(char *dest, char *src, long n);
 int unlink(char* pathname);

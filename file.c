@@ -42,6 +42,11 @@ void unlink_files(Str* names) {
   }
 }
 
+bool have_file(char* name) {
+  struct stat s;
+  return stat(name, &s) == 0;
+}
+
 static FILE* open_file(char* fname, char* mode) {
   FILE* file = fopen(fname, mode);
   if (!file) {
