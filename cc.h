@@ -57,6 +57,7 @@ struct Token {
   bool is_bol;
   bool has_leading_space;
 
+  Token* original;
   Str* hideset;
 
   int64_t int_val;

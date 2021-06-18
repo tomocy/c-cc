@@ -4,6 +4,11 @@
 #
 #
 
+char* main_filename1 = __FILE__;
+int main_line1 = __LINE__;
+#define LINE() __LINE__
+int main_line2 = LINE();
+
 #if 0
 assert("unreachable", 1, 0);
 #if 1
@@ -423,6 +428,12 @@ of(char));
 #undef foo
 
   ASSERT(1, __STDC__);
+
+  ASSERT(0, strcmp(main_filename1, "test/macro_test.c"));
+  ASSERT(0, strcmp(include1_filename, "test/include1.h"));
+  ASSERT(8, main_line1);
+  ASSERT(10, main_line2);
+  ASSERT(4, include1_line);
 
   ok();
 }

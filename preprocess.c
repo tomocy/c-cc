@@ -1,6 +1,7 @@
 #include "cc.h"
 
 typedef struct Macro Macro;
+typedef Token* MacroBodyGenerator(Token*);
 typedef struct FunclikeMacroArg FunclikeMacroArg;
 typedef struct IfDir IfDir;
 
@@ -8,6 +9,7 @@ struct Macro {
   Macro* next;
   char* name;
   Token* body;
+  MacroBodyGenerator* gen;
   bool is_like_func;
   Str* params;
 };
@@ -95,6 +97,14 @@ static Macro* create_objlike_macro(char* name, Token* body) {
 static Macro* create_funclike_macro(char* name, Str* params, Token* body) {
   Macro* macro = create_macro(name, body, true);
   macro->params = params;
+  return macro;
+}
+
+static Macro* create_macro_with_generator(char* name, MacroBodyGenerator* gen) {
+  Macro* macro = calloc(1, sizeof(Macro));
+  macro->name = name;
+  macro->gen = gen;
+  add_macro(macro);
   return macro;
 }
 
@@ -283,13 +293,27 @@ static Token* concat_tokens(Token* lhs, Token* rhs) {
   return tokenize_as_if(file, contents);
 }
 
-static Token* inherit_token_space(Token* dst, Token* src) {
-  Token* next = dst->next;
-  Token* token = copy_token(dst);
+static Token* inherit_token_space(Token* token, Token* src) {
+  Token* next = token->next;
+  token = copy_token(token);
   token->next = next;
   token->is_bol = src->is_bol;
   token->has_leading_space = src->has_leading_space;
   return token;
+}
+
+static Token* inherit_original_token(Token* token, Token* original) {
+  original = copy_token(original);
+  token = inherit_token_space(token, original);
+
+  Token head = {};
+  Token* cur = &head;
+  for (Token* t = token; t; t = t->next) {
+    cur = cur->next = copy_token(t);
+    cur->original = original;
+  }
+
+  return head.next;
 }
 
 static bool can_expand_macro(Token* token) {
@@ -461,11 +485,17 @@ static Token* expand_macro(Token* token) {
   }
   token = token->next;
 
-  Token* body = inherit_token_space(macro->body, ident);
+  if (macro->gen) {
+    Token* body = macro->gen(ident);
+    body->next = token;
+    return body;
+  }
+
+  Token* body = inherit_original_token(macro->body, ident);
   Str* hideset = ident->hideset;
   if (macro->is_like_func) {
     expect_token(&token, "(");
-    body = funclike_macro_body(macro, &token);
+    body = inherit_original_token(funclike_macro_body(macro, &token), ident);
     hideset = intersect_strs(hideset, expect_token(&token, ")")->hideset);
   }
 
@@ -919,6 +949,20 @@ static void define_macro(File* file, char* name, char* raw_body) {
   create_objlike_macro(name, tokenize_as_if(file, raw_body));
 }
 
+static Token* gen_filename(Token* token) {
+  while (token->original) {
+    token = token->original;
+  }
+  return tokenize_as_if(token->file, quote_str(token->file->name));
+}
+
+static Token* gen_line(Token* token) {
+  while (token->original) {
+    token = token->original;
+  }
+  return tokenize_as_if(token->file, format("%d", token->line));
+}
+
 static void define_macros(File* file) {
   define_macro(file, "_LP64", "1");
   define_macro(file, "__C99_MACRO_WITH_VA_ARGS", "1");
@@ -961,6 +1005,9 @@ static void define_macros(File* file) {
   define_macro(file, "__x86_64__", "1");
   define_macro(file, "linux", "1");
   define_macro(file, "unix", "1");
+
+  create_macro_with_generator("__FILE__", gen_filename);
+  create_macro_with_generator("__LINE__", gen_line);
 }
 
 Token* preprocess(Token* tokens) {
