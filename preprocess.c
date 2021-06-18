@@ -12,6 +12,7 @@ struct Macro {
   MacroBodyGenerator* gen;
   bool is_like_func;
   Str* params;
+  bool is_variadic;
 };
 
 struct FunclikeMacroArg {
@@ -94,9 +95,10 @@ static Macro* create_objlike_macro(char* name, Token* body) {
   return create_macro(name, body, false);
 }
 
-static Macro* create_funclike_macro(char* name, Str* params, Token* body) {
+static Macro* create_funclike_macro(char* name, Str* params, bool is_variadic, Token* body) {
   Macro* macro = create_macro(name, body, true);
   macro->params = params;
+  macro->is_variadic = is_variadic;
   return macro;
 }
 
@@ -294,6 +296,10 @@ static Token* concat_tokens(Token* lhs, Token* rhs) {
 }
 
 static Token* inherit_token_space(Token* token, Token* src) {
+  if (!token) {
+    return NULL;
+  }
+
   Token* next = token->next;
   token = copy_token(token);
   token->next = next;
@@ -303,6 +309,10 @@ static Token* inherit_token_space(Token* token, Token* src) {
 }
 
 static Token* inherit_original_token(Token* token, Token* original) {
+  if (!token) {
+    return NULL;
+  }
+
   original = copy_token(original);
   token = inherit_token_space(token, original);
 
@@ -367,28 +377,41 @@ static Token* funclike_macro_arg(Token** tokens) {
   return head.next;
 }
 
-static FunclikeMacroArg* funclike_macro_args(Str* params, Token** tokens) {
+static FunclikeMacroArg* funclike_macro_args(Macro* macro, Token** tokens) {
   Token* start = *tokens;
 
   FunclikeMacroArg head = {};
   FunclikeMacroArg* cur = &head;
-  Str* param = params;
+  Str* param = macro->params;
   while (!equal_to_token(*tokens, ")")) {
     if (cur != &head) {
       expect_token(tokens, ",");
     }
+
     if (!param) {
-      error_token(*tokens, "too many arguments");
+      if (!macro->is_variadic) {
+        error_token(*tokens, "too many arguments");
+      }
+      break;
     }
 
     Token* token = funclike_macro_arg(tokens);
-    FunclikeMacroArg* arg = new_funclike_macro_arg(param->data, token);
-
-    cur = cur->next = arg;
+    cur = cur->next = new_funclike_macro_arg(param->data, token);
     param = param->next;
   }
   if (param) {
     error_token(start, "too few arguments");
+  }
+  if (macro->is_variadic) {
+    Token token_head = {};
+    Token* cur_token = &token_head;
+    while (!equal_to_token(*tokens, ")")) {
+      if (cur_token != &token_head) {
+        cur_token = cur_token->next = expect_token(tokens, ",");
+      }
+      cur_token = cur_token->next = funclike_macro_arg(tokens);
+    }
+    cur = cur->next = new_funclike_macro_arg("__VA_ARGS__", token_head.next);
   }
 
   return head.next;
@@ -473,7 +496,7 @@ static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
 }
 
 static Token* funclike_macro_body(Macro* macro, Token** tokens) {
-  FunclikeMacroArg* args = funclike_macro_args(macro->params, tokens);
+  FunclikeMacroArg* args = funclike_macro_args(macro, tokens);
   return replace_funclike_macro_body(macro->body, args);
 }
 
@@ -505,14 +528,20 @@ static Token* expand_macro(Token* token) {
   return append(body, token);
 }
 
-static Str* funclike_macro_params(Token** tokens) {
+static Str* funclike_macro_params(Token** tokens, bool* is_variadic) {
   expect_token(tokens, "(");
 
   Str head = {};
   Str* cur = &head;
+  *is_variadic = false;
   while (!consume_token(tokens, ")")) {
     if (cur != &head) {
       expect_token(tokens, ",");
+    }
+    if (consume_token(tokens, "...")) {
+      *is_variadic = true;
+      expect_token(tokens, ")");
+      break;
     }
 
     Token* ident = copy_token(expect_ident_token(tokens));
@@ -542,8 +571,9 @@ static Token* define_dir(Token* token) {
 
   bool is_like_func = is_funclike_macro_parens(token);
   if (is_like_func) {
-    Str* params = funclike_macro_params(&token);
-    create_funclike_macro(name, params, macro_body(&token));
+    bool is_variadic = false;
+    Str* params = funclike_macro_params(&token, &is_variadic);
+    create_funclike_macro(name, params, is_variadic, macro_body(&token));
   } else {
     create_objlike_macro(name, macro_body(&token));
   }
