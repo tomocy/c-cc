@@ -359,6 +359,181 @@ static Token* add_hideset(Token* tokens, Str* hideset) {
   return head.next;
 }
 
+static void define_macro(File* file, char* name, char* raw_body) {
+  create_objlike_macro(name, tokenize_as_if(file, raw_body));
+}
+
+static Token* gen_filename(Token* token) {
+  while (token->original) {
+    token = token->original;
+  }
+  return tokenize_as_if(token->file, quote_str(token->file->name));
+}
+
+static Token* gen_line(Token* token) {
+  while (token->original) {
+    token = token->original;
+  }
+  return tokenize_as_if(token->file, format("%d", token->line));
+}
+
+static void define_macros(File* file) {
+  define_macro(file, "_LP64", "1");
+  define_macro(file, "__C99_MACRO_WITH_VA_ARGS", "1");
+  define_macro(file, "__ELF__", "1");
+  define_macro(file, "__LP64__", "1");
+  define_macro(file, "__SIZEOF_DOUBLE__", "8");
+  define_macro(file, "__SIZEOF_FLOAT__", "4");
+  define_macro(file, "__SIZEOF_INT__", "4");
+  define_macro(file, "__SIZEOF_LONG_DOUBLE__", "8");
+  define_macro(file, "__SIZEOF_LONG_LONG__", "8");
+  define_macro(file, "__SIZEOF_LONG__", "8");
+  define_macro(file, "__SIZEOF_POINTER__", "8");
+  define_macro(file, "__SIZEOF_PTRDIFF_T__", "8");
+  define_macro(file, "__SIZEOF_SHORT__", "2");
+  define_macro(file, "__SIZEOF_SIZE_T__", "8");
+  define_macro(file, "__SIZE_TYPE__", "unsigned long");
+  define_macro(file, "__STDC_HOSTED__", "1");
+  define_macro(file, "__STDC_NO_ATOMICS__", "1");
+  define_macro(file, "__STDC_NO_COMPLEX__", "1");
+  define_macro(file, "__STDC_NO_THREADS__", "1");
+  define_macro(file, "__STDC_NO_VLA__", "1");
+  define_macro(file, "__STDC_VERSION__", "201112L");
+  define_macro(file, "__STDC__", "1");
+  define_macro(file, "__USER_LABEL_PREFIX__", "");
+  define_macro(file, "__alignof__", "_Alignof");
+  define_macro(file, "__amd64", "1");
+  define_macro(file, "__amd64__", "1");
+  define_macro(file, "__chibicc__", "1");
+  define_macro(file, "__const__", "const");
+  define_macro(file, "__gnu_linux__", "1");
+  define_macro(file, "__inline__", "inline");
+  define_macro(file, "__linux", "1");
+  define_macro(file, "__linux__", "1");
+  define_macro(file, "__signed__", "signed");
+  define_macro(file, "__typeof__", "typeof");
+  define_macro(file, "__unix", "1");
+  define_macro(file, "__unix__", "1");
+  define_macro(file, "__volatile__", "volatile");
+  define_macro(file, "__x86_64", "1");
+  define_macro(file, "__x86_64__", "1");
+  define_macro(file, "linux", "1");
+  define_macro(file, "unix", "1");
+
+  create_macro_with_generator("__FILE__", gen_filename);
+  create_macro_with_generator("__LINE__", gen_line);
+}
+
+static bool is_keyword(char* c, int len) {
+  static char* keywords[] = {
+    "if",
+    "else",
+    "for",
+    "while",
+    "do",
+    "return",
+    "sizeof",
+    "void",
+    "_Bool",
+    "char",
+    "short",
+    "int",
+    "long",
+    "float",
+    "double",
+    "struct",
+    "union",
+    "enum",
+    "typedef",
+    "static",
+    "goto",
+    "break",
+    "continue",
+    "switch",
+    "case",
+    "default",
+    "_Alignof",
+    "_Alignas",
+    "signed",
+    "unsigned",
+    "const",
+    "volatile",
+    "auto",
+    "register",
+    "restrict",
+    "__restrict",
+    "__restrict__",
+    "_Noreturn",
+  };
+  static int klen = sizeof(keywords) / sizeof(char*);
+
+  for (int i = 0; i < klen; i++) {
+    if (!can_be_keyword(c, len)) {
+      continue;
+    }
+    if (equal_to_n_chars(keywords[i], c, len)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static Token* convert_keywords(Token* tokens) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = tokens; token; token = token->next) {
+    cur = cur->next = token;
+
+    if (token->kind != TK_IDENT) {
+      continue;
+    }
+    if (!is_keyword(token->loc, token->len)) {
+      continue;
+    }
+
+    cur->kind = TK_RESERVED;
+  }
+
+  return head.next;
+}
+
+static Token* concat_adjecent_strs(Token* tokens) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = tokens; token; token = token->next) {
+    if (token->kind != TK_STR || token->next->kind != TK_STR) {
+      cur = cur->next = copy_token(token);
+      continue;
+    }
+
+    Token* not_str = token->next;
+    while (not_str->kind == TK_STR) {
+      not_str = not_str->next;
+    }
+
+    int len = 0;
+    for (Token* t = token; t != not_str; t = t->next) {
+      len += t->str_val_len;
+    }
+
+    char* val = calloc(len, sizeof(token->type->base));
+    char* c = val;
+    for (Token* t = token; t != not_str; t = t->next) {
+      strncpy(c, t->str_val, t->str_val_len);
+      c += t->str_val_len;
+    }
+
+    cur = cur->next = copy_token(token);
+    cur->str_val = val;
+    cur->str_val_len = len;
+
+    token->next = not_str;
+  }
+
+  return head.next;
+}
+
 static Token* funclike_macro_arg(Token** tokens) {
   Token head = {};
   Token* cur = &head;
@@ -831,80 +1006,6 @@ static Token* endif_dir(Token* token) {
   return skip_extra_tokens(token);
 }
 
-static bool is_keyword(char* c, int len) {
-  static char* keywords[] = {
-    "if",
-    "else",
-    "for",
-    "while",
-    "do",
-    "return",
-    "sizeof",
-    "void",
-    "_Bool",
-    "char",
-    "short",
-    "int",
-    "long",
-    "float",
-    "double",
-    "struct",
-    "union",
-    "enum",
-    "typedef",
-    "static",
-    "goto",
-    "break",
-    "continue",
-    "switch",
-    "case",
-    "default",
-    "_Alignof",
-    "_Alignas",
-    "signed",
-    "unsigned",
-    "const",
-    "volatile",
-    "auto",
-    "register",
-    "restrict",
-    "__restrict",
-    "__restrict__",
-    "_Noreturn",
-  };
-  static int klen = sizeof(keywords) / sizeof(char*);
-
-  for (int i = 0; i < klen; i++) {
-    if (!can_be_keyword(c, len)) {
-      continue;
-    }
-    if (equal_to_n_chars(keywords[i], c, len)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-static Token* convert_keywords(Token* tokens) {
-  Token head = {};
-  Token* cur = &head;
-  for (Token* token = tokens; token; token = token->next) {
-    cur = cur->next = token;
-
-    if (token->kind != TK_IDENT) {
-      continue;
-    }
-    if (!is_keyword(token->loc, token->len)) {
-      continue;
-    }
-
-    cur->kind = TK_RESERVED;
-  }
-
-  return head.next;
-}
-
 // NOLINTNEXTLINE
 static Token* process(Token* tokens) {
   Token head = {};
@@ -975,71 +1076,6 @@ static Token* process(Token* tokens) {
   return head.next;
 }
 
-static void define_macro(File* file, char* name, char* raw_body) {
-  create_objlike_macro(name, tokenize_as_if(file, raw_body));
-}
-
-static Token* gen_filename(Token* token) {
-  while (token->original) {
-    token = token->original;
-  }
-  return tokenize_as_if(token->file, quote_str(token->file->name));
-}
-
-static Token* gen_line(Token* token) {
-  while (token->original) {
-    token = token->original;
-  }
-  return tokenize_as_if(token->file, format("%d", token->line));
-}
-
-static void define_macros(File* file) {
-  define_macro(file, "_LP64", "1");
-  define_macro(file, "__C99_MACRO_WITH_VA_ARGS", "1");
-  define_macro(file, "__ELF__", "1");
-  define_macro(file, "__LP64__", "1");
-  define_macro(file, "__SIZEOF_DOUBLE__", "8");
-  define_macro(file, "__SIZEOF_FLOAT__", "4");
-  define_macro(file, "__SIZEOF_INT__", "4");
-  define_macro(file, "__SIZEOF_LONG_DOUBLE__", "8");
-  define_macro(file, "__SIZEOF_LONG_LONG__", "8");
-  define_macro(file, "__SIZEOF_LONG__", "8");
-  define_macro(file, "__SIZEOF_POINTER__", "8");
-  define_macro(file, "__SIZEOF_PTRDIFF_T__", "8");
-  define_macro(file, "__SIZEOF_SHORT__", "2");
-  define_macro(file, "__SIZEOF_SIZE_T__", "8");
-  define_macro(file, "__SIZE_TYPE__", "unsigned long");
-  define_macro(file, "__STDC_HOSTED__", "1");
-  define_macro(file, "__STDC_NO_ATOMICS__", "1");
-  define_macro(file, "__STDC_NO_COMPLEX__", "1");
-  define_macro(file, "__STDC_NO_THREADS__", "1");
-  define_macro(file, "__STDC_NO_VLA__", "1");
-  define_macro(file, "__STDC_VERSION__", "201112L");
-  define_macro(file, "__STDC__", "1");
-  define_macro(file, "__USER_LABEL_PREFIX__", "");
-  define_macro(file, "__alignof__", "_Alignof");
-  define_macro(file, "__amd64", "1");
-  define_macro(file, "__amd64__", "1");
-  define_macro(file, "__chibicc__", "1");
-  define_macro(file, "__const__", "const");
-  define_macro(file, "__gnu_linux__", "1");
-  define_macro(file, "__inline__", "inline");
-  define_macro(file, "__linux", "1");
-  define_macro(file, "__linux__", "1");
-  define_macro(file, "__signed__", "signed");
-  define_macro(file, "__typeof__", "typeof");
-  define_macro(file, "__unix", "1");
-  define_macro(file, "__unix__", "1");
-  define_macro(file, "__volatile__", "volatile");
-  define_macro(file, "__x86_64", "1");
-  define_macro(file, "__x86_64__", "1");
-  define_macro(file, "linux", "1");
-  define_macro(file, "unix", "1");
-
-  create_macro_with_generator("__FILE__", gen_filename);
-  create_macro_with_generator("__LINE__", gen_line);
-}
-
 Token* preprocess(Token* tokens) {
   if (tokens) {
     define_macros(tokens->file);
@@ -1050,5 +1086,5 @@ Token* preprocess(Token* tokens) {
     error_token(if_dirs->token, "unterminated if directive");
   }
 
-  return convert_keywords(tokens);
+  return concat_adjecent_strs(convert_keywords(tokens));
 }

@@ -483,5 +483,21 @@ of(char));
   ASSERT(0, strcmp("main", __FUNCTION__));
   ASSERT(0, strcmp("function_fn", function_fn()));
 
+  ASSERT(7, sizeof("abc"
+                   "def"));
+  ASSERT(9, sizeof("abc"
+                   "d"
+                   "efgh"));
+  ASSERT(0, strcmp("abc"
+                   "d"
+                   "\nefgh",
+              "abcd\nefgh"));
+  ASSERT(0, !strcmp("abc"
+                    "d",
+              "abcd\nefgh"));
+  ASSERT(0, strcmp("\x9"
+                   "0",
+              "\t0"));
+
   ok();
 }
