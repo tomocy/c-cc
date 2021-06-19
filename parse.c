@@ -1386,9 +1386,6 @@ static void gvar(Token** tokens) {
     if (consume_token(tokens, "=")) {
       gvar_initer(tokens, var);
     }
-    if (var->type->size < 0) {
-      error_token(type->ident, "variable has imcomplete type");
-    }
   }
 }
 

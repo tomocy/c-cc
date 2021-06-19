@@ -107,6 +107,10 @@ char* function_fn(void) {
   return __FUNCTION__;
 }
 
+int fn() {
+  return 42;
+}
+
 int main() {
   ASSERT(5, include1);
   ASSERT(7, include2);
@@ -456,6 +460,7 @@ of(char));
 #define M14(...) 3
   ASSERT(3, M14());
 
+// NOLINTNEXTLINE
 #define M14(...) __VA_ARGS__
   ASSERT(2, M14() 2);
   ASSERT(5, M14(5));
@@ -480,6 +485,7 @@ of(char));
   ASSERT(0, strcmp("main", __func__));
   ASSERT(0, strcmp("func_fn", func_fn()));
 
+  // NOLINTNEXTLINE
   ASSERT(0, strcmp("main", __FUNCTION__));
   ASSERT(0, strcmp("function_fn", function_fn()));
 
@@ -501,6 +507,48 @@ of(char));
 
   ASSERT(4, sizeof(L'\0'));
   ASSERT(97, L'a');
+
+#define M15 1
+#if !defined M15
+  assert("!defined M15", 1, 0);
+#else
+  assert("!defined M15", 1, 1);
+#endif
+
+#define M16 1
+#if defined M15 && defined M16
+  assert("defined M15 && defined M16", 1, 1);
+#else
+  assert("defined M15 && defined M16", 1, 0);
+#endif
+
+#if defined M16 || defined M17
+  assert("defined M15 || defined M17", 1, 1);
+#else
+  assert("defined M15 || defined M17", 1, 0);
+#endif
+
+#define FALSE() 0
+// clang-format off
+#if defined M16 && FALSE ()
+  // clang-format on
+  assert("defined M16 && FALSE()", 1, 0);
+#else
+  assert("defined M16 && FALSE()", 1, 1);
+#endif
+
+#if 1
+  assert("if block in #else", 1, 1);
+#else
+#if 1
+  assert("if block in #else", 1, 0);
+#else
+  assert("if block in #else", 1, 0);
+#endif
+#endif
+
+#define FN fn
+  ASSERT(42, FN());
 
   ok();
 }

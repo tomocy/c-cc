@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "cc.h"
 
 static FILE* output_file;

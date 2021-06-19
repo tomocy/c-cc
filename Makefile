@@ -32,22 +32,16 @@ beta/%.o: %.c
 	$(CC) -c -o beta/$*.o $*.c
 
 # Compile c files with ./cc
-beta/%.s: cc beta/%.c
+beta/%.s: cc %.c
 	rm -rf beta/$*.o
-	./cc -S -o beta/$*.s beta/$*.c
-
-beta/%.c: self.py %.c
-	./self.py cc.h $*.c > beta/$*.c
+	./cc -S -o beta/$*.s $*.c
 
 # stage2
 s2/cc: $(S2_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-s2/%.o: cc s2/%.c
-	./cc -c -o s2/$*.o s2/$*.c
-
-s2/%.c: self.py %.c
-	./self.py cc.h $*.c > s2/$*.c
+s2/%.o: cc %.c
+	./cc -c -o s2/$*.o $*.c
 
 s2/test/%: s2/cc test/adapter.c test/%.c
 	./s2/cc -c -I test -o s2/test/$*.o test/$*.c
@@ -92,13 +86,13 @@ s1/test@%: test/%_test
 .PHONY: beta/prepare
 beta/prepare:
 	make beta/main.s
-	make beta/tokenize.s
+	make beta/tokenize.o
 	make beta/preprocess.s
-	make beta/parse.s
+	make beta/parse.o
 	make beta/gen.s
-	make beta/file.s
+	make beta/file.o
 	make beta/string.s
-	make beta/error.s
+	make beta/error.o
 
 .PHONY: beta/test@%
 beta/test@%: test/adapter.c test/%_test.c

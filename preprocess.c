@@ -33,7 +33,7 @@ static IfDir* if_dirs;
 
 static Token* process(Token* tokens);
 
-static bool is_funclike_macro_parens(Token* token) {
+static bool is_funclike_macro_define_parens(Token* token) {
   return !token->has_leading_space && equal_to_token(token, "(");
 }
 
@@ -54,13 +54,7 @@ static Macro* find_macro_by_token(Token* token) {
     return NULL;
   }
 
-  Macro* macro = find_macro(token->loc, token->len);
-  if (!macro) {
-    return NULL;
-  }
-
-  bool is_like_func = token->next ? is_funclike_macro_parens(token->next) : false;
-  return macro->is_like_func == is_like_func ? macro : NULL;
+  return find_macro(token->loc, token->len);
 }
 
 static void delete_macro(char* name) {
@@ -145,7 +139,7 @@ static IfDir* new_stray_if_dir(Token* token, bool cond) {
   return dir;
 }
 
-static IfDir* new_if_dir(Token* token, bool cond) {
+static IfDir* create_if_dir(Token* token, bool cond) {
   IfDir* dir = new_stray_if_dir(token, cond);
   add_if_dir(dir);
   return dir;
@@ -334,7 +328,18 @@ static bool can_expand_macro(Token* token) {
     return false;
   }
 
-  return find_macro_by_token(token) != NULL;
+  Macro* macro = find_macro_by_token(token);
+  if (!macro) {
+    return false;
+  }
+
+  if (!macro->is_like_func) {
+    return true;
+  }
+
+  // Funclike macro is expanded only when the token sequence is
+  // like funccall
+  return equal_to_token(token->next, "(");
 }
 
 static Token* inherit_hideset(Token* dst, Str* hideset) {
@@ -689,15 +694,18 @@ static Token* expand_macro(Token* token) {
     return body;
   }
 
-  Token* body = inherit_original_token(macro->body, ident);
-  Str* hideset = ident->hideset;
   if (macro->is_like_func) {
     expect_token(&token, "(");
-    body = inherit_original_token(funclike_macro_body(macro, &token), ident);
-    hideset = intersect_strs(hideset, expect_token(&token, ")")->hideset);
+    Token* body = inherit_original_token(funclike_macro_body(macro, &token), ident);
+    Str* hideset = intersect_strs(ident->hideset, expect_token(&token, ")")->hideset);
+    body = inherit_hideset(body, hideset);
+    body = add_hideset(body, new_str(macro->name));
+
+    return append(body, token);
   }
 
-  body = inherit_hideset(body, hideset);
+  Token* body = inherit_original_token(macro->body, ident);
+  body = inherit_hideset(body, ident->hideset);
   body = add_hideset(body, new_str(macro->name));
 
   return append(body, token);
@@ -744,7 +752,7 @@ static Token* define_dir(Token* token) {
   Token* ident = expect_macro_ident_token(&token);
   char* name = strndup(ident->loc, ident->len);
 
-  bool is_like_func = is_funclike_macro_parens(token);
+  bool is_like_func = is_funclike_macro_define_parens(token);
   if (is_like_func) {
     bool is_variadic = false;
     Str* params = funclike_macro_params(&token, &is_variadic);
@@ -838,7 +846,7 @@ static Token* include_dir(Token* token) {
 
 static Token* skip_to_endif_dir(Token* token) {
   while (!is_dir(token, "endif")) {
-    if (is_dir(token, "if")) {
+    if (is_dir(token, "if") || is_dir(token, "ifdef") || is_dir(token, "ifndef")) {
       token = skip_to_endif_dir(token->next);
       expect_dir(&token, "endif");
       continue;
@@ -928,7 +936,7 @@ static Token* ifdef_dir(Token* token) {
 
   Macro* macro = find_macro(token->loc, token->len);
   token = token->next;
-  IfDir* dir = new_if_dir(start, macro != NULL);
+  IfDir* dir = create_if_dir(start, macro != NULL);
   if (!dir->cond) {
     token = skip_if_block(token);
   }
@@ -942,7 +950,7 @@ static Token* ifndef_dir(Token* token) {
 
   Macro* macro = find_macro(token->loc, token->len);
   token = token->next;
-  IfDir* dir = new_if_dir(start, macro == NULL);
+  IfDir* dir = create_if_dir(start, macro == NULL);
   if (!dir->cond) {
     token = skip_if_block(token);
   }
@@ -954,7 +962,7 @@ static Token* if_dir(Token* token) {
   Token* start = token;
   expect_dir(&token, "if");
 
-  IfDir* dir = new_if_dir(start, if_dir_cond(&token));
+  IfDir* dir = create_if_dir(start, if_dir_cond(&token));
   if (!dir->cond) {
     token = skip_if_block(token);
   }
@@ -989,7 +997,7 @@ static Token* else_dir(Token* token) {
   token = skip_extra_tokens(token);
 
   if (have_expanded_if_block(if_dirs)) {
-    token = skip_to_endif_dir(token->next);
+    token = skip_to_endif_dir(token);
   }
 
   return token;
