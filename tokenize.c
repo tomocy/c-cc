@@ -547,8 +547,11 @@ static int read_escaped_char(char** c) {
 }
 
 static bool consume_char(Token** dst, char** c) {
-  if (**c != '\'') {
+  if (**c != '\'' && !start_with(*c, "L'")) {
     return false;
+  }
+  if (**c == 'L') {
+    (*c)++;
   }
 
   char* start = (*c)++;

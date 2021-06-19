@@ -499,5 +499,8 @@ of(char));
                    "0",
               "\t0"));
 
+  ASSERT(4, sizeof(L'\0'));
+  ASSERT(97, L'a');
+
   ok();
 }
