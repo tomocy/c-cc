@@ -102,6 +102,11 @@ char* func_fn(void) {
   return __func__;
 }
 
+char* function_fn(void) {
+  // NOLINTNEXTLINE
+  return __FUNCTION__;
+}
+
 int main() {
   ASSERT(5, include1);
   ASSERT(7, include2);
@@ -474,6 +479,9 @@ of(char));
   // NOLINTNEXTLINE
   ASSERT(0, strcmp("main", __func__));
   ASSERT(0, strcmp("func_fn", func_fn()));
+
+  ASSERT(0, strcmp("main", __FUNCTION__));
+  ASSERT(0, strcmp("function_fn", function_fn()));
 
   ok();
 }

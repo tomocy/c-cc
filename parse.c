@@ -1258,6 +1258,7 @@ static void func(Token** tokens) {
   }
 
   create_static_str_lvar_obj("__func__", func->name);
+  create_static_str_lvar_obj("__FUNCTION__", func->name);
 
   func->body = block_stmt(tokens);
 
