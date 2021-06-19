@@ -48,6 +48,7 @@ unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     "sizeof" unary |
     "_Alignof" "(" abstract_declarator ")" |
     "_Alignof" unary |
+    "__builtin_reg_class" "(" abstract_declarator ")" |
     postifx
 postfix = primary (
     func_args |

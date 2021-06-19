@@ -2168,6 +2168,20 @@ static Node* unary(Token** tokens) {
     return new_ulong_node(start, node->type->size);
   }
 
+  if (consume_token(tokens, "__builtin_reg_class")) {
+    expect_token(tokens, "(");
+    Type* type = abstract_decl(tokens, NULL);
+    expect_token(tokens, ")");
+
+    if (is_integer(type) || type->kind == TY_PTR) {
+      return new_int_node(start, 0);
+    }
+    if (is_float(type)) {
+      return new_int_node(start, 1);
+    }
+    return new_int_node(start, 2);
+  }
+
   return postfix(tokens);
 }
 
