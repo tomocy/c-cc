@@ -173,8 +173,7 @@ static void expect_dir(Token** tokens, char* dir) {
   if (!is_dir(*tokens, dir)) {
     error_token(*tokens, "expected %s directive", dir);
   }
-  expect_token(tokens, "#");
-  expect_token(tokens, dir);
+  expect_tokens(tokens, 2, "#", dir);
 }
 
 static Token* append(Token* former, Token* latter) {
@@ -277,8 +276,8 @@ static char* quote_str(char* s) {
 
 static Token* stringize_tokens(Token* tokens) {
   // it is better to set some values in those tokens to their locations so that
-  // the error reporting can indicate the locations
-  // , so tokenize those tokens as if they are in the file of the tokens which are replaced
+  // the error reporting can indicate the locations,
+  // so tokenize those tokens as if they are in the file of the tokens which are replaced
   char* quoted = quote_str(restore_contents(tokens));
   return tokenize_as_if(tokens->file, quoted);
 }
@@ -1014,7 +1013,6 @@ static Token* endif_dir(Token* token) {
   return skip_extra_tokens(token);
 }
 
-// NOLINTNEXTLINE
 static Token* process(Token* tokens) {
   Token head = {};
   Token* cur = &head;

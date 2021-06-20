@@ -69,7 +69,6 @@ static char* take_arg(char* arg) {
   return arg;
 }
 
-// NOLINTNEXTLINE
 static void parse_args(int argc, char** argv) {
   if (!equal_to_str(argv[0], self_path)) {
     location = dir(argv[0]);
@@ -293,6 +292,7 @@ static void add_default_include_paths() {
   include_paths = NULL;
   add_include_path(new_str("/usr/include"));
   add_include_path(new_str("/usr/include/x86_64-linux-gnu"));
+  add_include_path(new_str("/usr/local/include"));
   add_include_path(new_str(format("%s/include", location)));
   for (Str* path = paths; path; path = path->next) {
     add_include_path(copy_str(path));
@@ -317,7 +317,6 @@ static int exec(void) {
   return 0;
 }
 
-// NOLINTNEXTLINE
 static int run(int argc, char** argv) {
   if (!input_filenames) {
     error("no input files");

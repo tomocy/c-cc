@@ -262,7 +262,6 @@ static void gen_addr(Node* node) {
   }
 }
 
-// NOLINTNEXTLINE
 static void gen_expr(Node* node) {
   genln("  .loc %d %d", node->token->file->index, node->token->line);
 
@@ -783,13 +782,11 @@ static void gen_data(TopLevelObj* codes) {
       Relocation* reloc = var->obj->relocs;
       int offset = 0;
       while (offset < var->obj->type->size) {
-        if (reloc) {
-          if (offset == reloc->offset) {
-            genln("  .quad %s%+ld", reloc->label, reloc->addend);
-            reloc = reloc->next;
-            offset += 8;
-            continue;
-          }
+        if (reloc && offset == reloc->offset) {
+          genln("  .quad %s%+ld", reloc->label, reloc->addend);
+          reloc = reloc->next;
+          offset += 8;
+          continue;
         }
 
         genln("  .byte %d", var->obj->val[offset++]);
@@ -805,7 +802,6 @@ static void gen_data(TopLevelObj* codes) {
   }
 }
 
-// NOLINTNEXTLINE
 static void gen_text(TopLevelObj* codes) {
   for (TopLevelObj* func = codes; func; func = func->next) {
     if (func->obj->kind != OJ_FUNC || !func->obj->is_definition) {

@@ -167,6 +167,21 @@ static Type* new_chars_type(int len) {
   return new_array_type(new_char_type(), len);
 }
 
+static Member* new_member(Type* type) {
+  Member* mem = calloc(1, sizeof(Member));
+  mem->type = type;
+  mem->token = type->ident;
+  mem->name = type->name;
+  mem->alignment = type->alignment;
+  return mem;
+}
+
+static Member* copy_member(Member* src) {
+  Member* mem = calloc(1, sizeof(Member));
+  *mem = *src;
+  return mem;
+}
+
 static Type* new_composite_type(TypeKind kind, int size, int alignment, Member* mems) {
   Type* type = new_type(kind, align(size, alignment), alignment);
   type->members = mems;
@@ -197,9 +212,7 @@ static Type* copy_composite_type(Type* src, TypeKind kind) {
   Member head = {};
   Member* cur = &head;
   for (Member* mem = src->members; mem; mem = mem->next) {
-    Member* copied = calloc(1, sizeof(Member));
-    *copied = *mem;
-    cur = cur->next = copied;
+    cur = cur->next = copy_member(mem);
   }
 
   return new_composite_type(kind, src->size, src->alignment, head.next);
@@ -500,7 +513,7 @@ static void adjust_lvar_obj_offset(Obj* vars, Obj* var, Type* type) {
   }
 
   var->type = type;
-  // If the type has not been determined yet,
+  // If the type has not been determined yet (type->size < 0),
   // treat its size as 0
   int size = var->type->size >= 0 ? var->type->size : 0;
   var->offset = align(vars ? vars->offset + size : size, var->alignment);
@@ -839,7 +852,7 @@ static Node* new_addr_node(Token* token, Node* lhs) {
 
 static Node* new_deref_node(Token* token, Node* lhs) {
   Node* deref = new_unary_node(ND_DEREF, lhs);
-  deref->type = (deref->lhs->type->base) ? deref->lhs->type->base : deref->lhs->type;
+  deref->type = deref->lhs->type->base ? deref->lhs->type->base : deref->lhs->type;
   deref->token = token;
   return deref;
 }
@@ -1265,7 +1278,7 @@ static void func(Token** tokens) {
   leave_scope();
 
   func->lvars = current_lvars;
-  func->stack_size = align((func->lvars) ? func->lvars->offset : 0, 16);
+  func->stack_size = align(func->lvars ? func->lvars->offset : 0, 16);
 
   current_lvars = NULL;
   resolve_goto_labels();
@@ -1416,7 +1429,7 @@ static Node* block_stmt(Token** tokens) {
   enter_scope();
 
   Node head = {};
-  Node* curr = &head;
+  Node* cur = &head;
   while (!consume_token(tokens, "}")) {
     if (equal_to_decl_specifier(*tokens) && !equal_to_token((*tokens)->next, ":")) {
       Token* peeked = *tokens;
@@ -1438,13 +1451,11 @@ static Node* block_stmt(Token** tokens) {
         continue;
       }
 
-      curr->next = lvar(tokens);
-      curr = curr->next;
+      cur = cur->next = lvar(tokens);
       continue;
     }
 
-    curr->next = stmt(tokens);
-    curr = curr->next;
+    cur = cur->next = stmt(tokens);
   }
 
   leave_scope();
@@ -1455,8 +1466,7 @@ static Node* block_stmt(Token** tokens) {
 static Node* if_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  expect_token(tokens, "if");
-  expect_token(tokens, "(");
+  expect_tokens(tokens, 2, "if", "(");
 
   Node* node = new_node(ND_IF);
   node->token = start;
@@ -1477,8 +1487,7 @@ static Node* if_stmt(Token** tokens) {
 static Node* switch_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  expect_token(tokens, "switch");
-  expect_token(tokens, "(");
+  expect_tokens(tokens, 2, "switch", "(");
 
   Node* prev_switch = current_switch;
   Node* node = current_switch = new_node(ND_SWITCH);
@@ -1544,8 +1553,7 @@ static Node* default_case_stmt(Token** tokens) {
 static Node* for_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  expect_token(tokens, "for");
-  expect_token(tokens, "(");
+  expect_tokens(tokens, 2, "for", "(");
 
   Node* node = new_node(ND_FOR);
   node->token = start;
@@ -1587,8 +1595,7 @@ static Node* for_stmt(Token** tokens) {
 static Node* while_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  expect_token(tokens, "while");
-  expect_token(tokens, "(");
+  expect_tokens(tokens, 2, "while", "(");
 
   Node* node = new_node(ND_FOR);
   node->token = start;
@@ -1624,13 +1631,11 @@ static Node* do_stmt(Token** tokens) {
   current_break_label_id = prev_break_label_id;
   current_continue_label_id = prev_continue_label_id;
 
-  expect_token(tokens, "while");
-  expect_token(tokens, "(");
+  expect_tokens(tokens, 2, "while", "(");
 
   node->cond = expr(tokens);
 
-  expect_token(tokens, ")");
-  expect_token(tokens, ";");
+  expect_tokens(tokens, 2, ")", ";");
 
   Node* first = calloc(1, sizeof(Node));
   *first = *node->then;
@@ -2140,8 +2145,7 @@ static Node* unary(Token** tokens) {
   }
 
   if (equal_to_token(*tokens, "sizeof") && equal_to_abstract_decl_start((*tokens)->next)) {
-    expect_token(tokens, "sizeof");
-    expect_token(tokens, "(");
+    expect_tokens(tokens, 2, "sizeof", "(");
     Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
     return new_ulong_node(start, type->size);
@@ -2153,8 +2157,7 @@ static Node* unary(Token** tokens) {
   }
 
   if (equal_to_token(*tokens, "_Alignof") && equal_to_abstract_decl_start((*tokens)->next)) {
-    expect_token(tokens, "_Alignof");
-    expect_token(tokens, "(");
+    expect_tokens(tokens, 2, "_Alignof", "(");
     Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
     return new_ulong_node(start, type->alignment);
@@ -2303,7 +2306,7 @@ static Node* datum(Token** tokens) {
 static Node* primary(Token** tokens) {
   Token* start = *tokens;
 
-  if (equal_to_token(*tokens, "(") && equal_to_token((*tokens)->next, "{")) {
+  if (equal_to_tokens(*tokens, 2, "(", "{")) {
     expect_token(tokens, "(");
     Node* node = new_stmt_expr_node(start, block_stmt(tokens)->body);
     expect_token(tokens, ")");
@@ -2390,7 +2393,6 @@ static double eval_float(Node* node) {
   }
 }
 
-// NOLINTNEXTLINE
 static int64_t eval_reloc(Node* node, char** label) {
   if (is_float(node->type)) {
     return eval_float(node);
@@ -2561,7 +2563,7 @@ static void skip_excess_initers(Token** tokens) {
 }
 
 static bool equal_to_initer_end(Token* token) {
-  return equal_to_token(token, "}") || (equal_to_token(token, ",") && equal_to_token(token->next, "}"));
+  return equal_to_token(token, "}") || equal_to_tokens(token, 2, ",", "}");
 }
 
 static bool consume_initer_end(Token** tokens) {
@@ -2569,9 +2571,8 @@ static bool consume_initer_end(Token** tokens) {
     return true;
   }
 
-  if (equal_to_token(*tokens, ",") && equal_to_token((*tokens)->next, "}")) {
-    expect_token(tokens, ",");
-    expect_token(tokens, "}");
+  if (equal_to_tokens(*tokens, 2, ",", "}")) {
+    expect_tokens(tokens, 2, ",", "}");
     return true;
   }
 
@@ -2872,8 +2873,7 @@ static Node* lvar_decl(Token** tokens) {
       error_token(type->ident, "variable has imcomplete type");
     }
 
-    cur->next = node;
-    cur = cur->next;
+    cur = cur->next = node;
   }
 
   return new_block_node(start, head.next);
@@ -2888,11 +2888,11 @@ static Type* enum_specifier(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found_tag = find_tag_obj(tag->loc, tag->len);
-    if (!found_tag) {
+    Obj* found = find_tag_obj(tag->loc, tag->len);
+    if (!found) {
       error_token(tag, "undefined tag");
     }
-    return found_tag->type;
+    return found->type;
   }
 
   expect_token(tokens, "{");
@@ -3063,14 +3063,12 @@ static Member* members(Token** tokens) {
         error_token(type->ident, "member name omitted");
       }
 
-      Member* mem = calloc(1, sizeof(Member));
-      mem->type = type;
-      mem->token = type->ident;
-      mem->name = type->name;
-      mem->alignment = attr.alignment ? attr.alignment : type->alignment;
+      Member* mem = new_member(type);
+      if (attr.alignment) {
+        mem->alignment = attr.alignment;
+      }
 
-      cur->next = mem;
-      cur = cur->next;
+      cur = cur->next = mem;
     }
   }
 
@@ -3081,7 +3079,6 @@ static Member* members(Token** tokens) {
   return head.next;
 }
 
-// NOLINTNEXTLINE
 static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   enum {
     VOID = 1 << 0,
@@ -3132,8 +3129,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
         error_token(*tokens, "_Alignas is not allowed in this context");
       }
 
-      expect_token(tokens, "_Alignas");
-      expect_token(tokens, "(");
+      expect_tokens(tokens, 2, "_Alignas", "(");
       if (equal_to_decl_specifier(*tokens)) {
         Type* type = abstract_decl(tokens, NULL);
         attr->alignment = type->alignment;
@@ -3360,9 +3356,8 @@ static Type* type_suffix(Token** tokens, Type* type) {
 static Type* func_params(Token** tokens, Type* type) {
   expect_token(tokens, "(");
 
-  if (equal_to_token(*tokens, "void") && equal_to_token((*tokens)->next, ")")) {
-    expect_token(tokens, "void");
-    expect_token(tokens, ")");
+  if (equal_to_tokens(*tokens, 2, "void", ")")) {
+    expect_tokens(tokens, 2, "void", ")");
     return new_func_type(type, NULL, false);
   }
 
@@ -3450,8 +3445,7 @@ static Node* func_args(Token** tokens, Type* type) {
       arg = new_cast_node(new_double_type(), arg->token, arg);
     }
 
-    cur->next = arg;
-    cur = cur->next;
+    cur = cur->next = arg;
   }
 
   if (param) {

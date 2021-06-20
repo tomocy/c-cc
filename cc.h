@@ -261,9 +261,9 @@ FILE* open_output_file(char* fname);
 char* read_file_contents(char* fname);
 
 void error(char* fmt, ...);
-void vprint_at(char* fname, char* contents, char* loc, char* fmt, va_list args);
-void error_at(char* fname, char* contents, char* loc, char* fmt, ...);
-void warn_at(char* fname, char* contents, char* loc, char* fmt, ...);
+void vprint_at(File* file, char* loc, char* fmt, va_list args);
+void error_at(File* file, char* loc, char* fmt, ...);
+void warn_at(File* file, char* loc, char* fmt, ...);
 
 void add_str(Str** strs, Str* str);
 Str* new_str(char* data);
@@ -291,9 +291,11 @@ void error_token(Token* token, char* fmt, ...);
 void warn_token(Token* token, char* fmt, ...);
 
 bool equal_to_token(Token* token, char* s);
+bool equal_to_tokens(Token* token, int len, ...);
 bool equal_to_ident_token(Token* token, char* s);
 bool consume_token(Token** token, char* s);
 Token* expect_token(Token** token, char* s);
+Token* expect_tokens(Token** tokens, int len, ...);
 Token* expect_ident_token(Token** tokens);
 
 Token* tokenize(char* input_filename);

@@ -109,10 +109,3 @@ type_suffix = func_params | array_dimensions | ε
 func_params = "(" ("void" | decl ("," decl)* ("," "...")?)? ")"
 array_dimensions = "[" ("static" | "restrict")* const_expr? "]" type_suffix
 ```
-
-## Build and Run docker image
-
-```
-make build-docker-container
-make run-docker-container
-```
