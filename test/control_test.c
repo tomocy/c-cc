@@ -12,7 +12,6 @@ static int is_le(int x, int basis) {
   return x <= basis;
 }
 
-// NOLINTNEXTLINE
 int main() {
   ASSERT(3, ({
     int x;

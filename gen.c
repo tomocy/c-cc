@@ -310,11 +310,11 @@ static void gen_addr(Node* node) {
       break;
     case ND_LVAR:
       genln("  mov rax, rbp");
-      genln("  sub rax, %d", node->offset);
+      genln("  sub rax, %d", node->obj->offset);
       break;
     case ND_MEMBER:
       gen_addr(node->lhs);
-      genln("  add rax, %d", node->offset);
+      genln("  add rax, %d", node->mem->offset);
       break;
     default:
       error_token(node->token, "expected a left value");
@@ -514,7 +514,7 @@ static void gen_expr(Node* node) {
     case ND_MEMZERO:
       genln("  mov rcx, %d", node->type->size);
       genln("  mov rdi, rbp");
-      genln("  sub rdi, %d", node->offset);
+      genln("  sub rdi, %d", node->obj->offset);
       genln("  mov al, 0");
       genln("  rep stosb");
       return;

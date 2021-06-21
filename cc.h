@@ -106,6 +106,9 @@ struct Type {
   Type* base;
   int len;
 
+  // The ident and name are used to parse declarations,
+  // and those values are not guaranteed to have valid values
+  // after it, so use Node.name or Obj.name instead
   Token* ident;
   char* name;
 
@@ -185,7 +188,8 @@ struct Node {
 
   char* name;
 
-  int offset;
+  Obj* obj;
+  Member* mem;
 
   bool is_passed_by_stack;
 

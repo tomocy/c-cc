@@ -460,10 +460,10 @@ static Obj* new_obj(ObjKind kind) {
   return obj;
 }
 
-static Obj* create_func_obj(Type* type) {
+static Obj* create_func_obj(Type* type, char* name) {
   Obj* func = new_obj(OJ_FUNC);
   func->type = type;
-  func->name = type->name;
+  func->name = name;
   add_func_obj(func);
   add_code(func);
   return func;
@@ -484,18 +484,14 @@ static Obj* create_stray_gvar_obj(Type* type, char* name) {
   return var;
 }
 
-static Obj* create_gvar_obj_as(Type* type, char* name) {
+static Obj* create_gvar_obj(Type* type, char* name) {
   Obj* var = create_stray_gvar_obj(type, name);
   add_code(var);
   return var;
 }
 
-static Obj* create_gvar_obj(Type* type) {
-  return create_gvar_obj_as(type, type->name);
-}
-
 static Obj* create_anon_gvar_obj(Type* type) {
-  return create_gvar_obj_as(type, new_id());
+  return create_gvar_obj(type, new_id());
 }
 
 static Obj* create_str_obj(char* val, int len) {
@@ -519,23 +515,23 @@ static void adjust_lvar_obj_offset(Obj* vars, Obj* var, Type* type) {
   var->offset = align(vars ? vars->offset + size : size, var->alignment);
 }
 
-static Obj* create_static_lvar_obj(Type* type) {
+static Obj* create_static_lvar_obj(Type* type, char* name) {
   Obj* var = create_anon_gvar_obj(type);
   var->is_static = true;
   // Inherit the current offset so that other lvars can extend their offset on it
   var->offset = current_lvars ? current_lvars->offset : 0;
-  add_var_obj_to_current_local_scope(type->name, var);
+  add_var_obj_to_current_local_scope(name, var);
   return var;
 }
 
 static Obj* create_static_str_lvar_obj(char* name, char* s) {
   Type* type = copy_type_with_name(new_chars_type(strlen(s) + 1), name);
-  Obj* obj = create_static_lvar_obj(type);
+  Obj* obj = create_static_lvar_obj(type, name);
   obj->val = strdup(s);
   return obj;
 }
 
-static Obj* create_lvar_obj_as(Type* type, char* name) {
+static Obj* create_lvar_obj(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
@@ -545,8 +541,8 @@ static Obj* create_lvar_obj_as(Type* type, char* name) {
   return var;
 }
 
-static Obj* create_lvar_obj(Type* type) {
-  return create_lvar_obj_as(type, type->name);
+static Obj* create_anon_lvar_obj(Type* type) {
+  return create_lvar_obj(type, "");
 }
 
 static Obj* create_enum_obj(char* name, int64_t val) {
@@ -558,10 +554,10 @@ static Obj* create_enum_obj(char* name, int64_t val) {
   return enu;
 }
 
-static Obj* create_def_type_obj(Type* type) {
+static Obj* create_def_type_obj(Type* type, char* name) {
   Obj* def_type = new_obj(OJ_DEF_TYPE);
   def_type->type = type;
-  def_type->name = type->name;
+  def_type->name = name;
   add_def_type_obj(def_type);
   return def_type;
 }
@@ -741,28 +737,29 @@ static Node* new_func_node(Type* type, Token* token, char* name, bool is_definit
   return node;
 }
 
-static Node* new_gvar_node(Type* type, Token* token, char* name) {
+static Node* new_gvar_node(Token* token, Obj* obj) {
   Node* node = new_node(ND_GVAR);
-  node->type = type;
+  node->type = obj->type;
   node->token = token;
-  node->name = name;
+  node->name = obj->name;
+  node->obj = obj;
   return node;
 }
 
-static Node* new_lvar_node(Type* type, Token* token, int offset) {
+static Node* new_lvar_node(Token* token, Obj* obj) {
   Node* node = new_node(ND_LVAR);
-  node->type = type;
+  node->type = obj->type;
   node->token = token;
-  node->offset = offset;
+  node->obj = obj;
   return node;
 }
 
 static Node* new_var_node(Token* token, Obj* obj) {
   switch (obj->kind) {
     case OJ_GVAR:
-      return new_gvar_node(obj->type, token, obj->name);
+      return new_gvar_node(token, obj);
     case OJ_LVAR:
-      return new_lvar_node(obj->type, token, obj->offset);
+      return new_lvar_node(token, obj);
     default:
       error_token(token, "expected a variable object");
       return NULL;
@@ -782,7 +779,7 @@ static Node* new_member_node(Token* token, Node* lhs, Member* mem) {
   node->type = mem->type;
   node->token = token;
   node->name = mem->name;
-  node->offset = mem->offset;
+  node->mem = mem;
   return node;
 }
 
@@ -824,11 +821,11 @@ static Node* new_null_node(Token* token) {
   return node;
 }
 
-static Node* new_memzero_node(Type* type, Token* token, int offset) {
+static Node* new_memzero_node(Token* token, Obj* obj) {
   Node* node = new_node(ND_MEMZERO);
-  node->type = type;
+  node->type = obj->type;
   node->token = token;
-  node->offset = offset;
+  node->obj = obj;
   return node;
 }
 
@@ -1238,7 +1235,7 @@ static Node* new_func_params(Type* params) {
       error_token(param->ident, "parameter name omitted");
     }
 
-    Obj* var = create_lvar_obj_as(param, param->name);
+    Obj* var = create_lvar_obj(param, param->name);
     cur = cur->next = new_var_node(param->ident, var);
   }
 
@@ -1252,12 +1249,13 @@ static void func(Token** tokens) {
     error_token(type->ident, "function name omitted");
   }
 
-  Obj* func = create_func_obj(type);
+  Obj* func = create_func_obj(type, type->name);
   current_func = func;
 
   func->is_static = attr.is_static;
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
+    current_lvars = NULL;
     current_func = NULL;
     return;
   }
@@ -1267,7 +1265,7 @@ static void func(Token** tokens) {
   func->params = new_func_params(func->type->params);
 
   if (func->type->is_variadic) {
-    func->va_area = create_lvar_obj_as(new_chars_type(136), "__va_area__");
+    func->va_area = create_lvar_obj(new_chars_type(136), "__va_area__");
   }
 
   create_static_str_lvar_obj("__func__", func->name);
@@ -1392,7 +1390,7 @@ static void gvar(Token** tokens) {
       type->alignment = attr.alignment;
     }
 
-    Obj* var = create_gvar_obj(type);
+    Obj* var = create_gvar_obj(type, type->name);
     var->is_static = attr.is_static;
     var->is_definition = !attr.is_extern;
 
@@ -1418,7 +1416,7 @@ static void tydef(Token** tokens) {
     if (!type->name) {
       error_token(type->ident, "typedef name omitted");
     }
-    create_def_type_obj(type);
+    create_def_type_obj(type, type->name);
   }
 }
 
@@ -1792,7 +1790,7 @@ static Node* expr(Token** tokens) {
 }
 
 static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
-  Obj* tmp_var = create_lvar_obj_as(new_ptr_type(lhs->type), "");
+  Obj* tmp_var = create_anon_lvar_obj(new_ptr_type(lhs->type));
 
   Node* tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs));
 
@@ -2274,7 +2272,7 @@ static Node* compound_literal(Token** tokens) {
     return new_var_node(*tokens, var);
   }
 
-  Obj* var = create_lvar_obj_as(type, "");
+  Obj* var = create_anon_lvar_obj(type);
   Node* assign = lvar_initer(tokens, var);
   return new_comma_node(*tokens, assign, new_var_node(*tokens, var));
 }
@@ -2352,7 +2350,7 @@ static int64_t relocate(Node* node, char** label) {
     case ND_DEREF:
       return eval_reloc(node->lhs, label);
     case ND_MEMBER:
-      return relocate(node->lhs, label) + node->offset;
+      return relocate(node->lhs, label) + node->mem->offset;
     default:
       error_token(node->token, "invalid initializer");
       return 0;
@@ -2493,7 +2491,7 @@ static int64_t eval_reloc(Node* node, char** label) {
         error_token(node->token, "invalid initializer");
       }
 
-      return relocate(node->lhs, label) + node->offset;
+      return relocate(node->lhs, label) + node->mem->offset;
     case ND_NUM:
       return node->int_val;
     default:
@@ -2827,7 +2825,7 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
   adjust_lvar_obj_offset(var->next, var, type);
 
   DesignatedIniter designated = {NULL, 0, var};
-  return new_comma_node(start, new_memzero_node(var->type, start, var->offset), lvar_init(start, init, &designated));
+  return new_comma_node(start, new_memzero_node(start, var), lvar_init(start, init, &designated));
 }
 
 static Node* lvar_decl(Token** tokens) {
@@ -2852,7 +2850,7 @@ static Node* lvar_decl(Token** tokens) {
     }
 
     if (attr.is_static) {
-      Obj* var = create_static_lvar_obj(type);
+      Obj* var = create_static_lvar_obj(type, type->name);
       if (consume_token(tokens, "=")) {
         gvar_initer(tokens, var);
       }
@@ -2863,7 +2861,7 @@ static Node* lvar_decl(Token** tokens) {
       type->alignment = attr.alignment;
     }
 
-    Obj* var = create_lvar_obj(type);
+    Obj* var = create_lvar_obj(type, type->name);
     Node* node = new_var_node(type->ident, var);
 
     if (consume_token(tokens, "=")) {
