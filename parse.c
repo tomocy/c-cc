@@ -1154,7 +1154,7 @@ static Node* lvar_decl(Token** tokens);
 static Type* enum_specifier(Token** tokens);
 static Type* struct_decl(Token** tokens);
 static Type* union_decl(Token** tokens);
-static Member* members(Token** tokens);
+static Member* members(Token** tokens, bool* is_flexible);
 static Type* decl_specifier(Token** tokens, VarAttr* attr);
 static Type* declarator(Token** tokens, Type* type);
 static Type* decl(Token** tokens, VarAttr* attr);
@@ -2942,8 +2942,8 @@ static Type* struct_decl(Token** tokens) {
 
   expect_token(tokens, "{");
 
-  Member* mems = members(tokens);
-  bool is_flexible = true;
+  bool is_flexible = false;
+  Member* mems = members(tokens, &is_flexible);
   int offset = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
@@ -2951,12 +2951,7 @@ static Type* struct_decl(Token** tokens) {
       error_token(mem->token, "variable declared void");
     }
     if (mem->type->size < 0) {
-      if (mem->next) {
-        error_token(mem->token, "variable has imcomplete type");
-      }
-
-      mem->type = new_array_type(mem->type->base, 0);
-      is_flexible = true;
+      error_token(mem->token, "variable has imcomplete type");
     }
 
     offset = align(offset, mem->alignment);
@@ -3006,7 +3001,8 @@ static Type* union_decl(Token** tokens) {
 
   expect_token(tokens, "{");
 
-  Member* mems = members(tokens);
+  bool is_flexible = false;
+  Member* mems = members(tokens, &is_flexible);
   int size = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
@@ -3042,9 +3038,10 @@ static Type* union_decl(Token** tokens) {
   return uni;
 }
 
-static Member* members(Token** tokens) {
+static Member* members(Token** tokens, bool* is_flexible) {
   Member head = {};
   Member* cur = &head;
+  *is_flexible = false;
   while (!consume_token(tokens, "}")) {
     VarAttr attr = {};
     Type* spec = decl_specifier(tokens, &attr);
@@ -3072,6 +3069,7 @@ static Member* members(Token** tokens) {
 
   if (cur != &head && cur->type->kind == TY_ARRAY && cur->type->size < 0) {
     cur->type = new_array_type(cur->type->base, 0);
+    *is_flexible = true;
   }
 
   return head.next;

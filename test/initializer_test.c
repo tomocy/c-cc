@@ -496,5 +496,16 @@ int main() {
 
   ASSERT(24, g70_size());
 
+  ASSERT(16, ({
+    typedef struct T T;
+    struct T {
+      int a;
+      float b;
+      double c;
+    };
+    T x = {10, 20, 30};
+    sizeof(x);
+  }));
+
   ok();
 }
