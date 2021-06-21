@@ -123,7 +123,7 @@ static char* new_id(void) {
   return name;
 }
 
-static int align(int n, int align) {
+int align(int n, int align) {
   return (n + align - 1) / align * align;
 }
 

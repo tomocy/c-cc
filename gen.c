@@ -7,6 +7,9 @@ static int depth = 0;
 
 static int func_count = 0;
 
+#define MAX_FLOAT_REG_ARGS 8
+#define MAX_INT_REG_ARGS 6
+
 static char* arg_regs8[] = {"dil", "sil", "dl", "cl", "r8b", "r9b"};
 static char* arg_regs16[] = {"di", "si", "dx", "cx", "r8w", "r9w"};
 static char* arg_regs32[] = {"edi", "esi", "edx", "ecx", "r8d", "r9d"};
@@ -178,14 +181,14 @@ static int push_args(Node* args) {
   int float_cnt = 0;
   for (Node* arg = args; arg; arg = arg->next) {
     if (is_float(arg->type)) {
-      if (++float_cnt > 8) {
+      if (++float_cnt > MAX_FLOAT_REG_ARGS) {
         arg->is_passed_by_stack = true;
         stacked++;
       }
       continue;
     }
 
-    if (++integral_cnt > 6) {
+    if (++integral_cnt > MAX_INT_REG_ARGS) {
       arg->is_passed_by_stack = true;
       stacked++;
     }
@@ -450,13 +453,13 @@ static void gen_expr(Node* node) {
       int float_cnt = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
         if (is_float(arg->type)) {
-          if (float_cnt < 8) {
+          if (float_cnt < MAX_FLOAT_REG_ARGS) {
             popfn(float_cnt++);
           }
           continue;
         }
 
-        if (integral_cnt < 6) {
+        if (integral_cnt < MAX_INT_REG_ARGS) {
           pop(arg_regs64[integral_cnt++]);
         }
       }
@@ -928,7 +931,30 @@ static void gen_text(TopLevelObj* codes) {
 
     int int_cnt = 0;
     int float_cnt = 0;
+    int offset = 16;
     for (Node* param = func->obj->params; param; param = param->next) {
+      if (is_float(param->type)) {
+        if (++float_cnt <= MAX_FLOAT_REG_ARGS) {
+          continue;
+        }
+      } else {
+        if (++int_cnt <= MAX_INT_REG_ARGS) {
+          continue;
+        }
+      }
+
+      offset = align(offset, 8);
+      param->obj->offset = -offset;
+      offset += param->type->size;
+    }
+
+    int_cnt = 0;
+    float_cnt = 0;
+    for (Node* param = func->obj->params; param; param = param->next) {
+      if (param->obj->offset < 0) {
+        continue;
+      }
+
       gen_addr(param);
 
       if (is_float(param->type)) {

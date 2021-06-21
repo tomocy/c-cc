@@ -315,6 +315,7 @@ void print_tokens(char* output_filename, Token* tokens);
 Token* preprocess(Token* tokens);
 
 TopLevelObj* parse(Token* tokens);
+int align(int n, int align);
 int64_t const_expr(Token** tokens);
 
 void gen(char* output_filename, TopLevelObj* codes);
