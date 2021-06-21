@@ -187,6 +187,8 @@ struct Node {
 
   int offset;
 
+  bool is_passed_by_stack;
+
   int64_t int_val;
   double float_val;
 

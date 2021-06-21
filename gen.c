@@ -135,19 +135,78 @@ static void popfn(int n) {
   popf(reg);
 }
 
-static void push_args(Node* args) {
-  if (!args) {
-    return;
-  }
-
-  push_args(args->next);
-
-  gen_expr(args);
-  if (is_float(args->type)) {
+static void push_arg(Node* arg) {
+  gen_expr(arg);
+  if (is_float(arg->type)) {
     pushf("xmm0");
   } else {
     push("rax");
   }
+}
+
+static void push_passed_by_stack_args(Node* args) {
+  if (!args) {
+    return;
+  }
+
+  push_passed_by_stack_args(args->next);
+
+  if (!args->is_passed_by_stack) {
+    return;
+  }
+
+  push_arg(args);
+}
+
+static void push_passed_by_register_args(Node* args) {
+  if (!args) {
+    return;
+  }
+
+  push_passed_by_register_args(args->next);
+
+  if (args->is_passed_by_stack) {
+    return;
+  }
+
+  push_arg(args);
+}
+
+static int push_args(Node* args) {
+  int stacked = 0;
+  int integral_cnt = 0;
+  int float_cnt = 0;
+  for (Node* arg = args; arg; arg = arg->next) {
+    if (is_float(arg->type)) {
+      if (++float_cnt > 8) {
+        arg->is_passed_by_stack = true;
+        stacked++;
+      }
+      continue;
+    }
+
+    if (++integral_cnt > 6) {
+      arg->is_passed_by_stack = true;
+      stacked++;
+    }
+  }
+
+  // A value which is pushed in stack takes 8 bytes,
+  // which means that the stack pointer is aligned 16 bytes boundary
+  // when the depth is even
+  if ((depth + stacked) % 2 == 1) {
+    genln("  sub rsp, 8");
+    stacked++;
+    depth++;
+  }
+
+  // Push passed-by-stack args first, then
+  // push passed-by-register args
+  // in order not to pop passed-by-stack args
+  push_passed_by_stack_args(args);
+  push_passed_by_register_args(args);
+
+  return stacked;
 }
 
 static int count_label(void) {
@@ -372,7 +431,12 @@ static void gen_expr(Node* node) {
       load(node);
       return;
     case ND_FUNCCALL: {
-      push_args(node->args);
+      // The number of argments which remain in stack
+      // following x8664 psAPI
+      // Those arguments which remain in stack are pushed
+      // after aligning the stack pointer to 16 bytes boundary
+      // so it is not necessary to align it again on call
+      int stacked = push_args(node->args);
 
       // node->lhs may be another function call, which means that
       // it may use arguments registers for its arguments,
@@ -382,23 +446,27 @@ static void gen_expr(Node* node) {
       // will be overridden
       gen_expr(node->lhs);
 
-      int int_cnt = 0;
+      int integral_cnt = 0;
       int float_cnt = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
         if (is_float(arg->type)) {
-          popfn(float_cnt++);
-        } else {
-          pop(arg_regs64[int_cnt++]);
+          if (float_cnt < 8) {
+            popfn(float_cnt++);
+          }
+          continue;
+        }
+
+        if (integral_cnt < 6) {
+          pop(arg_regs64[integral_cnt++]);
         }
       }
 
-      if (depth % 2 == 0) {
-        genln("  call rax");
-      } else {
-        genln("  sub rsp, 8");
-        genln("  call rax");
-        genln("  add rsp, 8");
-      }
+      genln("  mov r10, rax");
+      genln("  mov rax, %d", float_cnt);
+      genln("  call r10");
+      genln("  add rsp, %d", 8 * stacked);
+
+      depth -= stacked;
 
       char* ins = node->type->is_unsigned ? "movz" : "movs";
       switch (node->type->kind) {
