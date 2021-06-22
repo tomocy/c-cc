@@ -978,6 +978,34 @@ static void gen_data(TopLevelObj* codes) {
   }
 }
 
+static void store_via_int_reg(int size, int offset, int n) {
+  switch (size) {
+    case 1:
+      genln("  mov [rax+%d], %s", offset, arg_regs8[n]);
+      break;
+    case 2:
+      genln("  mov [rax+%d], %s", offset, arg_regs16[n]);
+      break;
+    case 4:
+      genln("  mov [rax+%d], %s", offset, arg_regs32[n]);
+      break;
+    default:
+      genln("  mov [rax+%d], %s", offset, arg_regs64[n]);
+      break;
+  }
+}
+
+static void store_via_float_reg(int size, int offset, int n) {
+  switch (size) {
+    case 4:
+      genln("  movss [rax+%d], xmm%d", offset, n);
+      break;
+    case 8:
+      genln("  movsd [rax+%d], xmm%d", offset, n);
+      break;
+  }
+}
+
 static void gen_text(TopLevelObj* codes) {
   for (TopLevelObj* func = codes; func; func = func->next) {
     if (func->obj->kind != OJ_FUNC || !func->obj->is_definition) {
@@ -1038,14 +1066,35 @@ static void gen_text(TopLevelObj* codes) {
     int float_cnt = 0;
     int offset = 16;
     for (Node* param = func->obj->params; param; param = param->next) {
-      if (is_float(param->type)) {
-        if (++float_cnt <= MAX_FLOAT_REG_ARGS) {
+      switch (param->type->kind) {
+        case TY_STRUCT:
+        case TY_UNION: {
+          if (param->type->size > 16) {
+            break;
+          }
+
+          bool former_float = have_float_data(param->type, 0, 8);
+          bool latter_float = have_float_data(param->type, 8, 16);
+          if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+              || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
+            break;
+          }
+
+          int_cnt += !former_float + !latter_float;
+          float_cnt += former_float + latter_float;
           continue;
         }
-      } else {
-        if (++int_cnt <= MAX_INT_REG_ARGS) {
-          continue;
-        }
+        case TY_FLOAT:
+        case TY_DOUBLE:
+          if (++float_cnt <= MAX_FLOAT_REG_ARGS) {
+            continue;
+          }
+          break;
+        default:
+          if (++int_cnt <= MAX_INT_REG_ARGS) {
+            continue;
+          }
+          break;
       }
 
       offset = align(offset, 8);
@@ -1062,30 +1111,32 @@ static void gen_text(TopLevelObj* codes) {
 
       gen_addr(param);
 
-      if (is_float(param->type)) {
-        switch (param->type->size) {
-          case 4:
-            genln("  movss [rax], xmm%d", float_cnt++);
-            continue;
-          case 8:
-            genln("  movsd [rax], xmm%d", float_cnt++);
-            continue;
+      switch (param->type->kind) {
+        case TY_STRUCT:
+        case TY_UNION: {
+          int size = param->type->size <= 8 ? param->type->size : 8;
+          if (have_float_data(param->type, 0, 8)) {
+            store_via_float_reg(size, 0, float_cnt++);
+          } else {
+            store_via_int_reg(size, 0, int_cnt++);
+          }
+          if (param->type->size > 8) {
+            int size = param->type->size - 8;
+            if (have_float_data(param->type, 8, 16)) {
+              store_via_float_reg(size, 8, float_cnt++);
+            } else {
+              store_via_int_reg(size, 8, int_cnt++);
+            }
+          }
+          break;
         }
-      } else {
-        switch (param->type->size) {
-          case 1:
-            genln("  mov [rax], %s", arg_regs8[int_cnt++]);
-            continue;
-          case 2:
-            genln("  mov [rax], %s", arg_regs16[int_cnt++]);
-            continue;
-          case 4:
-            genln("  mov [rax], %s", arg_regs32[int_cnt++]);
-            continue;
-          default:
-            genln("  mov [rax], %s", arg_regs64[int_cnt++]);
-            continue;
-        }
+        case TY_FLOAT:
+        case TY_DOUBLE:
+          store_via_float_reg(param->type->size, 0, float_cnt++);
+          break;
+        default:
+          store_via_int_reg(param->type->size, 0, int_cnt++);
+          break;
       }
     }
 
