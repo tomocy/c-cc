@@ -138,12 +138,35 @@ static void popfn(int n) {
   popf(reg);
 }
 
+static void push_composite_type(char* reg, Type* type) {
+  if (type->kind != TY_STRUCT && type->kind != TY_UNION) {
+    error("expected struct or union");
+  }
+
+  int size = align(type->size, 8);
+  genln("  sub rsp, %d", size);
+  depth += size / 8;
+
+  for (int i = 0; i < type->size; i++) {
+    genln("  mov r10b, [%s+%d]", reg, i);
+    genln("  mov [rsp+%d], r10b", i);
+  }
+}
+
 static void push_arg(Node* arg) {
   gen_expr(arg);
-  if (is_float(arg->type)) {
-    pushf("xmm0");
-  } else {
-    push("rax");
+  switch (arg->type->kind) {
+    case TY_STRUCT:
+    case TY_UNION:
+      push_composite_type("rax", arg->type);
+      break;
+    case TY_FLOAT:
+    case TY_DOUBLE:
+      pushf("xmm0");
+      break;
+    default:
+      push("rax");
+      break;
   }
 }
 
@@ -175,22 +198,75 @@ static void push_passed_by_register_args(Node* args) {
   push_arg(args);
 }
 
+static bool have_float_data_at(Type* type, int low, int high, int offset) {
+  switch (type->kind) {
+    case TY_STRUCT:
+    case TY_UNION:
+      for (Member* mem = type->members; mem; mem = mem->next) {
+        if (!have_float_data_at(mem->type, low, high, offset + mem->offset)) {
+          return false;
+        }
+      }
+      return true;
+    case TY_ARRAY:
+      for (int i = 0; i < type->len; i++) {
+        if (!have_float_data_at(type->base, low, high, offset + type->base->size * i)) {
+          return false;
+        }
+      }
+      return true;
+    default:
+      return is_float(type) || offset < low || offset >= high;
+  }
+}
+
+static bool have_float_data(Type* type, int low, int high) {
+  return have_float_data_at(type, low, high, 0);
+}
+
 static int push_args(Node* args) {
   int stacked = 0;
-  int integral_cnt = 0;
+  int int_cnt = 0;
   int float_cnt = 0;
   for (Node* arg = args; arg; arg = arg->next) {
-    if (is_float(arg->type)) {
-      if (++float_cnt > MAX_FLOAT_REG_ARGS) {
-        arg->is_passed_by_stack = true;
-        stacked++;
-      }
-      continue;
-    }
+    switch (arg->type->kind) {
+      case TY_STRUCT:
+      case TY_UNION:
+        // Values whose types are struct or union are passed by registers
+        // if their size is less than or equal to 16 bytes.
+        // The size of a piece of stack is 8 bytes, so use registers up to 2.
+        // Pass the values by floating point registers (XMM) when only floating point data reside
+        // at their first or last 8 bytes, otherwise pass them by general-purpose registers
+        if (arg->type->size > 16) {
+          arg->is_passed_by_stack = true;
+          stacked += align(arg->type->size, 8) / 8;
+          continue;
+        }
 
-    if (++integral_cnt > MAX_INT_REG_ARGS) {
-      arg->is_passed_by_stack = true;
-      stacked++;
+        bool former_float = have_float_data(arg->type, 0, 8);
+        bool latter_float = have_float_data(arg->type, 8, 16);
+        if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+            || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
+          arg->is_passed_by_stack = true;
+          stacked += align(arg->type->size, 8) / 8;
+          continue;
+        }
+
+        int_cnt += !former_float + !latter_float;
+        float_cnt += former_float + latter_float;
+        continue;
+      case TY_FLOAT:
+      case TY_DOUBLE:
+        if (++float_cnt > MAX_FLOAT_REG_ARGS) {
+          arg->is_passed_by_stack = true;
+          stacked++;
+        }
+        continue;
+      default:
+        if (++int_cnt > MAX_INT_REG_ARGS) {
+          arg->is_passed_by_stack = true;
+          stacked++;
+        }
     }
   }
 
@@ -449,18 +525,47 @@ static void gen_expr(Node* node) {
       // will be overridden
       gen_expr(node->lhs);
 
-      int integral_cnt = 0;
+      int int_cnt = 0;
       int float_cnt = 0;
       for (Node* arg = node->args; arg; arg = arg->next) {
-        if (is_float(arg->type)) {
-          if (float_cnt < MAX_FLOAT_REG_ARGS) {
-            popfn(float_cnt++);
-          }
-          continue;
-        }
+        switch (arg->type->kind) {
+          case TY_STRUCT:
+          case TY_UNION:
+            if (arg->type->size > 16) {
+              continue;
+            }
 
-        if (integral_cnt < MAX_INT_REG_ARGS) {
-          pop(arg_regs64[integral_cnt++]);
+            bool former_float = have_float_data(arg->type, 0, 8);
+            bool latter_float = have_float_data(arg->type, 8, 16);
+            if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+                || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
+              continue;
+            }
+
+            if (former_float) {
+              popfn(float_cnt++);
+            } else {
+              pop(arg_regs64[int_cnt++]);
+            }
+            if (arg->type->size > 8) {
+              if (latter_float) {
+                popfn(float_cnt++);
+              } else {
+                pop(arg_regs64[int_cnt++]);
+              }
+            }
+            continue;
+          case TY_FLOAT:
+          case TY_DOUBLE:
+            if (float_cnt < MAX_FLOAT_REG_ARGS) {
+              popfn(float_cnt++);
+            }
+            continue;
+          default:
+            if (int_cnt < MAX_INT_REG_ARGS) {
+              pop(arg_regs64[int_cnt++]);
+            }
+            continue;
         }
       }
 

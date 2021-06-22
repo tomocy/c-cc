@@ -3430,12 +3430,9 @@ static Node* func_args(Token** tokens, Type* type) {
     Node* arg = assign(tokens);
 
     if (param) {
-      if (param->kind == TY_STRUCT || param->kind == TY_UNION) {
-        error_token(arg->token, "passing struct or union is not supported yet");
+      if (param->kind != TY_STRUCT && param->kind != TY_UNION) {
+        arg = new_cast_node(param, arg->token, arg);
       }
-
-      arg = new_cast_node(param, arg->token, arg);
-
       param = param->next;
     } else if (arg->type->kind == TY_FLOAT) {
       arg = new_cast_node(new_double_type(), arg->token, arg);
