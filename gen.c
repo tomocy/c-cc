@@ -5,7 +5,7 @@ static FILE* output_file;
 static int depth_outside_frame = 0;
 static int depth = 0;
 
-static int func_count = 0;
+static int func_cnt = 0;
 
 #define MAX_FLOAT_REG_ARGS 8
 #define MAX_INT_REG_ARGS 6
@@ -184,12 +184,12 @@ static void push_passed_by_stack_args(Node* args) {
   push_arg(args);
 }
 
-static void push_passed_by_register_args(Node* args) {
+static void push_passed_by_reg_args(Node* args) {
   if (!args) {
     return;
   }
 
-  push_passed_by_register_args(args->next);
+  push_passed_by_reg_args(args->next);
 
   if (args->is_passed_by_stack) {
     return;
@@ -283,7 +283,7 @@ static int push_args(Node* args) {
   // push passed-by-register args
   // in order not to pop passed-by-stack args
   push_passed_by_stack_args(args);
-  push_passed_by_register_args(args);
+  push_passed_by_reg_args(args);
 
   return stacked;
 }
@@ -327,23 +327,20 @@ static void load(Node* node) {
       return;
     default: {
       char* ins = node->type->is_unsigned ? "movz" : "movs";
-
-      if (node->type->size == 1) {
-        genln("  %sx eax, BYTE PTR [rax]", ins);
-        return;
+      switch (node->type->size) {
+        case 1:
+          genln("  %sx eax, BYTE PTR [rax]", ins);
+          return;
+        case 2:
+          genln("  %sx eax, WORD PTR [rax]", ins);
+          return;
+        case 4:
+          genln("  movsx rax, DWORD PTR [rax]");
+          return;
+        default:
+          genln("  mov rax, [rax]");
+          return;
       }
-
-      if (node->type->size == 2) {
-        genln("  %sx eax, WORD PTR [rax]", ins);
-        return;
-      }
-
-      if (node->type->size == 4) {
-        genln("  movsx rax, DWORD PTR [rax]");
-        return;
-      }
-
-      genln("  mov rax, [rax]");
     }
   }
 }
@@ -400,338 +397,298 @@ static void gen_addr(Node* node) {
   }
 }
 
-static void gen_expr(Node* node) {
-  genln("  .loc %d %d", node->token->file->index, node->token->line);
-
-  switch (node->kind) {
-    case ND_ASSIGN:
-      gen_addr(node->lhs);
-      push("rax");
-      gen_expr(node->rhs);
-      pop("rdi");
-      switch (node->type->kind) {
-        case TY_STRUCT:
-        case TY_UNION:
-          for (int i = 0; i < node->type->size; i++) {
-            genln("  mov r8b, %d[rax]", i);
-            genln("  mov %d[rdi], r8b", i);
-          }
+static void gen_assign(Node* node) {
+  gen_addr(node->lhs);
+  push("rax");
+  gen_expr(node->rhs);
+  pop("rdi");
+  switch (node->type->kind) {
+    case TY_STRUCT:
+    case TY_UNION:
+      for (int i = 0; i < node->type->size; i++) {
+        genln("  mov r8b, %d[rax]", i);
+        genln("  mov %d[rdi], r8b", i);
+      }
+      return;
+    case TY_FLOAT:
+      genln("  movss [rdi], xmm0");
+      return;
+    case TY_DOUBLE:
+      genln("  movsd [rdi], xmm0");
+      return;
+    default:
+      switch (node->type->size) {
+        case 1:
+          genln("  mov [rdi], al");
           return;
-        case TY_FLOAT:
-          genln("  movss [rdi], xmm0");
+        case 2:
+          genln("  mov [rdi], ax");
           return;
-        case TY_DOUBLE:
-          genln("  movsd [rdi], xmm0");
+        case 4:
+          genln("  mov [rdi], eax");
           return;
         default:
-          if (node->type->size == 1) {
-            genln("  mov [rdi], al");
-            return;
-          }
-          if (node->type->size == 2) {
-            genln("  mov [rdi], ax");
-            return;
-          }
-          if (node->type->size == 4) {
-            genln("  mov [rdi], eax");
-            return;
-          }
           genln("  mov [rdi], rax");
           return;
       }
-    case ND_COMMA:
-      gen_expr(node->lhs);
-      gen_expr(node->rhs);
-      return;
-    case ND_COND: {
-      int label = count_label();
-      gen_expr(node->cond);
-      cmp_zero(node->cond->type);
-      genln("  je .Lelse%d", label);
+  }
+}
 
-      gen_expr(node->then);
-      genln("  jmp .Lend%d", label);
+static void gen_cond(Node* node) {
+  int label = count_label();
 
-      genln(".Lelse%d:", label);
-      gen_expr(node->els);
+  gen_expr(node->cond);
+  cmp_zero(node->cond->type);
 
-      genln(".Lend%d:", label);
-      return;
-    }
-    case ND_CAST:
-      gen_expr(node->lhs);
-      cast(node->type, node->lhs->type);
-      return;
-    case ND_NEG:
-      gen_expr(node->lhs);
-      switch (node->type->kind) {
-        case TY_FLOAT:
-          genln("  mov rax, 1");
-          genln("  shl rax, 31");
-          genln("  movq xmm1, rax");
-          genln("  xorps xmm0, xmm1");
-          return;
-        case TY_DOUBLE:
-          genln("  mov rax, 1");
-          genln("  shl rax, 63");
-          genln("  movq xmm1, rax");
-          genln("  xorpd xmm0, xmm1");
-        default:
-          genln("  neg rax");
-          return;
-      }
-    case ND_ADDR:
-      gen_addr(node->lhs);
-      return;
-    case ND_DEREF:
-      gen_expr(node->lhs);
-      load(node);
-      return;
-    case ND_NOT:
-      gen_expr(node->lhs);
-      cmp_zero(node->lhs->type);
-      genln("  sete al");
-      genln("  movzx rax, al");
-      return;
-    case ND_BITNOT:
-      gen_expr(node->lhs);
-      genln("  not rax");
-      return;
-    case ND_STMT_EXPR:
-      for (Node* stmt = node->body; stmt; stmt = stmt->next) {
-        gen_stmt(stmt);
-      }
-      return;
-    case ND_FUNC:
-    case ND_GVAR:
-    case ND_LVAR:
-    case ND_MEMBER:
-      gen_addr(node);
-      load(node);
-      return;
-    case ND_FUNCCALL: {
-      // The number of argments which remain in stack
-      // following x8664 psAPI
-      // Those arguments which remain in stack are pushed
-      // after aligning the stack pointer to 16 bytes boundary
-      // so it is not necessary to align it again on call
-      int stacked = push_args(node->args);
+  genln("  je .Lelse%d", label);
 
-      // node->lhs may be another function call, which means that
-      // it may use arguments registers for its arguments,
-      // so resolve the address of function first
-      // keeping the values of the arugments of this function call in stack
-      // and then pop them, otherwise the poped values of the arguments of this function call
-      // will be overridden
-      gen_expr(node->lhs);
+  gen_expr(node->then);
 
-      int int_cnt = 0;
-      int float_cnt = 0;
-      for (Node* arg = node->args; arg; arg = arg->next) {
-        switch (arg->type->kind) {
-          case TY_STRUCT:
-          case TY_UNION:
-            if (arg->type->size > 16) {
-              continue;
-            }
+  genln("  jmp .Lend%d", label);
 
-            bool former_float = have_float_data(arg->type, 0, 8);
-            bool latter_float = have_float_data(arg->type, 8, 16);
-            if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
-                || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
-              continue;
-            }
+  genln(".Lelse%d:", label);
+  gen_expr(node->els);
 
-            if (former_float) {
-              popfn(float_cnt++);
-            } else {
-              pop(arg_regs64[int_cnt++]);
-            }
-            if (arg->type->size > 8) {
-              if (latter_float) {
-                popfn(float_cnt++);
-              } else {
-                pop(arg_regs64[int_cnt++]);
-              }
-            }
-            continue;
-          case TY_FLOAT:
-          case TY_DOUBLE:
-            if (float_cnt < MAX_FLOAT_REG_ARGS) {
-              popfn(float_cnt++);
-            }
-            continue;
-          default:
-            if (int_cnt < MAX_INT_REG_ARGS) {
-              pop(arg_regs64[int_cnt++]);
-            }
-            continue;
-        }
-      }
+  genln(".Lend%d:", label);
+}
 
-      genln("  mov r10, rax");
-      genln("  mov rax, %d", float_cnt);
-      genln("  call r10");
-      genln("  add rsp, %d", 8 * stacked);
-
-      depth -= stacked;
-
-      char* ins = node->type->is_unsigned ? "movz" : "movs";
-      switch (node->type->kind) {
-        case TY_BOOL:
-          genln("  movzx eax, al");
-          break;
-        case TY_CHAR:
-          genln("  %sx eax, al", ins);
-          break;
-        case TY_SHORT:
-          genln("  %sx eax, ax", ins);
-          break;
-        default: {
-        }
-      }
-
-      return;
-    }
-    case ND_NUM: {
-      union {
-        float f32;
-        double f64;
-        uint32_t u32;
-        uint64_t u64;
-      } val;
-
-      switch (node->type->kind) {
-        case TY_FLOAT:
-          val.f32 = node->float_val;
-          genln("  mov eax, %u # float %f", val.u32, val.f32);
-          genln("  movq xmm0, rax");
-          return;
-        case TY_DOUBLE:
-          val.f64 = node->float_val;
-          genln("  mov rax, %lu # double %f", val.u64, val.f64);
-          genln("  movq xmm0, rax");
-          return;
-        default:
-          genln("  mov rax, %ld", node->int_val);
-          return;
-      }
-    }
-    case ND_NULL:
-      return;
-    case ND_MEMZERO:
-      genln("  mov rcx, %d", node->type->size);
-      genln("  mov rdi, rbp");
-      genln("  sub rdi, %d", node->obj->offset);
-      genln("  mov al, 0");
-      genln("  rep stosb");
-      return;
-    case ND_OR: {
-      int label = count_label();
-      gen_expr(node->lhs);
-      cmp_zero(node->lhs->type);
-      genln("  jne .Ltrue%d", label);
-      gen_expr(node->rhs);
-      cmp_zero(node->rhs->type);
-      genln("  jne .Ltrue%d", label);
-      genln("  mov rax, 0");
-      genln("  jmp .Lend%d", label);
-      genln(".Ltrue%d:", label);
+static void gen_neg(Node* node) {
+  gen_expr(node->lhs);
+  switch (node->type->kind) {
+    case TY_FLOAT:
       genln("  mov rax, 1");
-      genln(".Lend%d:", label);
+      genln("  shl rax, 31");
+      genln("  movq xmm1, rax");
+      genln("  xorps xmm0, xmm1");
       return;
-    }
-    case ND_AND: {
-      int label = count_label();
-      gen_expr(node->lhs);
-      cmp_zero(node->lhs->type);
-      genln("  je .Lfalse%d", label);
-      gen_expr(node->rhs);
-      cmp_zero(node->rhs->type);
-      genln("  je .Lfalse%d", label);
+    case TY_DOUBLE:
       genln("  mov rax, 1");
-      genln("  jmp .Lend%d", label);
-      genln(".Lfalse%d:", label);
-      genln("  mov rax, 0");
-      genln(".Lend%d:", label);
-      return;
-    }
-    case ND_BITOR:
-    case ND_BITXOR:
-    case ND_BITAND:
-    case ND_EQ:
-    case ND_NE:
-    case ND_LT:
-    case ND_LE:
-    case ND_LSHIFT:
-    case ND_RSHIFT:
-    case ND_ADD:
-    case ND_SUB:
-    case ND_MUL:
-    case ND_DIV:
-    case ND_MOD:
-      break;
+      genln("  shl rax, 63");
+      genln("  movq xmm1, rax");
+      genln("  xorpd xmm0, xmm1");
     default:
-      error_token(node->token, "expected an expression");
+      genln("  neg rax");
+      return;
+  }
+}
+
+static void gen_funccall(Node* node) {
+  // The number of argments which remain in stack
+  // following x8664 psAPI
+  // Those arguments which remain in stack are pushed
+  // after aligning the stack pointer to 16 bytes boundary
+  // so it is not necessary to align it again on call
+  int stacked = push_args(node->args);
+
+  // node->lhs may be another function call, which means that
+  // it may use arguments registers for its arguments,
+  // so resolve the address of function first
+  // keeping the values of the arugments of this function call in stack
+  // and then pop them, otherwise the poped values of the arguments of this function call
+  // will be overridden
+  gen_expr(node->lhs);
+
+  int int_cnt = 0;
+  int float_cnt = 0;
+  for (Node* arg = node->args; arg; arg = arg->next) {
+    switch (arg->type->kind) {
+      case TY_STRUCT:
+      case TY_UNION:
+        if (arg->type->size > 16) {
+          continue;
+        }
+
+        bool former_float = have_float_data(arg->type, 0, 8);
+        bool latter_float = have_float_data(arg->type, 8, 16);
+        if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+            || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
+          continue;
+        }
+
+        if (former_float) {
+          popfn(float_cnt++);
+        } else {
+          pop(arg_regs64[int_cnt++]);
+        }
+        if (arg->type->size > 8) {
+          if (latter_float) {
+            popfn(float_cnt++);
+          } else {
+            pop(arg_regs64[int_cnt++]);
+          }
+        }
+        continue;
+      case TY_FLOAT:
+      case TY_DOUBLE:
+        if (float_cnt < MAX_FLOAT_REG_ARGS) {
+          popfn(float_cnt++);
+        }
+        continue;
+      default:
+        if (int_cnt < MAX_INT_REG_ARGS) {
+          pop(arg_regs64[int_cnt++]);
+        }
+        continue;
+    }
   }
 
-  if (is_float(node->lhs->type)) {
-    gen_expr(node->rhs);
-    pushf("xmm0");
-    gen_expr(node->lhs);
-    popf("xmm1");
+  genln("  mov r10, rax");
+  genln("  mov rax, %d", float_cnt);
+  genln("  call r10");
+  genln("  add rsp, %d", 8 * stacked);
 
-    char* size = node->lhs->type->kind == TY_FLOAT ? "ss" : "sd";
+  depth -= stacked;
 
-    switch (node->kind) {
-      case ND_OR:
-      case ND_AND: {
-        break;
-      }
-      case ND_EQ:
-        genln("  ucomi%s xmm1, xmm0", size);
-        genln("  sete al");
-        genln("  setnp dl");
-        genln("  and al, dl");
-        genln("  and al, 1");
-        genln("  movzx rax, al");
-        return;
-      case ND_NE:
-        genln("  ucomi%s xmm1, xmm0", size);
-        genln("  setne al");
-        genln("  setp dl");
-        genln("  or al, dl");
-        genln("  and al, 1");
-        genln("  movzx rax, al");
-        return;
-      case ND_LT:
-        genln("  ucomi%s xmm1, xmm0", size);
-        genln("  seta al");
-        genln("  and al, 1");
-        genln("  movzx rax, al");
-        return;
-      case ND_LE:
-        genln("  ucomi%s xmm1, xmm0", size);
-        genln("  setae al");
-        genln("  and al, 1");
-        genln("  movzx rax, al");
-        return;
-      case ND_ADD:
-        genln("  add%s xmm0, xmm1", size);
-        return;
-      case ND_SUB:
-        genln("  sub%s xmm0, xmm1", size);
-        return;
-      case ND_MUL:
-        genln("  mul%s xmm0, xmm1", size);
-        return;
-      case ND_DIV:
-        genln("  div%s xmm0, xmm1", size);
-        return;
-      default:
-        error_token(node->token, "invalid expression");
-        return;
+  char* ins = node->type->is_unsigned ? "movz" : "movs";
+  switch (node->type->kind) {
+    case TY_BOOL:
+      genln("  movzx eax, al");
+      break;
+    case TY_CHAR:
+      genln("  %sx eax, al", ins);
+      break;
+    case TY_SHORT:
+      genln("  %sx eax, ax", ins);
+      break;
+    default: {
     }
+  }
+}
+
+static void gen_num(Node* node) {
+  union {
+    float f32;
+    double f64;
+    uint32_t u32;
+    uint64_t u64;
+  } val;
+
+  switch (node->type->kind) {
+    case TY_FLOAT:
+      val.f32 = node->float_val;
+      genln("  mov eax, %u # float %f", val.u32, val.f32);
+      genln("  movq xmm0, rax");
+      return;
+    case TY_DOUBLE:
+      val.f64 = node->float_val;
+      genln("  mov rax, %lu # double %f", val.u64, val.f64);
+      genln("  movq xmm0, rax");
+      return;
+    default:
+      genln("  mov rax, %ld", node->int_val);
+      return;
+  }
+}
+
+static void gen_logor(Node* node) {
+  int label = count_label();
+
+  gen_expr(node->lhs);
+  cmp_zero(node->lhs->type);
+
+  genln("  jne .Ltrue%d", label);
+
+  gen_expr(node->rhs);
+  cmp_zero(node->rhs->type);
+
+  genln("  jne .Ltrue%d", label);
+
+  genln("  mov rax, 0");
+
+  genln("  jmp .Lend%d", label);
+
+  genln(".Ltrue%d:", label);
+  genln("  mov rax, 1");
+
+  genln(".Lend%d:", label);
+}
+
+static void gen_logand(Node* node) {
+  int label = count_label();
+
+  gen_expr(node->lhs);
+  cmp_zero(node->lhs->type);
+
+  genln("  je .Lfalse%d", label);
+
+  gen_expr(node->rhs);
+  cmp_zero(node->rhs->type);
+
+  genln("  je .Lfalse%d", label);
+
+  genln("  mov rax, 1");
+
+  genln("  jmp .Lend%d", label);
+
+  genln(".Lfalse%d:", label);
+  genln("  mov rax, 0");
+
+  genln(".Lend%d:", label);
+}
+
+static void gen_float_bin_expr(Node* node) {
+  gen_expr(node->rhs);
+  pushf("xmm0");
+  gen_expr(node->lhs);
+  popf("xmm1");
+
+  char* size = node->lhs->type->kind == TY_FLOAT ? "ss" : "sd";
+
+  switch (node->kind) {
+    case ND_LOGOR:
+    case ND_LOGAND: {
+      break;
+    }
+    case ND_EQ:
+      genln("  ucomi%s xmm1, xmm0", size);
+      genln("  sete al");
+      genln("  setnp dl");
+      genln("  and al, dl");
+      genln("  and al, 1");
+      genln("  movzx rax, al");
+      return;
+    case ND_NE:
+      genln("  ucomi%s xmm1, xmm0", size);
+      genln("  setne al");
+      genln("  setp dl");
+      genln("  or al, dl");
+      genln("  and al, 1");
+      genln("  movzx rax, al");
+      return;
+    case ND_LT:
+      genln("  ucomi%s xmm1, xmm0", size);
+      genln("  seta al");
+      genln("  and al, 1");
+      genln("  movzx rax, al");
+      return;
+    case ND_LE:
+      genln("  ucomi%s xmm1, xmm0", size);
+      genln("  setae al");
+      genln("  and al, 1");
+      genln("  movzx rax, al");
+      return;
+    case ND_ADD:
+      genln("  add%s xmm0, xmm1", size);
+      return;
+    case ND_SUB:
+      genln("  sub%s xmm0, xmm1", size);
+      return;
+    case ND_MUL:
+      genln("  mul%s xmm0, xmm1", size);
+      return;
+    case ND_DIV:
+      genln("  div%s xmm0, xmm1", size);
+      return;
+    default:
+      error_token(node->token, "invalid expression");
+      return;
+  }
+}
+
+static void gen_bin_expr(Node* node) {
+  if (is_float(node->lhs->type)) {
+    gen_float_bin_expr(node);
+    return;
   }
 
   gen_expr(node->lhs);
@@ -841,6 +798,170 @@ static void gen_expr(Node* node) {
   }
 }
 
+static void gen_expr(Node* node) {
+  genln("  .loc %d %d", node->token->file->index, node->token->line);
+
+  switch (node->kind) {
+    case ND_ASSIGN:
+      gen_assign(node);
+      return;
+    case ND_COMMA:
+      gen_expr(node->lhs);
+      gen_expr(node->rhs);
+      return;
+    case ND_COND:
+      gen_cond(node);
+      return;
+    case ND_CAST:
+      gen_expr(node->lhs);
+      cast(node->type, node->lhs->type);
+      return;
+    case ND_NEG:
+      gen_neg(node);
+      return;
+    case ND_ADDR:
+      gen_addr(node->lhs);
+      return;
+    case ND_DEREF:
+      gen_expr(node->lhs);
+      load(node);
+      return;
+    case ND_NOT:
+      gen_expr(node->lhs);
+      cmp_zero(node->lhs->type);
+      genln("  sete al");
+      genln("  movzx rax, al");
+      return;
+    case ND_BITNOT:
+      gen_expr(node->lhs);
+      genln("  not rax");
+      return;
+    case ND_STMT_EXPR:
+      for (Node* stmt = node->body; stmt; stmt = stmt->next) {
+        gen_stmt(stmt);
+      }
+      return;
+    case ND_FUNC:
+    case ND_GVAR:
+    case ND_LVAR:
+    case ND_MEMBER:
+      gen_addr(node);
+      load(node);
+      return;
+    case ND_FUNCCALL:
+      gen_funccall(node);
+      return;
+    case ND_NUM:
+      gen_num(node);
+      return;
+    case ND_NULL:
+      return;
+    case ND_MEMZERO:
+      genln("  mov rcx, %d", node->type->size);
+      genln("  mov rdi, rbp");
+      genln("  sub rdi, %d", node->obj->offset);
+      genln("  mov al, 0");
+      genln("  rep stosb");
+      return;
+    case ND_LOGOR:
+      gen_logor(node);
+      return;
+    case ND_LOGAND:
+      gen_logand(node);
+      return;
+    case ND_BITOR:
+    case ND_BITXOR:
+    case ND_BITAND:
+    case ND_EQ:
+    case ND_NE:
+    case ND_LT:
+    case ND_LE:
+    case ND_LSHIFT:
+    case ND_RSHIFT:
+    case ND_ADD:
+    case ND_SUB:
+    case ND_MUL:
+    case ND_DIV:
+    case ND_MOD:
+      break;
+    default:
+      error_token(node->token, "expected an expression");
+  }
+
+  gen_bin_expr(node);
+}
+
+static void gen_if(Node* node) {
+  int label = count_label();
+
+  gen_expr(node->cond);
+  cmp_zero(node->cond->type);
+
+  genln("  je .Lelse%d", label);
+
+  gen_stmt(node->then);
+
+  genln("  jmp .Lend%d", label);
+
+  genln(".Lelse%d:", label);
+  if (node->els) {
+    gen_stmt(node->els);
+  }
+
+  genln(".Lend%d:", label);
+}
+
+static void gen_switch(Node* node) {
+  gen_expr(node->cond);
+
+  char* r = node->cond->type->size == 8 ? "rax" : "eax";
+  for (Node* c = node->cases; c; c = c->cases) {
+    genln("  cmp %s, %ld", r, c->int_val);
+    genln("  je %s", c->label_id);
+  }
+
+  if (node->default_label_id) {
+    genln("  jmp %s", node->default_label_id);
+  }
+  genln("  jmp %s", node->break_label_id);
+
+  gen_stmt(node->then);
+
+  genln("%s:", node->break_label_id);
+}
+
+static void gen_for(Node* node) {
+  int label = count_label();
+
+  if (node->init) {
+    gen_stmt(node->init);
+  }
+
+  genln(".Lbegin%d:", label);
+  if (node->cond) {
+    push("rax");
+    gen_expr(node->cond);
+    cmp_zero(node->cond->type);
+    pop("rax");
+
+    genln("  je %s", node->break_label_id);
+  }
+
+  gen_stmt(node->then);
+
+  genln("%s:", node->continue_label_id);
+
+  if (node->inc) {
+    push("rax");
+    gen_expr(node->inc);
+    pop("rax");
+  }
+
+  genln("  jmp .Lbegin%d", label);
+
+  genln("%s:", node->break_label_id);
+}
+
 static void gen_stmt(Node* node) {
   genln("  .loc %d %d", node->token->file->index, node->token->line);
 
@@ -850,75 +971,24 @@ static void gen_stmt(Node* node) {
         gen_stmt(body);
       }
       return;
-    case ND_IF: {
-      int lelse = count_label();
-      int lend = count_label();
-
-      gen_expr(node->cond);
-      cmp_zero(node->cond->type);
-      genln("  je .Lelse%d", lelse);
-
-      gen_stmt(node->then);
-      genln("  jmp .Lend%d", lend);
-
-      genln(".Lelse%d:", lelse);
-      if (node->els) {
-        gen_stmt(node->els);
-      }
-
-      genln(".Lend%d:", lend);
+    case ND_IF:
+      gen_if(node);
       return;
-    }
     case ND_SWITCH:
-      gen_expr(node->cond);
-
-      char* r = node->cond->type->size == 8 ? "rax" : "eax";
-      for (Node* c = node->cases; c; c = c->cases) {
-        genln("  cmp %s, %ld", r, c->int_val);
-        genln("  je %s", c->label_id);
-      }
-      if (node->default_label_id) {
-        genln("  jmp %s", node->default_label_id);
-      }
-      genln("  jmp %s", node->break_label_id);
-
-      gen_stmt(node->then);
-
-      genln("%s:", node->break_label_id);
+      gen_switch(node);
       return;
     case ND_CASE:
       genln("%s:", node->label_id);
       gen_stmt(node->lhs);
       return;
-    case ND_FOR: {
-      if (node->init) {
-        gen_stmt(node->init);
-      }
-      int lbegin = count_label();
-      genln(".Lbegin%d:", lbegin);
-      if (node->cond) {
-        push("rax");
-        gen_expr(node->cond);
-        cmp_zero(node->cond->type);
-        pop("rax");
-        genln("  je %s", node->break_label_id);
-      }
-      gen_stmt(node->then);
-      genln("%s:", node->continue_label_id);
-      if (node->inc) {
-        push("rax");
-        gen_expr(node->inc);
-        pop("rax");
-      }
-      genln("  jmp .Lbegin%d", lbegin);
-      genln("%s:", node->break_label_id);
+    case ND_FOR:
+      gen_for(node);
       return;
-    }
     case ND_RETURN:
       if (node->lhs) {
         gen_expr(node->lhs);
       }
-      genln("  jmp .Lreturn%d", func_count);
+      genln("  jmp .Lreturn%d", func_cnt);
       return;
     case ND_LABEL:
       genln("%s:", node->label_id);
@@ -978,7 +1048,87 @@ static void gen_data(TopLevelObj* codes) {
   }
 }
 
-static void store_via_int_reg(int size, int offset, int n) {
+static void store_va_args(Obj* func) {
+  int int_cnt = 0;
+  int float_cnt = 0;
+  for (Node* param = func->params; param; param = param->next) {
+    if (is_float(param->type)) {
+      float_cnt++;
+    } else {
+      int_cnt++;
+    }
+  }
+
+  int offset = func->va_area->offset;
+
+  // to assign __va_area__ to __va_elem
+  // set __va_area__ as __va_elem manually in memory
+  // __va_area_.gp_offset (int)
+  genln("  mov DWORD PTR [rbp - %d], %d", offset, int_cnt * 8);
+  // __va_area_.fp_offset (int)
+  genln("  mov DWORD PTR [rbp - %d], %d", offset - 4, float_cnt * 8 + 48);
+  // __va_area_.reg_save_area (void*)
+  genln("  mov QWORD PTR [rbp - %d], rbp", offset - 16);
+  genln("  sub QWORD PTR [rbp - %d], %d", offset - 16, offset - 24);
+  genln("  mov QWORD PTR [rbp - %d], rdi", offset - 24);
+  genln("  mov QWORD PTR [rbp - %d], rsi", offset - 32);
+  genln("  mov QWORD PTR [rbp - %d], rdx", offset - 40);
+  genln("  mov QWORD PTR [rbp - %d], rcx", offset - 48);
+  genln("  mov QWORD PTR [rbp - %d], r8", offset - 56);
+  genln("  mov QWORD PTR [rbp - %d], r9", offset - 64);
+  genln("  movsd [rbp - %d], xmm0", offset - 72);
+  genln("  movsd [rbp - %d], xmm1", offset - 80);
+  genln("  movsd [rbp - %d], xmm2", offset - 88);
+  genln("  movsd [rbp - %d], xmm3", offset - 96);
+  genln("  movsd [rbp - %d], xmm4", offset - 104);
+  genln("  movsd [rbp - %d], xmm5", offset - 112);
+  genln("  movsd [rbp - %d], xmm6", offset - 120);
+  genln("  movsd [rbp - %d], xmm7", offset - 128);
+}
+
+static void assign_passed_by_stack_arg_offsets(Obj* func) {
+  int int_cnt = 0;
+  int float_cnt = 0;
+  int offset = 16;
+  for (Node* param = func->params; param; param = param->next) {
+    switch (param->type->kind) {
+      case TY_STRUCT:
+      case TY_UNION: {
+        if (param->type->size > 16) {
+          break;
+        }
+
+        bool former_float = have_float_data(param->type, 0, 8);
+        bool latter_float = have_float_data(param->type, 8, 16);
+        if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+            || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
+          break;
+        }
+
+        int_cnt += !former_float + !latter_float;
+        float_cnt += former_float + latter_float;
+        continue;
+      }
+      case TY_FLOAT:
+      case TY_DOUBLE:
+        if (++float_cnt <= MAX_FLOAT_REG_ARGS) {
+          continue;
+        }
+        break;
+      default:
+        if (++int_cnt <= MAX_INT_REG_ARGS) {
+          continue;
+        }
+        break;
+    }
+
+    offset = align(offset, 8);
+    param->obj->offset = -offset;
+    offset += param->type->size;
+  }
+}
+
+static void store_int_arg(int size, int offset, int n) {
   switch (size) {
     case 1:
       genln("  mov [rax+%d], %s", offset, arg_regs8[n]);
@@ -995,7 +1145,7 @@ static void store_via_int_reg(int size, int offset, int n) {
   }
 }
 
-static void store_via_float_reg(int size, int offset, int n) {
+static void store_float_arg(int size, int offset, int n) {
   switch (size) {
     case 4:
       genln("  movss [rax+%d], xmm%d", offset, n);
@@ -1003,6 +1153,46 @@ static void store_via_float_reg(int size, int offset, int n) {
     case 8:
       genln("  movsd [rax+%d], xmm%d", offset, n);
       break;
+  }
+}
+
+static void store_args(Obj* func) {
+  int int_cnt = 0;
+  int float_cnt = 0;
+  for (Node* param = func->params; param; param = param->next) {
+    if (param->obj->offset < 0) {
+      continue;
+    }
+
+    gen_addr(param);
+
+    switch (param->type->kind) {
+      case TY_STRUCT:
+      case TY_UNION: {
+        int size = param->type->size <= 8 ? param->type->size : 8;
+        if (have_float_data(param->type, 0, 8)) {
+          store_float_arg(size, 0, float_cnt++);
+        } else {
+          store_int_arg(size, 0, int_cnt++);
+        }
+        if (param->type->size > 8) {
+          int size = param->type->size - 8;
+          if (have_float_data(param->type, 8, 16)) {
+            store_float_arg(size, 8, float_cnt++);
+          } else {
+            store_int_arg(size, 8, int_cnt++);
+          }
+        }
+        break;
+      }
+      case TY_FLOAT:
+      case TY_DOUBLE:
+        store_float_arg(param->type->size, 0, float_cnt++);
+        break;
+      default:
+        store_int_arg(param->type->size, 0, int_cnt++);
+        break;
+    }
   }
 }
 
@@ -1025,124 +1215,16 @@ static void gen_text(TopLevelObj* codes) {
     genln("  sub rsp, %d", func->obj->stack_size);
 
     if (func->obj->va_area) {
-      int int_cnt = 0;
-      int float_cnt = 0;
-      for (Node* param = func->obj->params; param; param = param->next) {
-        if (is_float(param->type)) {
-          float_cnt++;
-        } else {
-          int_cnt++;
-        }
-      }
-
-      int offset = func->obj->va_area->offset;
-
-      // to assign __va_area__ to __va_elem
-      // set __va_area__ as __va_elem manually in memory
-      // __va_area_.gp_offset (int)
-      genln("  mov DWORD PTR [rbp - %d], %d", offset, int_cnt * 8);
-      // __va_area_.fp_offset (int)
-      genln("  mov DWORD PTR [rbp - %d], %d", offset - 4, float_cnt * 8 + 48);
-      // __va_area_.reg_save_area (void*)
-      genln("  mov QWORD PTR [rbp - %d], rbp", offset - 16);
-      genln("  sub QWORD PTR [rbp - %d], %d", offset - 16, offset - 24);
-      genln("  mov QWORD PTR [rbp - %d], rdi", offset - 24);
-      genln("  mov QWORD PTR [rbp - %d], rsi", offset - 32);
-      genln("  mov QWORD PTR [rbp - %d], rdx", offset - 40);
-      genln("  mov QWORD PTR [rbp - %d], rcx", offset - 48);
-      genln("  mov QWORD PTR [rbp - %d], r8", offset - 56);
-      genln("  mov QWORD PTR [rbp - %d], r9", offset - 64);
-      genln("  movsd [rbp - %d], xmm0", offset - 72);
-      genln("  movsd [rbp - %d], xmm1", offset - 80);
-      genln("  movsd [rbp - %d], xmm2", offset - 88);
-      genln("  movsd [rbp - %d], xmm3", offset - 96);
-      genln("  movsd [rbp - %d], xmm4", offset - 104);
-      genln("  movsd [rbp - %d], xmm5", offset - 112);
-      genln("  movsd [rbp - %d], xmm6", offset - 120);
-      genln("  movsd [rbp - %d], xmm7", offset - 128);
+      store_va_args(func->obj);
     }
 
-    int int_cnt = 0;
-    int float_cnt = 0;
-    int offset = 16;
-    for (Node* param = func->obj->params; param; param = param->next) {
-      switch (param->type->kind) {
-        case TY_STRUCT:
-        case TY_UNION: {
-          if (param->type->size > 16) {
-            break;
-          }
+    assign_passed_by_stack_arg_offsets(func->obj);
 
-          bool former_float = have_float_data(param->type, 0, 8);
-          bool latter_float = have_float_data(param->type, 8, 16);
-          if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
-              || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
-            break;
-          }
-
-          int_cnt += !former_float + !latter_float;
-          float_cnt += former_float + latter_float;
-          continue;
-        }
-        case TY_FLOAT:
-        case TY_DOUBLE:
-          if (++float_cnt <= MAX_FLOAT_REG_ARGS) {
-            continue;
-          }
-          break;
-        default:
-          if (++int_cnt <= MAX_INT_REG_ARGS) {
-            continue;
-          }
-          break;
-      }
-
-      offset = align(offset, 8);
-      param->obj->offset = -offset;
-      offset += param->type->size;
-    }
-
-    int_cnt = 0;
-    float_cnt = 0;
-    for (Node* param = func->obj->params; param; param = param->next) {
-      if (param->obj->offset < 0) {
-        continue;
-      }
-
-      gen_addr(param);
-
-      switch (param->type->kind) {
-        case TY_STRUCT:
-        case TY_UNION: {
-          int size = param->type->size <= 8 ? param->type->size : 8;
-          if (have_float_data(param->type, 0, 8)) {
-            store_via_float_reg(size, 0, float_cnt++);
-          } else {
-            store_via_int_reg(size, 0, int_cnt++);
-          }
-          if (param->type->size > 8) {
-            int size = param->type->size - 8;
-            if (have_float_data(param->type, 8, 16)) {
-              store_via_float_reg(size, 8, float_cnt++);
-            } else {
-              store_via_int_reg(size, 8, int_cnt++);
-            }
-          }
-          break;
-        }
-        case TY_FLOAT:
-        case TY_DOUBLE:
-          store_via_float_reg(param->type->size, 0, float_cnt++);
-          break;
-        default:
-          store_via_int_reg(param->type->size, 0, int_cnt++);
-          break;
-      }
-    }
+    store_args(func->obj);
 
     gen_stmt(func->obj->body);
 
-    genln(".Lreturn%d:", func_count++);
+    genln(".Lreturn%d:", func_cnt++);
     genln("  mov rsp, rbp");
     pop_outside_frame("rbp");
     genln("  ret");
@@ -1162,6 +1244,7 @@ void gen(char* output_filename, TopLevelObj* codes) {
   for (File* file = files; file; file = file->next) {
     genln(".file %d \"%s\"", file->index, file->name);
   }
+
   gen_data(codes);
   gen_text(codes);
 

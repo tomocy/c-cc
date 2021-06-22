@@ -1041,7 +1041,7 @@ static Node* new_bitor_node(Token* token, Node* lhs, Node* rhs) {
 
 static Node* new_and_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
-  Node* n = new_binary_node(ND_AND, lhs, rhs);
+  Node* n = new_binary_node(ND_LOGAND, lhs, rhs);
   n->token = token;
   n->type = new_int_type();
   return n;
@@ -1049,7 +1049,7 @@ static Node* new_and_node(Token* token, Node* lhs, Node* rhs) {
 
 static Node* new_or_node(Token* token, Node* lhs, Node* rhs) {
   usual_arith_convert(&lhs, &rhs);
-  Node* n = new_binary_node(ND_OR, lhs, rhs);
+  Node* n = new_binary_node(ND_LOGOR, lhs, rhs);
   n->token = token;
   n->type = new_int_type();
   return n;
@@ -1134,11 +1134,11 @@ static Node* expr_stmt(Token** tokens);
 static Node* expr(Token** tokens);
 static Node* assign(Token** tokens);
 static Node* conditional(Token** tokens);
-static Node* orr(Token** tokens);
-static Node* andd(Token** tokens);
-static Node* bitorr(Token** tokens);
-static Node* bitxorr(Token** tokens);
-static Node* bitandd(Token** tokens);
+static Node* log_or(Token** tokens);
+static Node* log_and(Token** tokens);
+static Node* bit_or(Token** tokens);
+static Node* bit_xor(Token** tokens);
+static Node* bit_and(Token** tokens);
 static Node* equality(Token** tokens);
 static Node* relational(Token** tokens);
 static Node* shift(Token** tokens);
@@ -1903,7 +1903,7 @@ static Node* assign(Token** tokens) {
 }
 
 static Node* conditional(Token** tokens) {
-  Node* node = orr(tokens);
+  Node* node = log_or(tokens);
 
   if (consume_token(tokens, "?")) {
     Token* start = *tokens;
@@ -1918,51 +1918,51 @@ static Node* conditional(Token** tokens) {
   return node;
 }
 
-static Node* orr(Token** tokens) {
-  Node* node = andd(tokens);
+static Node* log_or(Token** tokens) {
+  Node* node = log_and(tokens);
 
   while (consume_token(tokens, "||")) {
     Token* start = *tokens;
-    node = new_or_node(start, node, andd(tokens));
+    node = new_or_node(start, node, log_and(tokens));
   }
 
   return node;
 }
 
-static Node* andd(Token** tokens) {
-  Node* node = bitorr(tokens);
+static Node* log_and(Token** tokens) {
+  Node* node = bit_or(tokens);
 
   while (consume_token(tokens, "&&")) {
     Token* start = *tokens;
-    node = new_and_node(start, node, bitorr(tokens));
+    node = new_and_node(start, node, bit_or(tokens));
   }
 
   return node;
 }
 
-static Node* bitorr(Token** tokens) {
-  Node* node = bitxorr(tokens);
+static Node* bit_or(Token** tokens) {
+  Node* node = bit_xor(tokens);
 
   while (consume_token(tokens, "|")) {
     Token* start = *tokens;
-    node = new_bitor_node(start, node, bitxorr(tokens));
+    node = new_bitor_node(start, node, bit_xor(tokens));
   }
 
   return node;
 }
 
-static Node* bitxorr(Token** tokens) {
-  Node* node = bitandd(tokens);
+static Node* bit_xor(Token** tokens) {
+  Node* node = bit_and(tokens);
 
   while (consume_token(tokens, "^")) {
     Token* start = *tokens;
-    node = new_bitxor_node(start, node, bitandd(tokens));
+    node = new_bitxor_node(start, node, bit_and(tokens));
   }
 
   return node;
 }
 
-static Node* bitandd(Token** tokens) {
+static Node* bit_and(Token** tokens) {
   Node* node = equality(tokens);
 
   while (consume_token(tokens, "&")) {
@@ -2401,9 +2401,9 @@ static int64_t eval_reloc(Node* node, char** label) {
       return eval_reloc(node->rhs, label);
     case ND_COND:
       return eval(node->cond) ? eval_reloc(node->then, label) : eval_reloc(node->els, label);
-    case ND_OR:
+    case ND_LOGOR:
       return eval(node->lhs) || eval(node->rhs);
-    case ND_AND:
+    case ND_LOGAND:
       return eval(node->lhs) && eval(node->rhs);
     case ND_BITOR:
       return eval(node->lhs) | eval(node->rhs);

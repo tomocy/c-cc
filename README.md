@@ -30,12 +30,12 @@ stmt = func |
 expr_stmt = expr? ";"
 expr = assign ("," expr)?
 assign = conditional (("=" | "|=" | "^=" | "&=" | "<<=" | ">>=" | "+=" | "-=" | "*=" | "/=" | "%=") assign)*
-conditional = orr ("?" expr ":" conditional)?
-orr = andd ("||" addd)*
-andd = bitorr ("&&" bitorr)*
-bitorr = bitxorr ("|" bitxorr)*
-bitxorr = bitandd ("^" bitandd)*
-bitandd = equality ("&" equality)*
+conditional = log_or ("?" expr ":" conditional)?
+log_or = log_and ("||" log_and)*
+log_and = bit_or ("&&" bit_or)*
+bit_or = bit_xor ("|" bit_xor)*
+bit_xor = bit_and ("^" bit_and)*
+bit_and = equality ("&" equality)*
 equality = realtional ("==" relational | "!=" relational)*
 relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
 shift = add ("<<" add | ">>" add)*
