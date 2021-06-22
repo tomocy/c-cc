@@ -95,6 +95,43 @@ static void genln(char* fmt, ...) {
   fprintf(output_file, "\n");
 }
 
+static void gen_addr(Node* node) {
+  switch (node->kind) {
+    case ND_COMMA:
+      gen_expr(node->lhs);
+      gen_addr(node->rhs);
+      break;
+    case ND_DEREF:
+      gen_expr(node->lhs);
+      break;
+    case ND_FUNC:
+      if (node->is_definition) {
+        genln("  lea rax, %s[rip]", node->name);
+      } else {
+        genln("  mov rax, %s@GOTPCREL[rip]", node->name);
+      }
+      break;
+    case ND_GVAR:
+      genln("  lea rax, %s[rip]", node->name);
+      break;
+    case ND_LVAR:
+      genln("  mov rax, rbp");
+      genln("  sub rax, %d", node->obj->offset);
+      break;
+    case ND_MEMBER:
+      gen_addr(node->lhs);
+      genln("  add rax, %d", node->mem->offset);
+      break;
+    case ND_FUNCCALL:
+      if (node->return_val) {
+        gen_expr(node);
+      }
+      break;
+    default:
+      error_token(node->token, "expected a left value");
+  }
+}
+
 static void do_push(int* count, char* reg) {
   genln("  push %s", reg);
   (*count)++;
@@ -224,11 +261,19 @@ static bool have_float_data(Type* type, int low, int high) {
   return have_float_data_at(type, low, high, 0);
 }
 
-static int push_args(Node* args) {
+static int push_args(Node* node) {
   int stacked = 0;
   int int_cnt = 0;
   int float_cnt = 0;
-  for (Node* arg = args; arg; arg = arg->next) {
+
+  // When the return values of function calls are struct or union and their size are larger than
+  // 16 bytes, the pointers to the values are passed as if they are the first arguments
+  // for the callee to fill the return values to the pointers.
+  if (node->return_val && node->type->size > 16) {
+    int_cnt++;
+  }
+
+  for (Node* arg = node->args; arg; arg = arg->next) {
     switch (arg->type->kind) {
       case TY_STRUCT:
       case TY_UNION:
@@ -282,8 +327,12 @@ static int push_args(Node* args) {
   // Push passed-by-stack args first, then
   // push passed-by-register args
   // in order not to pop passed-by-stack args
-  push_passed_by_stack_args(args);
-  push_passed_by_reg_args(args);
+  push_passed_by_stack_args(node->args);
+  push_passed_by_reg_args(node->args);
+  if (node->return_val && node->type->size > 16) {
+    gen_addr(node->return_val);
+    push("rax");
+  }
 
   return stacked;
 }
@@ -365,38 +414,6 @@ static void cast(Type* to, Type* from) {
   }
 }
 
-static void gen_addr(Node* node) {
-  switch (node->kind) {
-    case ND_COMMA:
-      gen_expr(node->lhs);
-      gen_addr(node->rhs);
-      break;
-    case ND_DEREF:
-      gen_expr(node->lhs);
-      break;
-    case ND_FUNC:
-      if (node->is_definition) {
-        genln("  lea rax, %s[rip]", node->name);
-      } else {
-        genln("  mov rax, %s@GOTPCREL[rip]", node->name);
-      }
-      break;
-    case ND_GVAR:
-      genln("  lea rax, %s[rip]", node->name);
-      break;
-    case ND_LVAR:
-      genln("  mov rax, rbp");
-      genln("  sub rax, %d", node->obj->offset);
-      break;
-    case ND_MEMBER:
-      gen_addr(node->lhs);
-      genln("  add rax, %d", node->mem->offset);
-      break;
-    default:
-      error_token(node->token, "expected a left value");
-  }
-}
-
 static void gen_assign(Node* node) {
   gen_addr(node->lhs);
   push("rax");
@@ -472,13 +489,58 @@ static void gen_neg(Node* node) {
   }
 }
 
+static void store_return_val(Node* node) {
+  int int_cnt = 0;
+  int float_cnt = 0;
+
+  int size = node->type->size <= 8 ? node->type->size : 8;
+  if (have_float_data(node->type, 0, 8)) {
+    switch (size) {
+      case 4:
+        genln("  movss [rbp-%d], xmm0", node->obj->offset);
+        break;
+      case 8:
+        genln("  movsd [rbp-%d], xmm0", node->obj->offset);
+        break;
+    }
+    float_cnt++;
+  } else {
+    for (int i = 0; i < size; i++) {
+      genln("  mov [rbp-%d], al", node->obj->offset - i);
+      genln("  shr rax, 8");
+    }
+    int_cnt++;
+  }
+
+  if (node->type->size > 8) {
+    size = node->type->size - 8;
+    if (have_float_data(node->type, 8, 16)) {
+      switch (size) {
+        case 4:
+          genln("  movss [rbp-%d], xmm%d", node->obj->offset - 8, float_cnt);
+          return;
+        case 8:
+          genln("  movsd [rbp-%d], xmm%d", node->obj->offset - 8, float_cnt);
+          return;
+      }
+    } else {
+      char* reg1 = int_cnt == 0 ? "al" : "dl";
+      char* reg2 = int_cnt == 0 ? "rax" : "rdx";
+      for (int i = 0; i < size; i++) {
+        genln("  mov [rbp-%d], %s", node->obj->offset - 8 - i, reg1);
+        genln("  shr %s, 8", reg2);
+      }
+    }
+  }
+}
+
 static void gen_funccall(Node* node) {
   // The number of argments which remain in stack
   // following x8664 psAPI
   // Those arguments which remain in stack are pushed
   // after aligning the stack pointer to 16 bytes boundary
   // so it is not necessary to align it again on call
-  int stacked = push_args(node->args);
+  int stacked = push_args(node);
 
   // node->lhs may be another function call, which means that
   // it may use arguments registers for its arguments,
@@ -490,6 +552,11 @@ static void gen_funccall(Node* node) {
 
   int int_cnt = 0;
   int float_cnt = 0;
+
+  if (node->return_val && node->type->size > 16) {
+    pop(arg_regs64[int_cnt++]);
+  }
+
   for (Node* arg = node->args; arg; arg = arg->next) {
     switch (arg->type->kind) {
       case TY_STRUCT:
@@ -552,6 +619,14 @@ static void gen_funccall(Node* node) {
       break;
     default: {
     }
+  }
+
+  // The return values of function calls whose types are struct or union and whose size are
+  // less than or equal to 16 bytes are returned by up to 2 registers.
+  // So store them to the stack of the caller assigned for the return values.
+  if (node->return_val && node->type->size <= 16) {
+    store_return_val(node->return_val);
+    gen_addr(node->return_val);
   }
 }
 

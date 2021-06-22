@@ -771,6 +771,9 @@ static Node* new_funccall_node(Token* token, Node* lhs, Node* args) {
   node->type = deref_ptr_type(lhs->type)->return_type;
   node->token = token;
   node->args = args;
+  if (node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
+    node->return_val = new_lvar_node(token, create_anon_lvar_obj(node->type));
+  }
   return node;
 }
 

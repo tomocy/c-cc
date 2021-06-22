@@ -183,15 +183,17 @@ struct Node {
 
   Node* cases;
 
+  Node* return_val;
+
   Node* args;
+  bool is_passed_by_stack;
+
   Node* body;
 
   char* name;
 
   Obj* obj;
   Member* mem;
-
-  bool is_passed_by_stack;
 
   int64_t int_val;
   double float_val;
