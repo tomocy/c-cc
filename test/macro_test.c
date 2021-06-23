@@ -550,5 +550,16 @@ of(char));
 #define FN fn
   ASSERT(42, FN());
 
+#define CONCAT(x, y) x##y
+  assert("CONCAT(f, 0zz)", 5, ({
+    int f0zz = 5;
+    CONCAT(f, 0zz);
+  }));
+  ASSERT(5, ({
+    int f0zz = 5;
+    CONCAT(f, 0zz);
+  }));
+  ASSERT(5, ({ CONCAT(4, .57) + 0.5; }));
+
   ok();
 }

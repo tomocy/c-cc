@@ -15,7 +15,7 @@ static Token* new_eof_token();
 static bool consume_comment(char** c);
 static bool consume_punct(Token** dst, char** c);
 static bool consume_ident(Token** dst, char** c);
-static bool consume_number(Token** dst, char** c);
+static bool consume_pp_num(Token** dst, char** c);
 static bool consume_char(Token** dst, char** c);
 static bool consume_str(Token** dst, char** c);
 
@@ -52,7 +52,7 @@ Token* tokenize_in(File* file) {
       continue;
     }
 
-    if (consume_number(&cur->next, &c)) {
+    if (consume_pp_num(&cur->next, &c)) {
       cur = cur->next;
       continue;
     }
@@ -202,7 +202,7 @@ Token* expect_ident_token(Token** tokens) {
   return ident;
 }
 
-static Token* new_token_in(TokenKind kind, File* file, char* loc, int len) {
+Token* new_token_in(TokenKind kind, File* file, char* loc, int len) {
   Token* token = calloc(1, sizeof(Token));
   token->kind = kind;
   token->file = file;
@@ -275,10 +275,6 @@ void warn_token(Token* token, char* fmt, ...) {
   va_start(args, fmt);
   vprint_at(token->file, token->loc, fmt, args);
   va_end(args);
-}
-
-static bool isbdigit(char c) {
-  return c == '0' || c == '1';
 }
 
 static bool can_be_ident(char c) {
@@ -395,116 +391,29 @@ static bool consume_ident(Token** dst, char** c) {
   return true;
 }
 
-static Token* read_int(char** c) {
-  char* start = *c;
-
-  int base = 10;
-  if (start_with_insensitive(*c, "0x") && isxdigit((*c)[2])) {
-    *c += 2;
-    base = 16;
-  } else if (start_with_insensitive(*c, "0b") && isbdigit((*c)[2])) {
-    *c += 2;
-    base = 2;
-  } else if (**c == '0') {
-    base = 8;
-  }
-
-  int64_t val = strtoul(*c, c, base);
-
-  bool l = false;
-  bool u = false;
-  if (start_with(*c, "LLU") || start_with(*c, "LLu") || start_with(*c, "llU") || start_with(*c, "llu")
-      || start_with(*c, "ULL") || start_with(*c, "Ull") || start_with(*c, "uLL") || start_with(*c, "ull")) {
-    *c += 3;
-    l = u = true;
-  } else if (start_with_insensitive(*c, "LU") || start_with_insensitive(*c, "UL")) {
-    *c += 2;
-    l = u = true;
-  } else if (start_with(*c, "LL") || start_with_insensitive(*c, "ll")) {
-    *c += 2;
-    l = true;
-  } else if (start_with_insensitive(*c, "L")) {
-    (*c)++;
-    l = true;
-  } else if (start_with_insensitive(*c, "U")) {
-    (*c)++;
-    u = true;
-  }
-
-  Type* type = NULL;
-  if (base == 10) {
-    if (l && u) {
-      type = new_ulong_type();
-    } else if (l) {
-      type = new_long_type();
-    } else if (u) {
-      type = val >> 32 ? new_ulong_type() : new_uint_type();
-    } else if (val >> 31) {
-      type = new_long_type();
-    } else {
-      type = new_int_type();
-    }
-  } else {
-    if (l && u) {
-      type = new_ulong_type();
-    } else if (l) {
-      type = val >> 63 ? new_ulong_type() : new_long_type();
-    } else if (u) {
-      type = val >> 32 ? new_ulong_type() : new_uint_type();
-    } else if (val >> 63) {
-      type = new_ulong_type();
-    } else if (val >> 32) {
-      type = new_long_type();
-    } else if (val >> 31) {
-      type = new_uint_type();
-    } else {
-      type = new_int_type();
-    }
-  }
-
-  Token* token = new_token(TK_NUM, start, *c - start);
-  token->type = type;
-  token->int_val = val;
-  return token;
-}
-
-static Token* read_float(char** c) {
-  char* start = *c;
-
-  double val = strtod(start, c);
-
-  Type* type = NULL;
-  if (start_with_insensitive(*c, "F")) {
-    type = new_float_type();
-    (*c)++;
-  } else if (start_with_insensitive(*c, "L")) {
-    type = new_double_type();
-    (*c)++;
-  } else {
-    type = new_double_type();
-  }
-
-  Token* token = new_token(TK_NUM, start, *c - start);
-  token->type = type;
-  token->float_val = val;
-  return token;
-}
-
-static bool consume_number(Token** dst, char** c) {
+// The definition of numeric literal at preprocessing stage is more relaxed
+// than the one at later stage, so tokenize numberic literal as "pp-number" tokens
+// in this stage and convert them to numbers after preprocessing.
+static bool consume_pp_num(Token** dst, char** c) {
   if (!isdigit(**c) && !(**c == '.' && isdigit((*c)[1]))) {
     return false;
   }
 
-  char* peeked = *c;
-  Token* token = read_int(&peeked);
-  if (strchr(".EeFf", *peeked) == 0) {
-    *c = peeked;
-    *dst = token;
-    return true;
+  char* start = *c;
+  while (**c) {
+    if ((*c)[1] && strchr("eEpP", **c) && strchr("+-", (*c)[1])) {
+      *c += 2;
+      continue;
+    }
+    if (isalnum(**c) || **c == '.') {
+      (*c)++;
+      continue;
+    }
+
+    break;
   }
 
-  token = read_float(c);
-  *dst = token;
+  *dst = new_token(TK_PP_NUM, start, *c - start);
   return true;
 }
 

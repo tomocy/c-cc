@@ -38,6 +38,7 @@ struct File {
 
 typedef enum {
   TK_RESERVED,
+  TK_PP_NUM,
   TK_NUM,
   TK_STR,
   TK_IDENT,
@@ -310,6 +311,7 @@ Token* expect_ident_token(Token** tokens);
 
 Token* tokenize(char* input_filename);
 Token* tokenize_in(File* file);
+Token* new_token_in(TokenKind kind, File* file, char* loc, int len);
 Token* new_eof_token_in(File* file);
 Token* copy_token(Token* src);
 Token* copy_tokens(Token* src);

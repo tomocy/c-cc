@@ -483,20 +483,145 @@ static bool is_keyword(char* c, int len) {
   return false;
 }
 
-static Token* convert_keywords(Token* tokens) {
+static bool isbdigit(char c) {
+  return c == '0' || c == '1';
+}
+
+static Token* convert_pp_int(Token* token) {
+  char* c = token->loc;
+  char* start = c;
+
+  int base = 10;
+  if (start_with_insensitive(c, "0x") && isxdigit(c[2])) {
+    c += 2;
+    base = 16;
+  } else if (start_with_insensitive(c, "0b") && isbdigit(c[2])) {
+    c += 2;
+    base = 2;
+  } else if (*c == '0') {
+    base = 8;
+  }
+
+  int64_t val = strtoul(c, &c, base);
+
+  bool l = false;
+  bool u = false;
+  if (start_with(c, "LLU") || start_with(c, "LLu") || start_with(c, "llU") || start_with(c, "llu")
+      || start_with(c, "ULL") || start_with(c, "Ull") || start_with(c, "uLL") || start_with(c, "ull")) {
+    c += 3;
+    l = u = true;
+  } else if (start_with_insensitive(c, "LU") || start_with_insensitive(c, "UL")) {
+    c += 2;
+    l = u = true;
+  } else if (start_with(c, "LL") || start_with_insensitive(c, "ll")) {
+    c += 2;
+    l = true;
+  } else if (start_with_insensitive(c, "L")) {
+    c++;
+    l = true;
+  } else if (start_with_insensitive(c, "U")) {
+    c++;
+    u = true;
+  }
+
+  if (c != start + token->len) {
+    return NULL;
+  }
+
+  Type* type = NULL;
+  if (base == 10) {
+    if (l && u) {
+      type = new_ulong_type();
+    } else if (l) {
+      type = new_long_type();
+    } else if (u) {
+      type = val >> 32 ? new_ulong_type() : new_uint_type();
+    } else if (val >> 31) {
+      type = new_long_type();
+    } else {
+      type = new_int_type();
+    }
+  } else {
+    if (l && u) {
+      type = new_ulong_type();
+    } else if (l) {
+      type = val >> 63 ? new_ulong_type() : new_long_type();
+    } else if (u) {
+      type = val >> 32 ? new_ulong_type() : new_uint_type();
+    } else if (val >> 63) {
+      type = new_ulong_type();
+    } else if (val >> 32) {
+      type = new_long_type();
+    } else if (val >> 31) {
+      type = new_uint_type();
+    } else {
+      type = new_int_type();
+    }
+  }
+
+  Token* converted = new_token_in(TK_NUM, token->file, start, c - start);
+  converted->type = type;
+  converted->int_val = val;
+  return inherit_token_space(converted, token);
+}
+
+static Token* convert_pp_float(Token* token) {
+  char* c = token->loc;
+  char* start = c;
+
+  double val = strtod(start, &c);
+
+  Type* type = NULL;
+  if (start_with_insensitive(c, "F")) {
+    type = new_float_type();
+    c++;
+  } else if (start_with_insensitive(c, "L")) {
+    type = new_double_type();
+    c++;
+  } else {
+    type = new_double_type();
+  }
+
+  if (c != start + token->len) {
+    return NULL;
+  }
+
+  Token* converted = new_token_in(TK_NUM, token->file, start, c - start);
+  converted->type = type;
+  converted->float_val = val;
+  return inherit_token_space(converted, token);
+}
+
+static Token* convert_pp_num(Token* token) {
+  Token* converted = convert_pp_int(token);
+  if (converted) {
+    return converted;
+  }
+  converted = convert_pp_float(token);
+  if (converted) {
+    return converted;
+  }
+
+  error_token(token, "invalid numeric constant");
+  return NULL;
+}
+
+static Token* convert_tokens(Token* tokens) {
   Token head = {};
   Token* cur = &head;
   for (Token* token = tokens; token; token = token->next) {
+    if (token->kind == TK_IDENT && is_keyword(token->loc, token->len)) {
+      cur = cur->next = copy_token(token);
+      cur->kind = TK_RESERVED;
+      continue;
+    }
+
+    if (token->kind == TK_PP_NUM) {
+      cur = cur->next = convert_pp_num(token);
+      continue;
+    }
+
     cur = cur->next = token;
-
-    if (token->kind != TK_IDENT) {
-      continue;
-    }
-    if (!is_keyword(token->loc, token->len)) {
-      continue;
-    }
-
-    cur->kind = TK_RESERVED;
   }
 
   return head.next;
@@ -581,6 +706,7 @@ static FunclikeMacroArg* funclike_macro_args(Macro* macro, Token** tokens) {
   if (param) {
     error_token(start, "too few arguments");
   }
+
   if (macro->is_variadic) {
     Token token_head = {};
     Token* cur_token = &token_head;
@@ -926,6 +1052,8 @@ static bool if_dir_cond(Token** tokens) {
     token->next = next;
   }
 
+  cond = convert_tokens(cond);
+
   return const_expr(&cond) != 0;
 }
 
@@ -1092,5 +1220,5 @@ Token* preprocess(Token* tokens) {
     error_token(if_dirs->token, "unterminated if directive");
   }
 
-  return concat_adjecent_strs(convert_keywords(tokens));
+  return concat_adjecent_strs(convert_tokens(tokens));
 }
