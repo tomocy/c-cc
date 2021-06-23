@@ -1199,27 +1199,30 @@ static void store_va_args(Obj* func) {
 
   // to assign __va_area__ to __va_elem
   // set __va_area__ as __va_elem manually in memory
-  // __va_area_.gp_offset (int)
-  genln("  mov DWORD PTR [rbp - %d], %d", offset, int_cnt * 8);
-  // __va_area_.fp_offset (int)
-  genln("  mov DWORD PTR [rbp - %d], %d", offset - 4, float_cnt * 8 + 48);
-  // __va_area_.reg_save_area (void*)
-  genln("  mov QWORD PTR [rbp - %d], rbp", offset - 16);
-  genln("  sub QWORD PTR [rbp - %d], %d", offset - 16, offset - 24);
-  genln("  mov QWORD PTR [rbp - %d], rdi", offset - 24);
-  genln("  mov QWORD PTR [rbp - %d], rsi", offset - 32);
-  genln("  mov QWORD PTR [rbp - %d], rdx", offset - 40);
-  genln("  mov QWORD PTR [rbp - %d], rcx", offset - 48);
-  genln("  mov QWORD PTR [rbp - %d], r8", offset - 56);
-  genln("  mov QWORD PTR [rbp - %d], r9", offset - 64);
-  genln("  movsd [rbp - %d], xmm0", offset - 72);
-  genln("  movsd [rbp - %d], xmm1", offset - 80);
-  genln("  movsd [rbp - %d], xmm2", offset - 88);
-  genln("  movsd [rbp - %d], xmm3", offset - 96);
-  genln("  movsd [rbp - %d], xmm4", offset - 104);
-  genln("  movsd [rbp - %d], xmm5", offset - 112);
-  genln("  movsd [rbp - %d], xmm6", offset - 120);
-  genln("  movsd [rbp - %d], xmm7", offset - 128);
+  // __va_elem.gp_offset (unsigned int)
+  genln("  mov DWORD PTR [rbp-%d], %d", offset, int_cnt * 8);
+  // __va_elem.fp_offset (unsigned int)
+  genln("  mov DWORD PTR [rbp-%d], %d", offset - 4, float_cnt * 8 + 48);
+  // __va_elem.overflow_arg_area (void*)
+  genln("  mov QWORD PTR [rbp-%d], rbp", offset - 8);
+  genln("  add QWORD PTR [rbp-%d], 16", offset - 8);
+  // __va_elem.reg_save_area (void*)
+  genln("  mov QWORD PTR [rbp-%d], rbp", offset - 16);
+  genln("  sub QWORD PTR [rbp-%d], %d", offset - 16, offset - 24);
+  genln("  mov QWORD PTR [rbp-%d], rdi", offset - 24);
+  genln("  mov QWORD PTR [rbp-%d], rsi", offset - 32);
+  genln("  mov QWORD PTR [rbp-%d], rdx", offset - 40);
+  genln("  mov QWORD PTR [rbp-%d], rcx", offset - 48);
+  genln("  mov QWORD PTR [rbp-%d], r8", offset - 56);
+  genln("  mov QWORD PTR [rbp-%d], r9", offset - 64);
+  genln("  movsd [rbp-%d], xmm0", offset - 72);
+  genln("  movsd [rbp-%d], xmm1", offset - 80);
+  genln("  movsd [rbp-%d], xmm2", offset - 88);
+  genln("  movsd [rbp-%d], xmm3", offset - 96);
+  genln("  movsd [rbp-%d], xmm4", offset - 104);
+  genln("  movsd [rbp-%d], xmm5", offset - 112);
+  genln("  movsd [rbp-%d], xmm6", offset - 120);
+  genln("  movsd [rbp-%d], xmm7", offset - 128);
 }
 
 static void assign_passed_by_stack_arg_offsets(Obj* func) {
