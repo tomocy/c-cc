@@ -17,6 +17,8 @@ typedef __va_elem va_list[1];
 
 #define va_end(ap)
 
+#define va_copy(dst, src) ((dst[0] = src[0]))
+
 // NOLINTNEXTLINE
 static void* __va_arg_mem(__va_elem* ap, int size, int align) {
   void* p = ap->overflow_arg_area;
