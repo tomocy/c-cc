@@ -2141,7 +2141,9 @@ static Node* unary(Token** tokens) {
   }
 
   if (consume_token(tokens, "*")) {
-    return new_deref_node(start, cast(tokens));
+    Node* lhs = cast(tokens);
+    // According to C spec, dereferencing function pointer should do nothing.
+    return lhs->kind != ND_FUNC ? new_deref_node(start, lhs) : lhs;
   }
 
   if (consume_token(tokens, "!")) {

@@ -622,5 +622,8 @@ int main() {
   ASSERT(15, struct_test38().a[14]);
   ASSERT(20, struct_test38().a[19]);
 
+  // NOLINTNEXTLINE
+  ASSERT(5, (***add2)(2, 3));
+
   ok();
 }
