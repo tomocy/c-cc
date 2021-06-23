@@ -264,21 +264,25 @@ static Type* deref_ptr_type(Type* type) {
   return type->kind == TY_PTR ? type->base : type;
 }
 
-static bool is_pointable(Type* type) {
+static bool is_pointable_type(Type* type) {
   return type->kind == TY_PTR || type->kind == TY_ARRAY;
 }
 
-bool is_integer(Type* type) {
+bool is_int_type(Type* type) {
   return type->kind == TY_BOOL || type->kind == TY_CHAR || type->kind == TY_SHORT || type->kind == TY_INT
          || type->kind == TY_LONG;
 }
 
-bool is_float(Type* type) {
+bool is_float_type(Type* type) {
   return type->kind == TY_DOUBLE || type->kind == TY_FLOAT;
 }
 
-static bool is_numeric(Type* type) {
-  return is_integer(type) || is_float(type);
+static bool is_numeric_type(Type* type) {
+  return is_int_type(type) || is_float_type(type);
+}
+
+bool is_composite_type(Type* type) {
+  return type->kind == TY_STRUCT || type->kind == TY_UNION;
 }
 
 static TopLevelObj* new_top_level_obj(Obj* obj) {
@@ -771,7 +775,7 @@ static Node* new_funccall_node(Token* token, Node* lhs, Node* args) {
   node->type = deref_ptr_type(lhs->type)->return_type;
   node->token = token;
   node->args = args;
-  if (node->type->kind == TY_STRUCT || node->type->kind == TY_UNION) {
+  if (is_composite_type(node->type)) {
     node->return_val = new_lvar_node(token, create_anon_lvar_obj(node->type));
   }
   return node;
@@ -911,12 +915,12 @@ static Node* new_mod_node(Token* token, Node* lhs, Node* rhs) {
 
 static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
   // ptr + ptr
-  if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
+  if (is_pointable_type(lhs->type) && is_pointable_type(rhs->type)) {
     error_token(token, "invalid operands");
   }
 
   // num + num
-  if (is_numeric(lhs->type) && is_numeric(rhs->type)) {
+  if (is_numeric_type(lhs->type) && is_numeric_type(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->token = token;
@@ -925,7 +929,7 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
   }
 
   // ptr + num
-  if (is_pointable(lhs->type) && is_integer(rhs->type)) {
+  if (is_pointable_type(lhs->type) && is_int_type(rhs->type)) {
     rhs = new_mul_node(rhs->token, rhs, new_long_node(rhs->token, lhs->type->base->size));
     Node* add = new_binary_node(ND_ADD, lhs, rhs);
     add->token = token;
@@ -943,12 +947,12 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
 
 static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   // num - ptr
-  if (is_integer(lhs->type) && is_pointable(rhs->type)) {
+  if (is_int_type(lhs->type) && is_pointable_type(rhs->type)) {
     error_token(token, "invalid operands");
   }
 
   // ptr - ptr
-  if (is_pointable(lhs->type) && is_pointable(rhs->type)) {
+  if (is_pointable_type(lhs->type) && is_pointable_type(rhs->type)) {
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->token = token;
     sub->type = new_long_type();
@@ -956,7 +960,7 @@ static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   }
 
   // num - num
-  if (is_numeric(lhs->type) && is_numeric(rhs->type)) {
+  if (is_numeric_type(lhs->type) && is_numeric_type(rhs->type)) {
     usual_arith_convert(&lhs, &rhs);
     Node* sub = new_binary_node(ND_SUB, lhs, rhs);
     sub->token = token;
@@ -1265,6 +1269,13 @@ static void func(Token** tokens) {
 
   enter_scope();
 
+  // The return values whose types are struct or union and whose size are larger than 16 bytes
+  // are returned by the callee's filling those values via the pointers to those values,
+  // so assign the stack of the callee for the pointers.
+  if (is_composite_type(func->type->return_type) && func->type->return_type->size > 16) {
+    func->ptr_to_return_val = new_var_node(*tokens, create_anon_lvar_obj(new_ptr_type(func->type->return_type)));
+  }
+
   func->params = new_func_params(func->type->params);
 
   if (func->type->is_variadic) {
@@ -1346,7 +1357,7 @@ static Relocation* write_gvar_data(char* data, int offset, Initer* init, Relocat
         return reloc;
       }
 
-      if (is_float(init->type)) {
+      if (is_float_type(init->type)) {
         write_float_data(data + offset, init->type, eval_float(init->expr));
         return reloc;
       }
@@ -1656,10 +1667,14 @@ static Node* return_stmt(Token** tokens) {
     return node;
   }
 
-  Node* node = new_unary_node(ND_RETURN, new_cast_node(current_func->type->return_type, *tokens, expr(tokens)));
-  node->token = start;
-
+  Node* lhs = expr(tokens);
+  if (!is_composite_type(lhs->type)) {
+    lhs = new_cast_node(current_func->type->return_type, *tokens, lhs);
+  }
   expect_token(tokens, ";");
+
+  Node* node = new_unary_node(ND_RETURN, lhs);
+  node->token = start;
 
   return node;
 }
@@ -2174,10 +2189,10 @@ static Node* unary(Token** tokens) {
     Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
 
-    if (is_integer(type) || type->kind == TY_PTR) {
+    if (is_int_type(type) || type->kind == TY_PTR) {
       return new_int_node(start, 0);
     }
-    if (is_float(type)) {
+    if (is_float_type(type)) {
       return new_int_node(start, 1);
     }
     return new_int_node(start, 2);
@@ -2325,8 +2340,8 @@ static Node* primary(Token** tokens) {
   }
 
   if ((*tokens)->kind == TK_NUM) {
-    Node* node = is_float((*tokens)->type) ? new_float_node(*tokens, (*tokens)->float_val)
-                                           : new_int_node(*tokens, (*tokens)->int_val);
+    Node* node = is_float_type((*tokens)->type) ? new_float_node(*tokens, (*tokens)->float_val)
+                                                : new_int_node(*tokens, (*tokens)->int_val);
     *tokens = (*tokens)->next;
     return node;
   }
@@ -2365,7 +2380,7 @@ static int64_t eval(Node* node) {
 }
 
 static double eval_float(Node* node) {
-  if (is_integer(node->type)) {
+  if (is_int_type(node->type)) {
     return node->type->is_unsigned ? (unsigned long)eval(node) : eval(node);
   }
 
@@ -2383,7 +2398,7 @@ static double eval_float(Node* node) {
     case ND_DIV:
       return eval_float(node->lhs) / eval_float(node->rhs);
     case ND_CAST:
-      return is_float(node->lhs->type) ? eval_float(node->lhs) : eval(node->lhs);
+      return is_float_type(node->lhs->type) ? eval_float(node->lhs) : eval(node->lhs);
     case ND_NEG:
       return -eval_float(node->lhs);
     case ND_NUM:
@@ -2395,7 +2410,7 @@ static double eval_float(Node* node) {
 }
 
 static int64_t eval_reloc(Node* node, char** label) {
-  if (is_float(node->type)) {
+  if (is_float_type(node->type)) {
     return eval_float(node);
   }
 
@@ -2453,7 +2468,7 @@ static int64_t eval_reloc(Node* node, char** label) {
       return eval(node->lhs) % eval(node->rhs);
     case ND_CAST: {
       int64_t val = eval_reloc(node->lhs, label);
-      if (!is_integer(node->type)) {
+      if (!is_int_type(node->type)) {
         return val;
       }
       switch (node->type->size) {
@@ -2518,7 +2533,7 @@ static Initer* new_initer(Type* type) {
   Initer* init = calloc(1, sizeof(Initer));
   init->type = type;
 
-  if (init->type->kind == TY_STRUCT || init->type->kind == TY_UNION) {
+  if (is_composite_type(init->type)) {
     int mems = 0;
     for (Member* mem = init->type->members; mem; mem = mem->next) {
       mems++;

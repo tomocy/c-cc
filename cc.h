@@ -232,6 +232,7 @@ struct Obj {
   bool is_static;
   bool is_definition;
 
+  Node* ptr_to_return_val;
   Node* params;
   Obj* lvars;
   Obj* va_area;
@@ -292,8 +293,9 @@ Type* new_ulong_type();
 Type* new_float_type();
 Type* new_double_type();
 
-bool is_integer(Type* type);
-bool is_float(Type* type);
+bool is_int_type(Type* type);
+bool is_float_type(Type* type);
+bool is_composite_type(Type* type);
 
 void error_token(Token* token, char* fmt, ...);
 void warn_token(Token* token, char* fmt, ...);

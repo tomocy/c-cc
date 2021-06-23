@@ -5,6 +5,7 @@ static FILE* output_file;
 static int depth_outside_frame = 0;
 static int depth = 0;
 
+static Obj* current_func;
 static int func_cnt = 0;
 
 #define MAX_FLOAT_REG_ARGS 8
@@ -190,51 +191,6 @@ static void push_composite_type(char* reg, Type* type) {
   }
 }
 
-static void push_arg(Node* arg) {
-  gen_expr(arg);
-  switch (arg->type->kind) {
-    case TY_STRUCT:
-    case TY_UNION:
-      push_composite_type("rax", arg->type);
-      break;
-    case TY_FLOAT:
-    case TY_DOUBLE:
-      pushf("xmm0");
-      break;
-    default:
-      push("rax");
-      break;
-  }
-}
-
-static void push_passed_by_stack_args(Node* args) {
-  if (!args) {
-    return;
-  }
-
-  push_passed_by_stack_args(args->next);
-
-  if (!args->is_passed_by_stack) {
-    return;
-  }
-
-  push_arg(args);
-}
-
-static void push_passed_by_reg_args(Node* args) {
-  if (!args) {
-    return;
-  }
-
-  push_passed_by_reg_args(args->next);
-
-  if (args->is_passed_by_stack) {
-    return;
-  }
-
-  push_arg(args);
-}
-
 static bool have_float_data_at(Type* type, int low, int high, int offset) {
   switch (type->kind) {
     case TY_STRUCT:
@@ -253,88 +209,12 @@ static bool have_float_data_at(Type* type, int low, int high, int offset) {
       }
       return true;
     default:
-      return is_float(type) || offset < low || offset >= high;
+      return is_float_type(type) || offset < low || offset >= high;
   }
 }
 
 static bool have_float_data(Type* type, int low, int high) {
   return have_float_data_at(type, low, high, 0);
-}
-
-static int push_args(Node* node) {
-  int stacked = 0;
-  int int_cnt = 0;
-  int float_cnt = 0;
-
-  // When the return values of function calls are struct or union and their size are larger than
-  // 16 bytes, the pointers to the values are passed as if they are the first arguments
-  // for the callee to fill the return values to the pointers.
-  if (node->return_val && node->type->size > 16) {
-    int_cnt++;
-  }
-
-  for (Node* arg = node->args; arg; arg = arg->next) {
-    switch (arg->type->kind) {
-      case TY_STRUCT:
-      case TY_UNION:
-        // Values whose types are struct or union are passed by registers
-        // if their size is less than or equal to 16 bytes.
-        // The size of a piece of stack is 8 bytes, so use registers up to 2.
-        // Pass the values by floating point registers (XMM) when only floating point data reside
-        // at their first or last 8 bytes, otherwise pass them by general-purpose registers
-        if (arg->type->size > 16) {
-          arg->is_passed_by_stack = true;
-          stacked += align(arg->type->size, 8) / 8;
-          continue;
-        }
-
-        bool former_float = have_float_data(arg->type, 0, 8);
-        bool latter_float = have_float_data(arg->type, 8, 16);
-        if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
-            || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
-          arg->is_passed_by_stack = true;
-          stacked += align(arg->type->size, 8) / 8;
-          continue;
-        }
-
-        int_cnt += !former_float + !latter_float;
-        float_cnt += former_float + latter_float;
-        continue;
-      case TY_FLOAT:
-      case TY_DOUBLE:
-        if (++float_cnt > MAX_FLOAT_REG_ARGS) {
-          arg->is_passed_by_stack = true;
-          stacked++;
-        }
-        continue;
-      default:
-        if (++int_cnt > MAX_INT_REG_ARGS) {
-          arg->is_passed_by_stack = true;
-          stacked++;
-        }
-    }
-  }
-
-  // A value which is pushed in stack takes 8 bytes,
-  // which means that the stack pointer is aligned 16 bytes boundary
-  // when the depth is even
-  if ((depth + stacked) % 2 == 1) {
-    genln("  sub rsp, 8");
-    stacked++;
-    depth++;
-  }
-
-  // Push passed-by-stack args first, then
-  // push passed-by-register args
-  // in order not to pop passed-by-stack args
-  push_passed_by_stack_args(node->args);
-  push_passed_by_reg_args(node->args);
-  if (node->return_val && node->type->size > 16) {
-    gen_addr(node->return_val);
-    push("rax");
-  }
-
-  return stacked;
 }
 
 static int count_label(void) {
@@ -353,7 +233,7 @@ static void cmp_zero(Type* type) {
       genln("  ucomisd xmm0, xmm1");
       return;
     default:
-      if (is_integer(type) && type->size <= 4) {
+      if (is_int_type(type) && type->size <= 4) {
         genln("  cmp eax, 0");
         return;
       }
@@ -489,7 +369,7 @@ static void gen_neg(Node* node) {
   }
 }
 
-static void store_return_val(Node* node) {
+static void store_returned_by_reg_val(Node* node) {
   int int_cnt = 0;
   int float_cnt = 0;
 
@@ -532,6 +412,127 @@ static void store_return_val(Node* node) {
       }
     }
   }
+}
+
+static void push_arg(Node* arg) {
+  gen_expr(arg);
+  switch (arg->type->kind) {
+    case TY_STRUCT:
+    case TY_UNION:
+      push_composite_type("rax", arg->type);
+      break;
+    case TY_FLOAT:
+    case TY_DOUBLE:
+      pushf("xmm0");
+      break;
+    default:
+      push("rax");
+      break;
+  }
+}
+
+static void push_passed_by_stack_args(Node* args) {
+  if (!args) {
+    return;
+  }
+
+  push_passed_by_stack_args(args->next);
+
+  if (!args->is_passed_by_stack) {
+    return;
+  }
+
+  push_arg(args);
+}
+
+static void push_passed_by_reg_args(Node* args) {
+  if (!args) {
+    return;
+  }
+
+  push_passed_by_reg_args(args->next);
+
+  if (args->is_passed_by_stack) {
+    return;
+  }
+
+  push_arg(args);
+}
+
+static int push_args(Node* node) {
+  int stacked = 0;
+  int int_cnt = 0;
+  int float_cnt = 0;
+
+  // When the return values of function calls are struct or union and their size are larger than
+  // 16 bytes, the pointers to the values are passed as if they are the first arguments
+  // for the callee to fill the return values to the pointers.
+  if (node->return_val && node->type->size > 16) {
+    int_cnt++;
+  }
+
+  for (Node* arg = node->args; arg; arg = arg->next) {
+    switch (arg->type->kind) {
+      case TY_STRUCT:
+      case TY_UNION:
+        // Values whose types are struct or union are passed by registers
+        // if their size is less than or equal to 16 bytes.
+        // The size of a piece of stack is 8 bytes, so use registers up to 2.
+        // Pass the values by floating point registers (XMM) when only floating point data reside
+        // at their first or last 8 bytes, otherwise pass them by general-purpose registers
+        if (arg->type->size > 16) {
+          arg->is_passed_by_stack = true;
+          stacked += align(arg->type->size, 8) / 8;
+          continue;
+        }
+
+        bool former_float = have_float_data(arg->type, 0, 8);
+        bool latter_float = have_float_data(arg->type, 8, 16);
+        if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+            || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
+          arg->is_passed_by_stack = true;
+          stacked += align(arg->type->size, 8) / 8;
+          continue;
+        }
+
+        int_cnt += !former_float + !latter_float;
+        float_cnt += former_float + latter_float;
+        continue;
+      case TY_FLOAT:
+      case TY_DOUBLE:
+        if (++float_cnt > MAX_FLOAT_REG_ARGS) {
+          arg->is_passed_by_stack = true;
+          stacked++;
+        }
+        continue;
+      default:
+        if (++int_cnt > MAX_INT_REG_ARGS) {
+          arg->is_passed_by_stack = true;
+          stacked++;
+        }
+    }
+  }
+
+  // A value which is pushed in stack takes 8 bytes,
+  // which means that the stack pointer is aligned 16 bytes boundary
+  // when the depth is even
+  if ((depth + stacked) % 2 == 1) {
+    genln("  sub rsp, 8");
+    stacked++;
+    depth++;
+  }
+
+  // Push passed-by-stack args first, then
+  // push passed-by-register args
+  // in order not to pop passed-by-stack args
+  push_passed_by_stack_args(node->args);
+  push_passed_by_reg_args(node->args);
+  if (node->return_val && node->type->size > 16) {
+    gen_addr(node->return_val);
+    push("rax");
+  }
+
+  return stacked;
 }
 
 static void gen_funccall(Node* node) {
@@ -625,7 +626,7 @@ static void gen_funccall(Node* node) {
   // less than or equal to 16 bytes are returned by up to 2 registers.
   // So store them to the stack of the caller assigned for the return values.
   if (node->return_val && node->type->size <= 16) {
-    store_return_val(node->return_val);
+    store_returned_by_reg_val(node->return_val);
     gen_addr(node->return_val);
   }
 }
@@ -761,7 +762,7 @@ static void gen_float_bin_expr(Node* node) {
 }
 
 static void gen_bin_expr(Node* node) {
-  if (is_float(node->lhs->type)) {
+  if (is_float_type(node->lhs->type)) {
     gen_float_bin_expr(node);
     return;
   }
@@ -1037,6 +1038,69 @@ static void gen_for(Node* node) {
   genln("%s:", node->break_label_id);
 }
 
+static void return_val_via_regs(Node* node) {
+  int int_cnt = 0;
+  int float_cnt = 0;
+
+  genln("  mov rdi, rax");
+
+  int size = node->type->size <= 8 ? node->type->size : 8;
+  if (have_float_data(node->type, 0, 8)) {
+    switch (size) {
+      case 4:
+        genln("  movss xmm0, [rdi]");
+        break;
+      case 8:
+        genln("  movsd xmm0, [rdi]");
+        break;
+    }
+    float_cnt++;
+  } else {
+    for (int i = size - 1; i >= 0; i--) {
+      genln("  shl rax, 8");
+      genln("  mov al, %d[rdi]", i);
+    }
+    int_cnt++;
+  }
+
+  if (node->type->size > 8) {
+    size = node->type->size - 8;
+    if (have_float_data(node->type, 8, 16)) {
+      switch (size) {
+        case 4:
+          genln("  movss xmm%d, 8[rdi]", float_cnt);
+          break;
+        case 8:
+          genln("  movsd xmm%d, 8[rdi]", float_cnt);
+          break;
+      }
+    } else {
+      char* reg1 = int_cnt == 0 ? "al" : "dl";
+      char* reg2 = int_cnt == 0 ? "rax" : "rdx";
+      for (int i = size - 1; i >= 0; i--) {
+        genln("  shl %s, 8", reg2);
+        genln("  mov %s, %d[rdi]", reg1, 8 + i);
+      }
+    }
+  }
+}
+
+static void gen_return(Node* node) {
+  if (node->lhs) {
+    gen_expr(node->lhs);
+
+    if (is_composite_type(node->lhs->type)) {
+      if (node->lhs->type->size > 16) {
+        genln("  mov [rbp - %d], rax", current_func->ptr_to_return_val->obj->offset);
+      } else {
+        return_val_via_regs(node->lhs);
+      }
+    }
+  }
+
+  genln("  jmp .Lreturn%d", func_cnt);
+}
+
 static void gen_stmt(Node* node) {
   genln("  .loc %d %d", node->token->file->index, node->token->line);
 
@@ -1060,10 +1124,7 @@ static void gen_stmt(Node* node) {
       gen_for(node);
       return;
     case ND_RETURN:
-      if (node->lhs) {
-        gen_expr(node->lhs);
-      }
-      genln("  jmp .Lreturn%d", func_cnt);
+      gen_return(node);
       return;
     case ND_LABEL:
       genln("%s:", node->label_id);
@@ -1127,7 +1188,7 @@ static void store_va_args(Obj* func) {
   int int_cnt = 0;
   int float_cnt = 0;
   for (Node* param = func->params; param; param = param->next) {
-    if (is_float(param->type)) {
+    if (is_float_type(param->type)) {
       float_cnt++;
     } else {
       int_cnt++;
@@ -1234,6 +1295,12 @@ static void store_float_arg(int size, int offset, int n) {
 static void store_args(Obj* func) {
   int int_cnt = 0;
   int float_cnt = 0;
+
+  if (func->ptr_to_return_val) {
+    gen_addr(func->ptr_to_return_val);
+    store_int_arg(func->ptr_to_return_val->type->size, 0, int_cnt++);
+  }
+
   for (Node* param = func->params; param; param = param->next) {
     if (param->obj->offset < 0) {
       continue;
@@ -1277,6 +1344,8 @@ static void gen_text(TopLevelObj* codes) {
       continue;
     }
 
+    current_func = func->obj;
+
     genln(".text");
     if (func->obj->is_static) {
       genln(".local %s", func->obj->name);
@@ -1303,6 +1372,8 @@ static void gen_text(TopLevelObj* codes) {
     genln("  mov rsp, rbp");
     pop_outside_frame("rbp");
     genln("  ret");
+
+    current_func = NULL;
   }
 }
 
