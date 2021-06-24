@@ -1301,30 +1301,44 @@ static void func(Token** tokens) {
   current_func = NULL;
 }
 
-static void write_int_data(char* data, int size, int64_t val) {
+// NOLINTNEXTLINE
+static uint64_t read_uint_data(char* loc, int size) {
   switch (size) {
     case 1:
-      *data = val;
+      return *loc;
+    case 2:
+      return *(uint16_t*)loc;
+    case 4:
+      return *(uint32_t*)loc;
+    default:
+      return *(uint64_t*)loc;
+  }
+}
+
+static void write_int_data(char* loc, int size, uint64_t val) {
+  switch (size) {
+    case 1:
+      *loc = val;
       return;
     case 2:
-      *(uint16_t*)data = val;
+      *(uint16_t*)loc = val;
       return;
     case 4:
-      *(uint32_t*)data = val;
+      *(uint32_t*)loc = val;
       return;
     default:
-      *(uint64_t*)data = val;
+      *(uint64_t*)loc = val;
       return;
   }
 }
 
-static void write_float_data(char* data, Type* type, double val) {
+static void write_float_data(char* loc, Type* type, double val) {
   switch (type->kind) {
     case TY_FLOAT:
-      *(float*)data = val;
+      *(float*)loc = val;
       return;
     default:
-      *(double*)data = val;
+      *(double*)loc = val;
       return;
   }
 }
@@ -1342,7 +1356,22 @@ static Relocation* write_gvar_data(char* data, int offset, Initer* init, Relocat
     case TY_STRUCT: {
       int i = 0;
       for (Member* mem = init->type->members; mem; mem = mem->next) {
-        reloc = write_gvar_data(data, offset + mem->offset, init->children[i], reloc);
+        if (mem->is_bitfield) {
+          Node* expr = init->children[i]->expr;
+          if (!expr) {
+            break;
+          }
+
+          char* loc = data + offset + mem->offset;
+          uint64_t cur = read_uint_data(loc, mem->type->size);
+          uint64_t val = eval(expr);
+          uint64_t mask = (1L << mem->bit_width) - 1;
+          val = cur | (val & mask) << mem->bit_offset;
+          write_int_data(loc, mem->type->size, val);
+        } else {
+          reloc = write_gvar_data(data, offset + mem->offset, init->children[i], reloc);
+        }
+
         i++;
       }
       return reloc;
