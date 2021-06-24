@@ -2190,7 +2190,11 @@ static Node* unary(Token** tokens) {
   }
 
   if (consume_token(tokens, "&")) {
-    return new_addr_node(start, cast(tokens));
+    Node* lhs = cast(tokens);
+    if (lhs->kind == ND_MEMBER && lhs->mem->is_bitfield) {
+      error_token(start, "cannot take the address of bitfield");
+    }
+    return new_addr_node(start, lhs);
   }
 
   if (consume_token(tokens, "*")) {
