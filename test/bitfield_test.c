@@ -89,5 +89,20 @@ int main() {
     ++x.c;
   }));
 
+  ASSERT(4, sizeof(struct {
+    int a : 3;
+    int b : 1;
+    int c : 5;
+  }));
+  ASSERT(8, sizeof(struct {
+    int a : 3;
+    int : 0;
+    int c : 5;
+  }));
+  ASSERT(4, sizeof(struct {
+    int a : 3;
+    int : 0;
+  }));
+
   ok();
 }

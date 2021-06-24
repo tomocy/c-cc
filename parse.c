@@ -3029,13 +3029,18 @@ static Type* struct_decl(Token** tokens) {
 
     if (mem->is_bitfield) {
       int size_in_bits = mem->type->size * 8;
-      if (bits / size_in_bits != (bits + mem->bit_width - 1) / size_in_bits) {
-        bits = align_up(bits, size_in_bits);
-      }
 
-      mem->offset = align_down(bits / 8, mem->type->size);
-      mem->bit_offset = bits % size_in_bits;
-      bits += mem->bit_width;
+      if (mem->bit_width == 0) {
+        bits = align_up(bits, size_in_bits);
+      } else {
+        if (bits / size_in_bits != (bits + mem->bit_width - 1) / size_in_bits) {
+          bits = align_up(bits, size_in_bits);
+        }
+
+        mem->offset = align_down(bits / 8, mem->type->size);
+        mem->bit_offset = bits % size_in_bits;
+        bits += mem->bit_width;
+      }
     } else {
       bits = align_up(bits, mem->alignment * 8);
       mem->offset = bits / 8;
@@ -3139,9 +3144,6 @@ static Member* members(Token** tokens, bool* is_flexible) {
       is_first = false;
 
       Type* type = declarator(tokens, spec);
-      if (!type->name) {
-        error_token(type->ident, "member name omitted");
-      }
 
       Member* mem = new_member(type);
       if (attr.alignment) {
@@ -3151,6 +3153,9 @@ static Member* members(Token** tokens, bool* is_flexible) {
       if (consume_token(tokens, ":")) {
         mem->is_bitfield = true;
         mem->bit_width = const_expr(tokens);
+      } else if (!type->name) {
+        // Members which are not bitfields cannot omit its name.
+        error_token(type->ident, "member name omitted");
       }
 
       cur = cur->next = mem;
