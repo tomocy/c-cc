@@ -57,7 +57,7 @@ static Macro* find_macro_by_token(Token* token) {
   return find_macro(token->loc, token->len);
 }
 
-static void delete_macro(char* name) {
+void undefine_macro(char* name) {
   Macro head = {};
   Macro* cur = &head;
   for (Macro* macro = macros; macro; macro = macro->next) {
@@ -71,7 +71,7 @@ static void delete_macro(char* name) {
 }
 
 static void add_macro(Macro* macro) {
-  delete_macro(macro->name);
+  undefine_macro(macro->name);
   macro->next = macros;
   macros = macro;
 }
@@ -895,7 +895,7 @@ static Token* undef_dir(Token* token) {
   Token* ident = expect_macro_ident_token(&token);
   char* name = strndup(ident->loc, ident->len);
 
-  delete_macro(name);
+  undefine_macro(name);
 
   return token;
 }

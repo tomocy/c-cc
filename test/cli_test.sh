@@ -174,6 +174,18 @@ if echo "foo" | $CC -E -D foo=bar -o - - | grep -q "bar"; then
 else
   failed "define macro with body"
 fi
+if echo "foo" | $CC -E -D foo=bar -U foo -D foo -o - - | grep -q "1"; then
+  passed "define once undefined macro"
+else
+  failed "define once undefined macro"
+fi
+
+# undefine macro (-U)
+if echo "foo" | $CC -E -D foo -U foo -o - - | grep -q "foo"; then
+  passed "undefine macro"
+else
+  failed "undefine macro"
+fi
 
 # validate unknown argument
 if $CC -unknown 2>&1 | grep -q 'unknown argument: -unknown'; then

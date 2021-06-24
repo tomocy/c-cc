@@ -155,9 +155,20 @@ static Str* parse_args(int argc, char** argv) {
       define_arg_macro(take_arg(&cur, argv[++i]));
       continue;
     }
-    // -I=name=body
+    // -D=name=body
     if (start_with(argv[i], "-D")) {
       define_arg_macro(take_arg(&cur, argv[i] + 2));
+      continue;
+    }
+
+    // -U name=body
+    if (equal_to_str(argv[i], "-U")) {
+      undefine_macro(take_arg(&cur, argv[++i]));
+      continue;
+    }
+    // -U=name=body
+    if (start_with(argv[i], "-U")) {
+      undefine_macro(take_arg(&cur, argv[i] + 2));
       continue;
     }
 
@@ -382,7 +393,7 @@ static int run(Str* original) {
 }
 
 int main(int argc, char** argv) {
-  // -D option can define macros and they take precedence over builtin ones,
+  // -D option and -U can define and undefine macros and they take precedence over builtin ones,
   // so it should be before parsing args to define builtin macros.
   define_builtin_macros();
 
