@@ -363,8 +363,8 @@ static Token* add_hideset(Token* tokens, Str* hideset) {
   return head.next;
 }
 
-static void define_macro(File* file, char* name, char* raw_body) {
-  create_objlike_macro(name, tokenize_as_if(file, raw_body));
+void define_builtin_macro(char* name, char* raw_body) {
+  create_objlike_macro(name, tokenize_as_if(new_file(1, "built-in", ""), raw_body));
 }
 
 static Token* gen_filename(Token* token) {
@@ -381,48 +381,48 @@ static Token* gen_line(Token* token) {
   return tokenize_as_if(token->file, format("%d", token->line));
 }
 
-static void define_macros(File* file) {
-  define_macro(file, "_LP64", "1");
-  define_macro(file, "__C99_MACRO_WITH_VA_ARGS", "1");
-  define_macro(file, "__ELF__", "1");
-  define_macro(file, "__LP64__", "1");
-  define_macro(file, "__SIZEOF_DOUBLE__", "8");
-  define_macro(file, "__SIZEOF_FLOAT__", "4");
-  define_macro(file, "__SIZEOF_INT__", "4");
-  define_macro(file, "__SIZEOF_LONG_DOUBLE__", "8");
-  define_macro(file, "__SIZEOF_LONG_LONG__", "8");
-  define_macro(file, "__SIZEOF_LONG__", "8");
-  define_macro(file, "__SIZEOF_POINTER__", "8");
-  define_macro(file, "__SIZEOF_PTRDIFF_T__", "8");
-  define_macro(file, "__SIZEOF_SHORT__", "2");
-  define_macro(file, "__SIZEOF_SIZE_T__", "8");
-  define_macro(file, "__SIZE_TYPE__", "unsigned long");
-  define_macro(file, "__STDC_HOSTED__", "1");
-  define_macro(file, "__STDC_NO_ATOMICS__", "1");
-  define_macro(file, "__STDC_NO_COMPLEX__", "1");
-  define_macro(file, "__STDC_NO_THREADS__", "1");
-  define_macro(file, "__STDC_NO_VLA__", "1");
-  define_macro(file, "__STDC_VERSION__", "201112L");
-  define_macro(file, "__STDC__", "1");
-  define_macro(file, "__USER_LABEL_PREFIX__", "");
-  define_macro(file, "__alignof__", "_Alignof");
-  define_macro(file, "__amd64", "1");
-  define_macro(file, "__amd64__", "1");
-  define_macro(file, "__chibicc__", "1");
-  define_macro(file, "__const__", "const");
-  define_macro(file, "__gnu_linux__", "1");
-  define_macro(file, "__inline__", "inline");
-  define_macro(file, "__linux", "1");
-  define_macro(file, "__linux__", "1");
-  define_macro(file, "__signed__", "signed");
-  define_macro(file, "__typeof__", "typeof");
-  define_macro(file, "__unix", "1");
-  define_macro(file, "__unix__", "1");
-  define_macro(file, "__volatile__", "volatile");
-  define_macro(file, "__x86_64", "1");
-  define_macro(file, "__x86_64__", "1");
-  define_macro(file, "linux", "1");
-  define_macro(file, "unix", "1");
+void define_builtin_macros(File* file) {
+  define_builtin_macro("_LP64", "1");
+  define_builtin_macro("__C99_MACRO_WITH_VA_ARGS", "1");
+  define_builtin_macro("__ELF__", "1");
+  define_builtin_macro("__LP64__", "1");
+  define_builtin_macro("__SIZEOF_DOUBLE__", "8");
+  define_builtin_macro("__SIZEOF_FLOAT__", "4");
+  define_builtin_macro("__SIZEOF_INT__", "4");
+  define_builtin_macro("__SIZEOF_LONG_DOUBLE__", "8");
+  define_builtin_macro("__SIZEOF_LONG_LONG__", "8");
+  define_builtin_macro("__SIZEOF_LONG__", "8");
+  define_builtin_macro("__SIZEOF_POINTER__", "8");
+  define_builtin_macro("__SIZEOF_PTRDIFF_T__", "8");
+  define_builtin_macro("__SIZEOF_SHORT__", "2");
+  define_builtin_macro("__SIZEOF_SIZE_T__", "8");
+  define_builtin_macro("__SIZE_TYPE__", "unsigned long");
+  define_builtin_macro("__STDC_HOSTED__", "1");
+  define_builtin_macro("__STDC_NO_ATOMICS__", "1");
+  define_builtin_macro("__STDC_NO_COMPLEX__", "1");
+  define_builtin_macro("__STDC_NO_THREADS__", "1");
+  define_builtin_macro("__STDC_NO_VLA__", "1");
+  define_builtin_macro("__STDC_VERSION__", "201112L");
+  define_builtin_macro("__STDC__", "1");
+  define_builtin_macro("__USER_LABEL_PREFIX__", "");
+  define_builtin_macro("__alignof__", "_Alignof");
+  define_builtin_macro("__amd64", "1");
+  define_builtin_macro("__amd64__", "1");
+  define_builtin_macro("__chibicc__", "1");
+  define_builtin_macro("__const__", "const");
+  define_builtin_macro("__gnu_linux__", "1");
+  define_builtin_macro("__inline__", "inline");
+  define_builtin_macro("__linux", "1");
+  define_builtin_macro("__linux__", "1");
+  define_builtin_macro("__signed__", "signed");
+  define_builtin_macro("__typeof__", "typeof");
+  define_builtin_macro("__unix", "1");
+  define_builtin_macro("__unix__", "1");
+  define_builtin_macro("__volatile__", "volatile");
+  define_builtin_macro("__x86_64", "1");
+  define_builtin_macro("__x86_64__", "1");
+  define_builtin_macro("linux", "1");
+  define_builtin_macro("unix", "1");
 
   create_macro_with_generator("__FILE__", gen_filename);
   create_macro_with_generator("__LINE__", gen_line);
@@ -1211,10 +1211,6 @@ static Token* process(Token* tokens) {
 }
 
 Token* preprocess(Token* tokens) {
-  if (tokens) {
-    define_macros(tokens->file);
-  }
-
   tokens = process(tokens);
   if (if_dirs) {
     error_token(if_dirs->token, "unterminated if directive");

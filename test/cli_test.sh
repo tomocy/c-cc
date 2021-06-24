@@ -163,6 +163,18 @@ else
   failed "include path"
 fi
 
+# define macro (-D)
+if echo "foo" | $CC -E -D foo -o - - | grep -q "1"; then
+  passed "define boolean macro"
+else
+  failed "define boolean macro"
+fi
+if echo "foo" | $CC -E -D foo=bar -o - - | grep -q "bar"; then
+  passed "define macro with body"
+else
+  failed "define macro with body"
+fi
+
 # validate unknown argument
 if $CC -unknown 2>&1 | grep -q 'unknown argument: -unknown'; then
   passed 'validate: unknown argument'

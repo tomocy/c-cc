@@ -70,6 +70,15 @@ static char* take_arg(Str** args, char* arg) {
   return arg;
 }
 
+static void define_arg_macro(char* arg) {
+  char* eq = strchr(arg, '=');
+  if (eq) {
+    define_builtin_macro(strndup(arg, eq - arg), eq + 1);
+  } else {
+    define_builtin_macro(strdup(arg), "1");
+  }
+}
+
 static Str* parse_args(int argc, char** argv) {
   Str head = {};
   Str* cur = &head;
@@ -138,6 +147,17 @@ static Str* parse_args(int argc, char** argv) {
     // -I=include_path etc
     if (start_with(argv[i], "-I")) {
       add_include_path(new_str(argv[i] + 2));
+      continue;
+    }
+
+    // -D name=body
+    if (equal_to_str(argv[i], "-D")) {
+      define_arg_macro(take_arg(&cur, argv[++i]));
+      continue;
+    }
+    // -I=name=body
+    if (start_with(argv[i], "-D")) {
+      define_arg_macro(take_arg(&cur, argv[i] + 2));
       continue;
     }
 
@@ -362,6 +382,10 @@ static int run(Str* original) {
 }
 
 int main(int argc, char** argv) {
+  // -D option can define macros and they take precedence over builtin ones,
+  // so it should be before parsing args to define builtin macros.
+  define_builtin_macros();
+
   Str* args = parse_args(argc, argv);
   return !do_exec ? run(args) : exec();
 }

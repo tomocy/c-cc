@@ -319,6 +319,8 @@ bool can_be_keyword(char* c, int len);
 void print_tokens(char* output_filename, Token* tokens);
 
 Token* preprocess(Token* tokens);
+void define_builtin_macros();
+void define_builtin_macro(char* name, char* raw_body);
 
 TopLevelObj* parse(Token* tokens);
 int align(int n, int align);
