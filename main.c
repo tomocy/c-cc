@@ -14,7 +14,6 @@ static bool in_obj;
 static bool in_asm;
 static bool in_c;
 
-static char* self_path = "/proc/self/exe";
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
 
@@ -62,19 +61,25 @@ static void usage(int status) {
   exit(status);
 }
 
-static char* take_arg(char* arg) {
+static char* take_arg(Str** args, char* arg) {
   if (!arg) {
     usage(1);
   }
+
+  *args = (*args)->next = new_str(arg);
   return arg;
 }
 
-static void parse_args(int argc, char** argv) {
-  if (!equal_to_str(argv[0], self_path)) {
-    location = dir(argv[0]);
-  }
+static Str* parse_args(int argc, char** argv) {
+  Str head = {};
+  Str* cur = &head;
+
+  cur = cur->next = new_str(argv[0]);
+  location = dir(argv[0]);
 
   for (int i = 1; i < argc; i++) {
+    cur = cur->next = new_str(argv[i]);
+
     if (equal_to_str(argv[i], "--help")) {
       usage(0);
     }
@@ -86,16 +91,6 @@ static void parse_args(int argc, char** argv) {
 
     if (equal_to_str(argv[i], "-exec")) {
       do_exec = true;
-      continue;
-    }
-
-    if (equal_to_str(argv[i], "-exec/location")) {
-      location = dir(take_arg(argv[++i]));
-      continue;
-    }
-
-    if (equal_to_str(argv[i], "-exec/E")) {
-      in_c = true;
       continue;
     }
 
@@ -126,7 +121,7 @@ static void parse_args(int argc, char** argv) {
 
     // -o output_filename
     if (equal_to_str(argv[i], "-o")) {
-      output_filename = take_arg(argv[++i]);
+      output_filename = take_arg(&cur, argv[++i]);
       continue;
     }
     // -o=output_filename etc
@@ -137,7 +132,7 @@ static void parse_args(int argc, char** argv) {
 
     // -I include_path
     if (equal_to_str(argv[i], "-I")) {
-      add_include_path(new_str(take_arg(argv[++i])));
+      add_include_path(new_str(take_arg(&cur, argv[++i])));
       continue;
     }
     // -I=include_path etc
@@ -152,6 +147,8 @@ static void parse_args(int argc, char** argv) {
 
     add_input_filename(new_str(argv[i]));
   }
+
+  return head.next;
 }
 
 static int run_subprocess(int argc, char** argv) {
@@ -179,18 +176,33 @@ static int run_subprocess(int argc, char** argv) {
   return status == 0 ? 0 : 1;
 }
 
-static int preprocesss(char* input, char* output) {
+static int preprocesss(Str* original, char* input, char* output) {
   Str head = {};
   Str* cur = &head;
-  cur = cur->next = new_str(self_path);
-  for (Str* path = include_paths; path; path = path->next) {
-    cur = cur->next = new_str("-I");
-    cur = cur->next = new_str(path->data);
+  for (Str* arg = original; arg; arg = arg->next) {
+    cur = cur->next = arg;
+  }
+  cur = cur->next = new_str("-E");
+  cur = cur->next = new_str("-exec");
+  cur = cur->next = new_str("-exec/input");
+  cur = cur->next = new_str(input);
+  if (output) {
+    cur = cur->next = new_str("-exec/output");
+    cur = cur->next = new_str(output);
+  }
+
+  int argc = 0;
+  char** args = new_args(&argc, head.next);
+  return run_subprocess(argc, args);
+}
+
+static int compile(Str* original, char* input, char* output) {
+  Str head = {};
+  Str* cur = &head;
+  for (Str* arg = original; arg; arg = arg->next) {
+    cur = cur->next = arg;
   }
   cur = cur->next = new_str("-exec");
-  cur = cur->next = new_str("-exec/location");
-  cur = cur->next = new_str(location);
-  cur = cur->next = new_str("-exec/E");
   cur = cur->next = new_str("-exec/input");
   cur = cur->next = new_str(input);
   cur = cur->next = new_str("-exec/output");
@@ -201,30 +213,9 @@ static int preprocesss(char* input, char* output) {
   return run_subprocess(argc, args);
 }
 
-static int compile(char* input, char* output) {
-  Str head = {};
-  Str* cur = &head;
-  cur = cur->next = new_str(self_path);
-  for (Str* path = include_paths; path; path = path->next) {
-    cur = cur->next = new_str("-I");
-    cur = cur->next = new_str(path->data);
-  }
-  cur = cur->next = new_str("-exec");
-  cur = cur->next = new_str("-exec/location");
-  cur = cur->next = new_str(location);
-  cur = cur->next = new_str("-exec/input");
-  cur = cur->next = new_str(input);
-  cur = cur->next = new_str("-exec/output");
-  cur = cur->next = new_str(output);
-
-  int argc = 0;
-  char** args = new_args(&argc, head.next);
-  return run_subprocess(argc, args);
-}
-
-static int assemble(char* input, char* output) {
+static int assemble(Str* original, char* input, char* output) {
   char* tmp_fname = create_tmp_file();
-  int status = compile(input, tmp_fname);
+  int status = compile(original, input, tmp_fname);
   if (status != 0) {
     return status;
   }
@@ -233,12 +224,12 @@ static int assemble(char* input, char* output) {
   return run_subprocess(5, args);
 }
 
-static int linkk(Str* inputs, char* output) {
+static int linkk(Str* original, Str* inputs, char* output) {
   Str head_link_inputs = {};
   Str* link_inputs = &head_link_inputs;
   for (Str* input = inputs; input; input = input->next) {
     char* tmp_fname = create_tmp_file();
-    int status = assemble(input->data, tmp_fname);
+    int status = assemble(original, input->data, tmp_fname);
     if (status != 0) {
       return status;
     }
@@ -317,7 +308,7 @@ static int exec(void) {
   return 0;
 }
 
-static int run(int argc, char** argv) {
+static int run(Str* original) {
   if (!input_filenames) {
     error("no input files");
   }
@@ -338,7 +329,7 @@ static int run(int argc, char** argv) {
 
     // preprocess, compile and assemble
     if (in_obj) {
-      int status = assemble(input->data, output);
+      int status = assemble(original, input->data, output);
       if (status != 0) {
         return status;
       }
@@ -347,7 +338,7 @@ static int run(int argc, char** argv) {
 
     // preprocess and compile
     if (in_asm) {
-      int status = compile(input->data, output);
+      int status = compile(original, input->data, output);
       if (status != 0) {
         return status;
       }
@@ -355,7 +346,7 @@ static int run(int argc, char** argv) {
     }
 
     if (in_c) {
-      int status = preprocesss(input->data, output_filename ? output_filename : NULL);
+      int status = preprocesss(original, input->data, output_filename ? output_filename : NULL);
       if (status != 0) {
         return status;
       }
@@ -366,10 +357,11 @@ static int run(int argc, char** argv) {
     link_inputs = link_inputs->next = new_str(input->data);
   }
 
-  return head_link_inputs.next ? linkk(head_link_inputs.next, output_filename ? output_filename : "a.out") : 0;
+  return head_link_inputs.next ? linkk(original, head_link_inputs.next, output_filename ? output_filename : "a.out")
+                               : 0;
 }
 
 int main(int argc, char** argv) {
-  parse_args(argc, argv);
-  return !do_exec ? run(argc, argv) : exec();
+  Str* args = parse_args(argc, argv);
+  return !do_exec ? run(args) : exec();
 }
