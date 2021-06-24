@@ -1092,6 +1092,46 @@ static Node* new_assign_node(Token* token, Node* lhs, Node* rhs) {
   return assign;
 }
 
+static Node* new_shorthand_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
+  Node* node = NULL;
+  switch (op) {
+    case ND_BITOR:
+      node = new_bitor_node(token, lhs, rhs);
+      break;
+    case ND_BITXOR:
+      node = new_bitxor_node(token, lhs, rhs);
+      break;
+    case ND_BITAND:
+      node = new_bitand_node(token, lhs, rhs);
+      break;
+    case ND_LSHIFT:
+      node = new_lshift_node(token, lhs, rhs);
+      break;
+    case ND_RSHIFT:
+      node = new_rshift_node(token, lhs, rhs);
+      break;
+    case ND_ADD:
+      node = new_add_node(token, lhs, rhs);
+      break;
+    case ND_SUB:
+      node = new_sub_node(token, lhs, rhs);
+      break;
+    case ND_MUL:
+      node = new_mul_node(token, lhs, rhs);
+      break;
+    case ND_DIV:
+      node = new_div_node(token, lhs, rhs);
+      break;
+    case ND_MOD:
+      node = new_mod_node(token, lhs, rhs);
+      break;
+    default:
+      error_token(token, "invalid operation");
+  }
+
+  return new_assign_node(lhs->token, lhs, node);
+}
+
 static Node* new_comma_node(Token* token, Node* lhs, Node* rhs) {
   Node* comma = new_binary_node(ND_COMMA, lhs, rhs);
   comma->token = token;
@@ -1841,49 +1881,29 @@ static Node* expr(Token** tokens) {
 }
 
 static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
-  Obj* tmp_var = create_anon_lvar_obj(new_ptr_type(lhs->type));
+  Node* tmp_assign = NULL;
+  Node* assign = NULL;
 
-  Node* tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs));
+  // When the assignee is the member of a composite type,
+  // convert A.x op= B to tmp = &A, (*tmp).x = (*tmp).x op B
+  // as it is not possible to reference the member if it is bitfield.
+  if (lhs->kind == ND_MEMBER) {
+    Obj* tmp_var = create_anon_lvar_obj(new_ptr_type(lhs->lhs->type));
+    tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs->lhs));
 
-  Node* tmp_deref = new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var));
+    Node* tmp_member
+      = new_member_node(lhs->token, new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var)), lhs->mem);
 
-  Node* arith_op = NULL;
-  switch (op) {
-    case ND_BITOR:
-      arith_op = new_bitor_node(token, tmp_deref, rhs);
-      break;
-    case ND_BITXOR:
-      arith_op = new_bitxor_node(token, tmp_deref, rhs);
-      break;
-    case ND_BITAND:
-      arith_op = new_bitand_node(token, tmp_deref, rhs);
-      break;
-    case ND_LSHIFT:
-      arith_op = new_lshift_node(token, tmp_deref, rhs);
-      break;
-    case ND_RSHIFT:
-      arith_op = new_rshift_node(token, tmp_deref, rhs);
-      break;
-    case ND_ADD:
-      arith_op = new_add_node(token, tmp_deref, rhs);
-      break;
-    case ND_SUB:
-      arith_op = new_sub_node(token, tmp_deref, rhs);
-      break;
-    case ND_MUL:
-      arith_op = new_mul_node(token, tmp_deref, rhs);
-      break;
-    case ND_DIV:
-      arith_op = new_div_node(token, tmp_deref, rhs);
-      break;
-    case ND_MOD:
-      arith_op = new_mod_node(token, tmp_deref, rhs);
-      break;
-    default:
-      error_token(token, "invalid operation");
+    assign = new_shorthand_assign_node(lhs->token, op, tmp_member, rhs);
+  } else {
+    // Otherwise, convert A op= B to tmp = &A, *tmp = *tmp op B.
+    Obj* tmp_var = create_anon_lvar_obj(new_ptr_type(lhs->type));
+    tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs));
+
+    Node* tmp_deref = new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var));
+
+    assign = new_shorthand_assign_node(lhs->token, op, tmp_deref, rhs);
   }
-
-  Node* assign = new_assign_node(lhs->token, new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var)), arith_op);
 
   return new_comma_node(token, tmp_assign, assign);
 }

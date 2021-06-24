@@ -274,53 +274,7 @@ static void load(Node* node) {
   }
 }
 
-static void cast(Type* to, Type* from) {
-  switch (to->kind) {
-    case TY_VOID:
-      return;
-    case TY_BOOL:
-      cmp_zero(from);
-      genln("  setne al");
-      genln("  movzx eax, al");
-      return;
-    default: {
-      int from_id = get_type_id(from);
-      int to_id = get_type_id(to);
-      char* ins = cast_table[from_id][to_id];
-      if (ins) {
-        genln("  %s", ins);
-      }
-    }
-  }
-}
-
-static void gen_assign(Node* node) {
-  gen_addr(node->lhs);
-  push("rax");
-  gen_expr(node->rhs);
-
-  // When the assignee (node->lhs) is a member of compsite type and bitfield,
-  // calculate the value which should be the result of this assignment in the node->rhs
-  // so that this assign expression can do the assignment of a value of the composite type as normally.
-  if (node->lhs->kind == ND_MEMBER && node->lhs->mem->is_bitfield) {
-    Member* mem = node->lhs->mem;
-
-    // The bitfield value of the member
-    genln("  mov rdi, rax");
-    genln("  and rdi, %ld", (1L << mem->bit_width) - 1);
-    genln("  shl rdi, %d", mem->bit_offset);
-
-    // Get the value of the node->lhs without popping stack.
-    genln("  mov rax, [rsp]");
-    load(node->lhs);
-    // Merge the node->lhs value of the composite type with the bitfield value.
-    int mask = ((1L << mem->bit_width) - 1) << mem->bit_offset;
-    genln("  mov r9, %ld", ~mask);
-    genln("  and rax, r9");
-    genln("  or rax, rdi");
-  }
-
-  pop("rdi");
+static void store(Node* node) {
   switch (node->type->kind) {
     case TY_STRUCT:
     case TY_UNION:
@@ -351,6 +305,63 @@ static void gen_assign(Node* node) {
           return;
       }
   }
+}
+
+static void cast(Type* to, Type* from) {
+  switch (to->kind) {
+    case TY_VOID:
+      return;
+    case TY_BOOL:
+      cmp_zero(from);
+      genln("  setne al");
+      genln("  movzx eax, al");
+      return;
+    default: {
+      int from_id = get_type_id(from);
+      int to_id = get_type_id(to);
+      char* ins = cast_table[from_id][to_id];
+      if (ins) {
+        genln("  %s", ins);
+      }
+    }
+  }
+}
+
+static void gen_assign(Node* node) {
+  gen_addr(node->lhs);
+  push("rax");
+  gen_expr(node->rhs);
+
+  if (node->lhs->kind != ND_MEMBER || !node->lhs->mem->is_bitfield) {
+    pop("rdi");
+    store(node);
+    return;
+  }
+
+  // When the assignee (node->lhs) is the member of a compsite type and bitfield,
+  // calculate the value which should be the result of this assignment in the node->rhs
+  // so that this assign expression can do the assignment of a value of the composite type as normally.
+  Member* mem = node->lhs->mem;
+  genln("  mov r8, rax");  // Keep the node->rhs value as the last expression
+
+  // The bitfield value of the member
+  genln("  mov rdi, rax");
+  genln("  and rdi, %ld", (1L << mem->bit_width) - 1);
+  genln("  shl rdi, %d", mem->bit_offset);
+
+  // Get the value of the node->lhs without popping stack.
+  genln("  mov rax, [rsp]");
+  load(node->lhs);
+  // Merge the node->lhs value of the composite type with the bitfield value.
+  int mask = ((1L << mem->bit_width) - 1) << mem->bit_offset;
+  genln("  mov r9, %ld", ~mask);
+  genln("  and rax, r9");
+  genln("  or rax, rdi");
+
+  pop("rdi");
+  store(node);
+
+  genln("  mov rax, r8");
 }
 
 static void gen_cond(Node* node) {
