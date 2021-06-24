@@ -123,8 +123,12 @@ static char* new_id(void) {
   return name;
 }
 
-int align(int n, int align) {
+int align_up(int n, int align) {
   return (n + align - 1) / align * align;
+}
+
+static int align_down(int n, int align) {
+  return align_up(n - align + 1, align);
 }
 
 static char* renew_label_id(char** current, char** next) {
@@ -183,7 +187,7 @@ static Member* copy_member(Member* src) {
 }
 
 static Type* new_composite_type(TypeKind kind, int size, int alignment, Member* mems) {
-  Type* type = new_type(kind, align(size, alignment), alignment);
+  Type* type = new_type(kind, align_up(size, alignment), alignment);
   type->members = mems;
   return type;
 }
@@ -516,7 +520,7 @@ static void adjust_lvar_obj_offset(Obj* vars, Obj* var, Type* type) {
   // If the type has not been determined yet (type->size < 0),
   // treat its size as 0
   int size = var->type->size >= 0 ? var->type->size : 0;
-  var->offset = align(vars ? vars->offset + size : size, var->alignment);
+  var->offset = align_up(vars ? vars->offset + size : size, var->alignment);
 }
 
 static Obj* create_static_lvar_obj(Type* type, char* name) {
@@ -1290,7 +1294,7 @@ static void func(Token** tokens) {
   leave_scope();
 
   func->lvars = current_lvars;
-  func->stack_size = align(func->lvars ? func->lvars->offset : 0, 16);
+  func->stack_size = align_up(func->lvars ? func->lvars->offset : 0, 16);
 
   current_lvars = NULL;
   resolve_goto_labels();
@@ -2964,7 +2968,7 @@ static Type* struct_decl(Token** tokens) {
 
   bool is_flexible = false;
   Member* mems = members(tokens, &is_flexible);
-  int offset = 0;
+  int bits = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
     if (mem->type->kind == TY_VOID) {
@@ -2974,16 +2978,28 @@ static Type* struct_decl(Token** tokens) {
       error_token(mem->token, "variable has imcomplete type");
     }
 
-    offset = align(offset, mem->alignment);
-    mem->offset = offset;
-    offset += mem->type->size;
+    if (mem->is_bitfield) {
+      int size_in_bits = mem->type->size * 8;
+      if (bits / size_in_bits != (bits + mem->bit_width - 1) / size_in_bits) {
+        bits = align_up(bits, size_in_bits);
+      }
+
+      mem->offset = align_down(bits / 8, mem->type->size);
+      mem->bit_offset = bits % size_in_bits;
+      bits += mem->bit_width;
+    } else {
+      bits = align_up(bits, mem->alignment * 8);
+      mem->offset = bits / 8;
+      bits += mem->type->size * 8;
+    }
 
     if (alignment < mem->alignment) {
       alignment = mem->alignment;
     }
   }
 
-  Type* struc = new_struct_type(offset, alignment, mems);
+  int size = align_up(bits, alignment * 8) / 8;
+  Type* struc = new_struct_type(size, alignment, mems);
   struc->is_flexible = is_flexible;
 
   if (!tag) {
@@ -3081,6 +3097,11 @@ static Member* members(Token** tokens, bool* is_flexible) {
       Member* mem = new_member(type);
       if (attr.alignment) {
         mem->alignment = attr.alignment;
+      }
+
+      if (consume_token(tokens, ":")) {
+        mem->is_bitfield = true;
+        mem->bit_width = const_expr(tokens);
       }
 
       cur = cur->next = mem;

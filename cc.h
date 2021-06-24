@@ -75,6 +75,10 @@ struct Member {
   char* name;
   int offset;
   int alignment;
+
+  bool is_bitfield;
+  int bit_width;
+  int bit_offset;
 };
 
 typedef enum {
@@ -324,7 +328,7 @@ void define_builtin_macro(char* name, char* raw_body);
 void undefine_macro(char* name);
 
 TopLevelObj* parse(Token* tokens);
-int align(int n, int align);
+int align_up(int n, int align);
 int64_t const_expr(Token** tokens);
 
 void gen(char* output_filename, TopLevelObj* codes);

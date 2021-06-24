@@ -181,7 +181,7 @@ static void push_composite_type(char* reg, Type* type) {
     error("expected struct or union");
   }
 
-  int size = align(type->size, 8);
+  int size = align_up(type->size, 8);
   genln("  sub rsp, %d", size);
   depth += size / 8;
 
@@ -298,6 +298,28 @@ static void gen_assign(Node* node) {
   gen_addr(node->lhs);
   push("rax");
   gen_expr(node->rhs);
+
+  // When the assignee (node->lhs) is a member of compsite type and bitfield,
+  // calculate the value which should be the result of this assignment in the node->rhs
+  // so that this assign expression can do the assignment of a value of the composite type as normally.
+  if (node->lhs->kind == ND_MEMBER && node->lhs->mem->is_bitfield) {
+    Member* mem = node->lhs->mem;
+
+    // The bitfield value of the member
+    genln("  mov rdi, rax");
+    genln("  and rdi, %ld", (1L << mem->bit_width) - 1);
+    genln("  shl rdi, %d", mem->bit_offset);
+
+    // Get the value of the node->lhs without popping stack.
+    genln("  mov rax, [rsp]");
+    load(node->lhs);
+    // Merge the node->lhs value of the composite type with the bitfield value.
+    int mask = ((1L << mem->bit_width) - 1) << mem->bit_offset;
+    genln("  mov r9, %ld", ~mask);
+    genln("  and rax, r9");
+    genln("  or rax, rdi");
+  }
+
   pop("rdi");
   switch (node->type->kind) {
     case TY_STRUCT:
@@ -482,7 +504,7 @@ static int push_args(Node* node) {
         // at their first or last 8 bytes, otherwise pass them by general-purpose registers
         if (arg->type->size > 16) {
           arg->is_passed_by_stack = true;
-          stacked += align(arg->type->size, 8) / 8;
+          stacked += align_up(arg->type->size, 8) / 8;
           continue;
         }
 
@@ -491,7 +513,7 @@ static int push_args(Node* node) {
         if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
             || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
           arg->is_passed_by_stack = true;
-          stacked += align(arg->type->size, 8) / 8;
+          stacked += align_up(arg->type->size, 8) / 8;
           continue;
         }
 
@@ -920,9 +942,22 @@ static void gen_expr(Node* node) {
     case ND_FUNC:
     case ND_GVAR:
     case ND_LVAR:
+      gen_addr(node);
+      load(node);
+      return;
     case ND_MEMBER:
       gen_addr(node);
       load(node);
+
+      Member* mem = node->mem;
+      if (mem->is_bitfield) {
+        genln("  shl rax, %d", 64 - mem->bit_offset - mem->bit_width);
+        if (mem->type->is_unsigned) {
+          genln("  shr rax, %d", 64 - mem->bit_width);
+        } else {
+          genln("  sar rax, %d", 64 - mem->bit_width);
+        }
+      }
       return;
     case ND_FUNCCALL:
       gen_funccall(node);
@@ -1261,7 +1296,7 @@ static void assign_passed_by_stack_arg_offsets(Obj* func) {
         break;
     }
 
-    offset = align(offset, 8);
+    offset = align_up(offset, 8);
     param->obj->offset = -offset;
     offset += param->type->size;
   }
