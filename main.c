@@ -172,6 +172,15 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    // Ignore those options for now
+    if (start_with(argv[i], "-O") || start_with(argv[i], "-W") || start_with(argv[i], "-g")
+        || start_with(argv[i], "-std") || start_with(argv[i], "-ffreestanding") || start_with(argv[i], "-fno-builtin")
+        || start_with(argv[i], "-fno-omit-frame-pointer") || start_with(argv[i], "-fno-stack-protector")
+        || start_with(argv[i], "-fno-strict-aliasing") || start_with(argv[i], "-m64")
+        || start_with(argv[i], "-mno-red-zone") || start_with(argv[i], "-w")) {
+      continue;
+    }
+
     if (start_with(argv[i], "-") && !equal_to_str(argv[i], "-")) {
       error("unknown argument: %s", argv[i]);
     }

@@ -187,6 +187,16 @@ else
   failed "undefine macro"
 fi
 
+# ignore options for now
+if echo "int x;" | $CC -E -o /dev/null - \
+  -O -W -g -std=c11 -ffreestanding -fno-builtin \
+  -fno-omit-frame-pointer -fno-stack-protector -fno-strict-aliasing \
+  -m64 -mno-red-zone -w; then
+  passed "ignore options for now"
+else
+  failed "ignore options for now"
+fi
+
 # validate unknown argument
 if $CC -unknown 2>&1 | grep -q 'unknown argument: -unknown'; then
   passed 'validate: unknown argument'
