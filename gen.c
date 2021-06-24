@@ -1433,7 +1433,9 @@ static void assert_depth_offset(char* name, int depth) {
 }
 
 void gen(char* output_filename, TopLevelObj* codes) {
-  output_file = open_output_file(output_filename);
+  char* buf;
+  size_t buf_len = 0;
+  output_file = open_memstream(&buf, &buf_len);
 
   genln(".intel_syntax noprefix");
   for (File* file = files; file; file = file->next) {
@@ -1447,4 +1449,8 @@ void gen(char* output_filename, TopLevelObj* codes) {
 
   assert_depth_offset("depth_outside_frame", depth_outside_frame);
   assert_depth_offset("depth", depth);
+
+  FILE* file = open_output_file(output_filename);
+  fwrite(buf, buf_len, 1, file);
+  fclose(file);
 }
