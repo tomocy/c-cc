@@ -282,12 +282,6 @@ static Token* stringize_tokens(Token* tokens) {
   return tokenize_as_if(tokens->file, quoted);
 }
 
-static Token* concat_tokens(Token* lhs, Token* rhs) {
-  File* file = lhs->file ? lhs->file : rhs->file;
-  char* contents = format("%.*s%.*s", lhs->len, lhs->loc, rhs->len, rhs->loc);
-  return tokenize_as_if(file, contents);
-}
-
 static Token* inherit_token_space(Token* token, Token* src) {
   if (!token) {
     return NULL;
@@ -299,6 +293,12 @@ static Token* inherit_token_space(Token* token, Token* src) {
   token->is_bol = src->is_bol;
   token->has_leading_space = src->has_leading_space;
   return token;
+}
+
+static Token* concat_tokens(Token* lhs, Token* rhs) {
+  File* file = lhs->file ? lhs->file : rhs->file;
+  char* contents = format("%.*s%.*s", lhs->len, lhs->loc, rhs->len, rhs->loc);
+  return inherit_token_space(tokenize_as_if(file, contents), lhs);
 }
 
 static Token* inherit_original_token(Token* token, Token* original) {
@@ -654,6 +654,7 @@ static Token* concat_adjecent_strs(Token* tokens) {
     }
 
     cur = cur->next = copy_token(token);
+    cur->len = not_str->loc - cur->loc;
     cur->str_val = val;
     cur->str_val_len = len;
 
@@ -744,7 +745,7 @@ static Token* concat_funclike_macro_body(Token** tokens, FunclikeMacroArg* args)
     if (arg) {
       if (arg->token) {
         if (cur != &head) {
-          *cur = *concat_tokens(cur, arg->token);
+          *cur = *inherit_token_space(concat_tokens(cur, arg->token), *tokens);
         } else {
           cur = cur->next = copy_token(arg->token);
         }
@@ -780,7 +781,7 @@ static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
         error_token(start, "'#' is not followed by a macro parameter");
       }
 
-      hand_over_tokens(&cur, stringize_tokens(arg->token));
+      hand_over_tokens(&cur, inherit_token_space(stringize_tokens(arg->token), start));
       continue;
     }
 
@@ -814,7 +815,7 @@ static Token* expand_macro(Token* token) {
   token = token->next;
 
   if (macro->gen) {
-    Token* body = macro->gen(ident);
+    Token* body = inherit_original_token(macro->gen(ident), ident);
     body->next = token;
     return body;
   }

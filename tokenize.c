@@ -248,9 +248,12 @@ Token* copy_tokens(Token* src) {
 void print_tokens(char* output_filename, Token* tokens) {
   FILE* file = open_output_file(output_filename);
 
-  for (Token* token = tokens; token; token = token->next) {
-    if (token->line > 1 && token->is_bol) {
-      fprintf(file, "\n");
+  int line = 0;
+  for (Token* token = tokens; token && token->kind != TK_EOF; token = token->next) {
+    if (token->is_bol) {
+      if (line++ >= 1) {
+        fprintf(file, "\n");
+      }
     }
     if (token->has_leading_space) {
       fprintf(file, " ");
