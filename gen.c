@@ -1417,6 +1417,13 @@ static void gen_text(TopLevelObj* codes) {
 
     gen_stmt(func->obj->body);
 
+    // According to C spec, the main function should return 0 though it has no return statement.
+    // The retrun statement jumps to the return label below,
+    // so this instruction does not override the returne value.
+    if (equal_to_str(func->obj->name, "main")) {
+      genln("  mov rax, 0");
+    }
+
     genln(".Lreturn%d:", func_cnt++);
     genln("  mov rsp, rbp");
     pop_outside_frame("rbp");
