@@ -2265,23 +2265,47 @@ static Node* increment(Node* node, int delta) {
   return new_cast_node(node->type, node->token, new_add_node(node->token, inc, new_int_node(node->token, -delta)));
 }
 
+static Member* find_member_from(Member* mems, char* c, int len) {
+  for (Member* mem = mems; mem; mem = mem->next) {
+    if (is_composite_type(mem->type) && !mem->name) {
+      if (find_member_from(mem->type->members, c, len)) {
+        return mem;
+      }
+      continue;
+    }
+
+    if (!equal_to_n_chars(mem->name, c, len)) {
+      continue;
+    }
+
+    return mem;
+  }
+
+  return NULL;
+}
+
 static Node* member(Token** tokens, Token* token, Node* lhs) {
-  if (lhs->type->kind != TY_STRUCT && lhs->type->kind != TY_UNION) {
+  if (!is_composite_type(lhs->type)) {
     error_token(*tokens, "expected a struct or union");
   }
 
   Token* ident = expect_ident_token(tokens);
 
-  for (Member* mem = lhs->type->members; mem; mem = mem->next) {
-    if (!equal_to_n_chars(mem->name, ident->loc, ident->len)) {
-      continue;
+  Member* mems = lhs->type->members;
+  Member* mem = NULL;
+  for (;;) {
+    mem = find_member_from(mems, ident->loc, ident->len);
+    if (!mem) {
+      error_token(*tokens, "no such member");
+    }
+    if (mem->name) {
+      break;
     }
 
-    return new_member_node(token, lhs, mem);
+    mems = mem->type->members;
   }
 
-  error_token(*tokens, "no such member");
-  return NULL;
+  return new_member_node(token, lhs, mem);
 }
 
 static Node* postfix(Token** tokens) {
@@ -3140,6 +3164,15 @@ static Member* members(Token** tokens, bool* is_flexible) {
     VarAttr attr = {};
     Type* spec = decl_specifier(tokens, &attr);
 
+    if (is_composite_type(spec) && consume_token(tokens, ";")) {
+      Member* mem = new_member(spec);
+      if (attr.alignment) {
+        mem->alignment = attr.alignment;
+      }
+      cur = cur->next = mem;
+      continue;
+    }
+
     bool is_first = true;
     while (!consume_token(tokens, ";")) {
       if (!is_first) {
@@ -3157,8 +3190,9 @@ static Member* members(Token** tokens, bool* is_flexible) {
       if (consume_token(tokens, ":")) {
         mem->is_bitfield = true;
         mem->bit_width = const_expr(tokens);
-      } else if (!type->name) {
-        // Members which are not bitfields cannot omit its name.
+      }
+
+      if (!mem->is_bitfield && !type->name) {
         error_token(type->ident, "member name omitted");
       }
 
