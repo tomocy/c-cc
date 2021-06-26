@@ -14,6 +14,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define MAX(x, y) ((x) > (y) ? x : y)
+#define MIN(x, y) ((x) < (y) ? x : y)
+
 typedef struct Str Str;
 typedef struct File File;
 typedef struct Token Token;

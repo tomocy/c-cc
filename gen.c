@@ -406,7 +406,7 @@ static void store_returned_by_reg_val(Node* node) {
   int int_cnt = 0;
   int float_cnt = 0;
 
-  int size = node->type->size <= 8 ? node->type->size : 8;
+  int size = MIN(node->type->size, 8);
   if (have_float_data(node->type, 0, 8)) {
     switch (size) {
       case 4:
@@ -1090,7 +1090,7 @@ static void return_val_via_regs(Node* node) {
 
   genln("  mov rdi, rax");
 
-  int size = node->type->size <= 8 ? node->type->size : 8;
+  int size = MIN(node->type->size, 8);
   if (have_float_data(node->type, 0, 8)) {
     switch (size) {
       case 4:
@@ -1360,7 +1360,7 @@ static void store_args(Obj* func) {
     switch (param->type->kind) {
       case TY_STRUCT:
       case TY_UNION: {
-        int size = param->type->size <= 8 ? param->type->size : 8;
+        int size = MIN(param->type->size, 8);
         if (have_float_data(param->type, 0, 8)) {
           store_float_arg(size, 0, float_cnt++);
         } else {

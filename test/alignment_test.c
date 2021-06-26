@@ -91,5 +91,22 @@ int main() {
     _Alignof(x) << 63 >> 63;
   }));
 
+  ASSERT(0, ({
+    char x[16];
+    (unsigned long)&x % 16;
+  }));
+  ASSERT(0, ({
+    char x[17];
+    (unsigned long)&x % 16;
+  }));
+  ASSERT(0, ({
+    char x[100];
+    (unsigned long)&x % 16;
+  }));
+  ASSERT(0, ({
+    char x[101];
+    (unsigned long)&x % 16;
+  }));
+
   ok();
 }
