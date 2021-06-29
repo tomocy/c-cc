@@ -367,6 +367,30 @@ void define_builtin_macro(char* name, char* raw_body) {
   create_objlike_macro(name, tokenize_as_if(new_file(1, "built-in", ""), raw_body));
 }
 
+static char* format_date(struct tm* time) {
+  // for 3 + 1 (for null termination)
+  static char mons[][4] = {
+    "Jan",
+    "Feb",
+    "Mar",
+    "Ari",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  };
+
+  return format("\"%s %2d %d\"", mons[time->tm_mon], time->tm_mday, time->tm_year + 1900);
+}
+
+static char* format_time(struct tm* time) {
+  return format("\"%02d:%02d:%02d\"", time->tm_hour, time->tm_min, time->tm_sec);
+}
+
 static Token* gen_filename(Token* token) {
   while (token->original) {
     token = token->original;
@@ -423,6 +447,11 @@ void define_builtin_macros(File* file) {
   define_builtin_macro("__x86_64__", "1");
   define_builtin_macro("linux", "1");
   define_builtin_macro("unix", "1");
+
+  time_t timer = time(NULL);
+  struct tm* now = localtime(&timer);
+  define_builtin_macro("__DATE__", format_date(now));
+  define_builtin_macro("__TIME__", format_time(now));
 
   create_macro_with_generator("__FILE__", gen_filename);
   create_macro_with_generator("__LINE__", gen_line);

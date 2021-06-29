@@ -561,5 +561,8 @@ of(char));
   }));
   ASSERT(5, ({ CONCAT(4, .57) + 0.5; }));
 
+  ASSERT(11, strlen(__DATE__));
+  ASSERT(8, strlen(__TIME__));
+
   ok();
 }

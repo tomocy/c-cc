@@ -8,6 +8,8 @@ int strcmp(char* p, char* q);
 // NOLINTNEXTLINE
 int memcmp(char* p, char* q, long n);
 // NOLINTNEXTLINE
+long strlen(char* s);
+// NOLINTNEXTLINE
 int printf(char* fmt, ...);
 // NOLINTNEXTLINE
 int sprintf(char* buf, char* fmt, ...);
