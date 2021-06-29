@@ -405,6 +405,11 @@ static Token* gen_line(Token* token) {
   return tokenize_as_if(token->file, format("%d", token->line));
 }
 
+static Token* gen_count(Token* token) {
+  static int n = 0;
+  return tokenize_as_if(token->file, format("%d", n++));
+}
+
 void define_builtin_macros(File* file) {
   define_builtin_macro("_LP64", "1");
   define_builtin_macro("__C99_MACRO_WITH_VA_ARGS", "1");
@@ -455,6 +460,7 @@ void define_builtin_macros(File* file) {
 
   create_macro_with_generator("__FILE__", gen_filename);
   create_macro_with_generator("__LINE__", gen_line);
+  create_macro_with_generator("__COUNTER__", gen_count);
 }
 
 static bool is_keyword(char* c, int len) {
