@@ -6,6 +6,7 @@ static bool is_bol;
 static bool was_space;
 
 static File* read_file(char* fname);
+static void canonicalize_newlines(char* contents);
 static void remove_backslach_newlines(char* contents);
 static void add_line_number(Token* token);
 
@@ -21,6 +22,7 @@ static bool consume_str(Token** dst, char** c);
 
 Token* tokenize(char* input_filename) {
   File* file = read_file(input_filename);
+  canonicalize_newlines(file->contents);
   remove_backslach_newlines(file->contents);
 
   return tokenize_in(file);
@@ -102,6 +104,28 @@ static File* create_file(int index, char* name, char* contents) {
 static File* read_file(char* fname) {
   static int index = 0;
   return create_file(++index, fname, read_file_contents(fname));
+}
+
+static void canonicalize_newlines(char* contents) {
+  int peeked = 0;
+  int i = 0;
+
+  while (contents[peeked]) {
+    if (contents[peeked] == '\r' && contents[peeked + 1] == '\n') {
+      peeked += 2;
+      contents[i++] = '\n';
+      continue;
+    }
+    if (contents[peeked] == '\r') {
+      peeked++;
+      contents[i++] = '\n';
+      continue;
+    }
+
+    contents[i++] = contents[peeked++];
+  }
+
+  contents[i] = '\0';
 }
 
 static void remove_backslach_newlines(char* contents) {
