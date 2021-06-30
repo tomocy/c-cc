@@ -8,6 +8,7 @@ static bool was_space;
 static File* read_file(char* fname);
 static void canonicalize_newlines(char* contents);
 static void remove_backslach_newlines(char* contents);
+static void convert_universal_chars(char* contents);
 static void add_line_number(Token* token);
 
 static Token* new_token(TokenKind kind, char* loc, int len);
@@ -24,6 +25,7 @@ Token* tokenize(char* input_filename) {
   File* file = read_file(input_filename);
   canonicalize_newlines(file->contents);
   remove_backslach_newlines(file->contents);
+  convert_universal_chars(file->contents);
 
   return tokenize_in(file);
 }
@@ -116,6 +118,7 @@ static void canonicalize_newlines(char* contents) {
       contents[i++] = '\n';
       continue;
     }
+
     if (contents[peeked] == '\r') {
       peeked++;
       contents[i++] = '\n';
@@ -135,6 +138,74 @@ static void remove_backslach_newlines(char* contents) {
   while (contents[peeked]) {
     if (contents[peeked] == '\\' && contents[peeked + 1] == '\n') {
       peeked += 2;
+      continue;
+    }
+
+    contents[i++] = contents[peeked++];
+  }
+
+  contents[i] = '\0';
+}
+
+static int hex_digit(char c) {
+  if ('0' <= c && c <= '9') {
+    return c - '0';
+  }
+
+  if ('a' <= c && c <= 'f') {
+    return c - 'a' + 10;
+  }
+
+  if ('A' <= c && c <= 'Z') {
+    return c - 'A' + 10;
+  }
+
+  return c;
+}
+
+static uint32_t read_universal_char(char* c, int len) {
+  uint32_t code = 0;
+  for (int i = 0; i < len; i++) {
+    if (!isxdigit(c[i])) {
+      return 0;
+    }
+
+    code = (code << 4) | hex_digit(c[i]);
+  }
+
+  return code;
+}
+
+static void convert_universal_chars(char* contents) {
+  int peeked = 0;
+  int i = 0;
+
+  while (contents[peeked]) {
+    if (start_with(&contents[peeked], "\\u")) {
+      uint32_t code = read_universal_char(&contents[peeked + 2], 4);
+      if (code) {
+        peeked += 6;
+        i += encode_to_utf8(&contents[i], code);
+      } else {
+        contents[i++] = contents[peeked++];
+      }
+      continue;
+    }
+
+    if (start_with(&contents[peeked], "\\U")) {
+      uint32_t code = read_universal_char(&contents[peeked + 2], 8);
+      if (code) {
+        peeked += 10;
+        i += encode_to_utf8(&contents[i], code);
+      } else {
+        contents[i++] = contents[peeked++];
+      }
+      continue;
+    }
+
+    if (start_with(&contents[peeked], "\\")) {
+      contents[i++] = contents[peeked++];
+      contents[i++] = contents[peeked++];
       continue;
     }
 
@@ -442,22 +513,6 @@ static bool consume_pp_num(Token** dst, char** c) {
 
   *dst = new_token(TK_PP_NUM, start, *c - start);
   return true;
-}
-
-static int hex_digit(char c) {
-  if ('0' <= c && c <= '9') {
-    return c - '0';
-  }
-
-  if ('a' <= c && c <= 'f') {
-    return c - 'a' + 10;
-  }
-
-  if ('A' <= c && c <= 'Z') {
-    return c - 'A' + 10;
-  }
-
-  return c;
 }
 
 static int read_escaped_char(char** c) {
