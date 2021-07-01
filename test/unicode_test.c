@@ -34,10 +34,21 @@ int main() {
   ASSERT(4, sizeof(u8"abc"));
   ASSERT(0, strcmp(u8"abc", "abc"));
 
+  ASSERT(2, sizeof(u""));
+  ASSERT(10, sizeof(u"\xffzzz"));
+  ASSERT(0, memcmp(u"", "\0\0", 2));                       // NOLINT
+  ASSERT(0, memcmp(u"abc", "a\0b\0c\0\0\0", 8));           // NOLINT
+  ASSERT(0, memcmp(u"日本語", "\345e,g\236\212\0\0", 8));  // NOLINT
+  ASSERT(0, memcmp(u"🍣", "<\330c\337\0\0", 6));            // NOLINT
+  ASSERT(u'β', u"βb"[0]);
+  ASSERT(u'b', u"βb"[1]);
+  ASSERT(0, u"βb"[2]);
+
   ASSERT(0, strcmp(STR(L'a'), "L'a'"));
   ASSERT(0, strcmp(STR(u'a'), "u'a'"));
   ASSERT(0, strcmp(STR(U'a'), "U'a'"));
   ASSERT(0, strcmp(STR(u8"a"), "u8\"a\""));
+  ASSERT(0, strcmp(STR(u"a"), "u\"a\""));
 
   ok();
 }

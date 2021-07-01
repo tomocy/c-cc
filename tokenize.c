@@ -591,7 +591,6 @@ static bool consume_char(Token** dst, char** c) {
   }
 
   (*c)++;  // for the opening quote
-
   if (**c == '\n' || **c == '\0') {
     error_at(current_file, start, "unclosed string literal");
   }
@@ -632,22 +631,64 @@ static bool consume_char(Token** dst, char** c) {
   return true;
 }
 
+static Token* read_str_literal(char* start, char* opening, char* closing) {
+  char* val = calloc(1, closing - opening);
+  int len = 0;
+  for (char* c = opening + 1; c < closing;) {
+    if (*c == '\\') {
+      c++;
+      val[len++] = read_escaped_char(&c);
+      continue;
+    }
+    val[len++] = *c++;
+  }
+
+  Token* token = new_token(TK_STR, start, closing - start + 1);
+  token->type = new_array_type(new_char_type(), len + 1);
+  token->str_val = val;
+  return token;
+}
+
+static Token* read_utf16_str_literal(char* start, char* opening, char* closing) {
+  uint16_t* val = calloc(2, closing - opening);
+  int len = 0;
+  for (char* c = opening + 1; c < closing;) {
+    if (*c == '\\') {
+      c++;
+      val[len++] = read_escaped_char(&c);
+      continue;
+    }
+
+    uint32_t code = decode_from_utf8(&c, c);
+    len += encode_to_utf16(&val[len], code) / 2;
+  }
+
+  Token* token = new_token(TK_STR, start, closing - start + 1);
+  token->type = new_array_type(new_ushort_type(), len + 1);
+  token->str_val = (char*)val;
+  return token;
+}
+
 static bool consume_str(Token** dst, char** c) {
-  if (**c != '"' && !start_with(*c, "u8\"")) {
+  if (**c != '"' && !start_with(*c, "u8\"") && !start_with(*c, "u\"")) {
     return false;
   }
 
-  char* token_start = *c;
+  char* start = *c;
 
+  enum { VANILLA = 1 << 0, UTF16 = 1 << 1 };
+  int kind = VANILLA;
   if (start_with(*c, "u8\"")) {
     *c += 2;
+  } else if (**c == 'u') {
+    kind = UTF16;
+    (*c)++;
   }
 
-  char* val_start = (*c)++;  // for the opning "
-
+  char* opening = (*c)++;  // for the opning "
   for (; **c != '"'; (*c)++) {
     if (**c == '\n' || **c == '\0') {
-      error_at(current_file, token_start, "unclosed string literal");
+      error_at(current_file, start, "unclosed string literal");
     }
     if (**c == '\\') {
       (*c)++;
@@ -655,20 +696,13 @@ static bool consume_str(Token** dst, char** c) {
   }
   char* end = (*c)++;
 
-  char* val = calloc(1, end - val_start);
-  int val_len = 0;
-  for (char* c = val_start + 1; c < end;) {
-    if (*c == '\\') {
-      c++;
-      val[val_len++] = read_escaped_char(&c);
-      continue;
-    }
-    val[val_len++] = *c++;
+  switch (kind) {
+    case UTF16:
+      *dst = read_utf16_str_literal(start, opening, end);
+      break;
+    default:
+      *dst = read_str_literal(start, opening, end);
+      break;
   }
-
-  Token* token = new_token(TK_STR, token_start, end - token_start + 1);
-  token->type = new_array_type(new_char_type(), val_len + 1);
-  token->str_val = val;
-  *dst = token;
   return true;
 }

@@ -64,3 +64,15 @@ uint32_t decode_from_utf8(char** dst, char* src) {
   *dst = src + len;
   return code;
 }
+
+int encode_to_utf16(uint16_t* dst, uint32_t code) {
+  if (code <= 0xFFFF) {
+    dst[0] = code;
+    return 2;
+  }
+
+  code -= 0x10000;
+  dst[0] = 0b1101100000000000 | (code >> 10);
+  dst[1] = 0b1101110000000000 | (0b0000001111111111 & code);
+  return 4;
+}
