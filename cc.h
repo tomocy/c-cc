@@ -307,6 +307,7 @@ bool is_float_type(Type* type);
 bool is_composite_type(Type* type);
 
 int encode_to_utf8(char* dst, uint32_t code);
+uint32_t decode_from_utf8(char** dst, char* src);
 
 void error_token(Token* token, char* fmt, ...);
 void warn_token(Token* token, char* fmt, ...);

@@ -569,7 +569,10 @@ static bool consume_char(Token** dst, char** c) {
   if (**c != '\'' && !start_with(*c, "L'")) {
     return false;
   }
+
+  bool is_long = false;
   if (**c == 'L') {
+    is_long = true;
     (*c)++;
   }
 
@@ -579,13 +582,12 @@ static bool consume_char(Token** dst, char** c) {
     error_at(current_file, start, "unclosed string literal");
   }
 
-  char read;
+  int read;
   if (**c == '\\') {
     (*c)++;
     read = read_escaped_char(c);
   } else {
-    read = **c;
-    (*c)++;
+    read = decode_from_utf8(c, *c);
   }
 
   char* end = (*c)++;
@@ -595,7 +597,7 @@ static bool consume_char(Token** dst, char** c) {
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
   token->type = new_int_type();
-  token->int_val = read;
+  token->int_val = is_long ? read : (char)read;
   *dst = token;
   return true;
 }
