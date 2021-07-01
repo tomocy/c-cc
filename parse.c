@@ -52,70 +52,6 @@ static char* current_break_label_id;
 static char* current_continue_label_id;
 static Obj* current_func;
 
-static Type* new_type(TypeKind kind, int size, int alignment) {
-  Type* type = calloc(1, sizeof(Type));
-  type->kind = kind;
-  type->size = size;
-  type->alignment = alignment;
-  return type;
-}
-
-static Type* new_void_type() {
-  return new_type(TY_VOID, 1, 1);
-}
-
-static Type* new_bool_type() {
-  return new_type(TY_BOOL, 1, 1);
-}
-
-static Type* new_char_type() {
-  return new_type(TY_CHAR, 1, 1);
-}
-
-static Type* new_uchar_type() {
-  Type* type = new_char_type();
-  type->is_unsigned = true;
-  return type;
-}
-
-static Type* new_short_type() {
-  return new_type(TY_SHORT, 2, 2);
-}
-
-Type* new_ushort_type() {
-  Type* type = new_short_type();
-  type->is_unsigned = true;
-  return type;
-}
-
-Type* new_int_type() {
-  return new_type(TY_INT, 4, 4);
-}
-
-Type* new_uint_type() {
-  Type* type = new_int_type();
-  type->is_unsigned = true;
-  return type;
-}
-
-Type* new_long_type() {
-  return new_type(TY_LONG, 8, 8);
-}
-
-Type* new_ulong_type() {
-  Type* type = new_long_type();
-  type->is_unsigned = true;
-  return type;
-}
-
-Type* new_float_type() {
-  return new_type(TY_FLOAT, 4, 4);
-}
-
-Type* new_double_type() {
-  return new_type(TY_DOUBLE, 8, 8);
-}
-
 static char* new_id(void) {
   static int id = 0;
   char* name = calloc(20, sizeof(char));
@@ -131,46 +67,6 @@ static int align_down(int n, int align) {
   return align_up(n - align + 1, align);
 }
 
-static char* renew_label_id(char** current, char** next) {
-  char* prev = *current;
-  *next = *current = new_id();
-  return prev;
-}
-
-static char* renew_break_label_id(char** next) {
-  return renew_label_id(&current_break_label_id, next);
-}
-
-static char* renew_continue_label_id(char** next) {
-  return renew_label_id(&current_continue_label_id, next);
-}
-
-static Type* new_ptr_type(Type* base) {
-  Type* ptr = new_type(TY_PTR, 8, 8);
-  ptr->base = base;
-  ptr->is_unsigned = true;
-  return ptr;
-}
-
-static Type* new_func_type(Type* return_type, Type* params, bool is_variadic) {
-  Type* func = new_type(TY_FUNC, 0, 0);
-  func->return_type = return_type;
-  func->params = params;
-  func->is_variadic = is_variadic;
-  return func;
-}
-
-static Type* new_array_type(Type* base, int len) {
-  Type* arr = new_type(TY_ARRAY, base->size * len, len >= 16 ? MAX(base->alignment, 16) : base->alignment);
-  arr->base = base;
-  arr->len = len;
-  return arr;
-}
-
-static Type* new_chars_type(int len) {
-  return new_array_type(new_char_type(), len);
-}
-
 static Member* new_member(Type* type) {
   Member* mem = calloc(1, sizeof(Member));
   mem->type = type;
@@ -178,115 +74,6 @@ static Member* new_member(Type* type) {
   mem->name = type->name;
   mem->alignment = type->alignment;
   return mem;
-}
-
-static Member* copy_member(Member* src) {
-  Member* mem = calloc(1, sizeof(Member));
-  *mem = *src;
-  return mem;
-}
-
-static Type* new_composite_type(TypeKind kind, int size, int alignment, Member* mems) {
-  Type* type = new_type(kind, align_up(size, alignment), alignment);
-  type->members = mems;
-  return type;
-}
-
-static Type* new_struct_type(int size, int alignment, Member* mems) {
-  return new_composite_type(TY_STRUCT, size, alignment, mems);
-}
-
-static Type* new_union_type(int size, int alignment, Member* mems) {
-  return new_composite_type(TY_UNION, size, alignment, mems);
-}
-
-static Type* copy_type(Type* src) {
-  Type* type = calloc(1, sizeof(Type));
-  *type = *src;
-  return type;
-}
-
-static Type* copy_type_with_name(Type* src, char* name) {
-  Type* type = copy_type(src);
-  type->name = name;
-  return type;
-}
-
-static Type* copy_composite_type(Type* src, TypeKind kind) {
-  Member head = {};
-  Member* cur = &head;
-  for (Member* mem = src->members; mem; mem = mem->next) {
-    cur = cur->next = copy_member(mem);
-  }
-
-  return new_composite_type(kind, src->size, src->alignment, head.next);
-}
-
-static Type* inherit_decl(Type* dst, Type* src) {
-  dst->ident = src->ident;
-  dst->name = src->name;
-  return dst;
-}
-
-static Type* get_common_type(Type* a, Type* b) {
-  if (a->kind == TY_FUNC) {
-    return new_ptr_type(a);
-  }
-  if (b->kind == TY_FUNC) {
-    return new_ptr_type(b);
-  }
-
-  if (a->base) {
-    return new_ptr_type(a->base);
-  }
-
-  if (a->kind == TY_DOUBLE || b->kind == TY_DOUBLE) {
-    return new_double_type();
-  }
-  if (a->kind == TY_FLOAT || b->kind == TY_FLOAT) {
-    return new_float_type();
-  }
-
-  Type* x = a;
-  Type* y = b;
-
-  if (x->size < 4) {
-    x = new_int_type();
-  }
-  if (y->size < 4) {
-    y = new_int_type();
-  }
-
-  if (x->size != y->size) {
-    return x->size > y->size ? x : y;
-  }
-
-  return y->is_unsigned ? y : x;
-}
-
-static Type* deref_ptr_type(Type* type) {
-  return type->kind == TY_PTR ? type->base : type;
-}
-
-static bool is_pointable_type(Type* type) {
-  return type->kind == TY_PTR || type->kind == TY_ARRAY;
-}
-
-bool is_int_type(Type* type) {
-  return type->kind == TY_BOOL || type->kind == TY_CHAR || type->kind == TY_SHORT || type->kind == TY_INT
-         || type->kind == TY_LONG;
-}
-
-bool is_float_type(Type* type) {
-  return type->kind == TY_DOUBLE || type->kind == TY_FLOAT;
-}
-
-static bool is_numeric_type(Type* type) {
-  return is_int_type(type) || is_float_type(type);
-}
-
-bool is_composite_type(Type* type) {
-  return type->kind == TY_STRUCT || type->kind == TY_UNION;
 }
 
 static TopLevelObj* new_top_level_obj(Obj* obj) {
@@ -502,8 +289,7 @@ static Obj* create_anon_gvar_obj(Type* type) {
   return create_gvar_obj(type, new_id());
 }
 
-static Obj* create_str_obj(char* val, int len) {
-  Type* type = new_chars_type(len + 1);
+static Obj* create_str_obj(Type* type, char* val) {
   Obj* str = create_stray_gvar_obj(type, new_id());
   str->is_static = true;
   str->val = strdup(val);
@@ -688,6 +474,20 @@ static void add_label(Node* l) {
   current_labels = l;
 }
 
+static char* renew_label_id(char** current, char** next) {
+  char* prev = *current;
+  *next = *current = new_id();
+  return prev;
+}
+
+static char* renew_break_label_id(char** next) {
+  return renew_label_id(&current_break_label_id, next);
+}
+
+static char* renew_continue_label_id(char** next) {
+  return renew_label_id(&current_continue_label_id, next);
+}
+
 static void add_goto(Node* g) {
   if (g->kind != ND_GOTO) {
     error("expected a goto");
@@ -796,7 +596,7 @@ static Node* new_member_node(Token* token, Node* lhs, Member* mem) {
 
 static Node* new_int_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
-  node->type = token->type ? token->type : new_int_type();
+  node->type = new_int_type();
   node->token = token;
   node->int_val = val;
   return node;
@@ -820,7 +620,7 @@ static Node* new_ulong_node(Token* token, int64_t val) {
 
 static Node* new_float_node(Token* token, double val) {
   Node* node = new_node(ND_NUM);
-  node->type = token->type ? token->type : new_double_type();
+  node->type = new_double_type();
   node->token = token;
   node->float_val = val;
   return node;
@@ -2425,12 +2225,13 @@ static Node* primary(Token** tokens) {
   if ((*tokens)->kind == TK_NUM) {
     Node* node = is_float_type((*tokens)->type) ? new_float_node(*tokens, (*tokens)->float_val)
                                                 : new_int_node(*tokens, (*tokens)->int_val);
+    node->type = (*tokens)->type;
     *tokens = (*tokens)->next;
     return node;
   }
 
   if ((*tokens)->kind == TK_STR) {
-    Obj* str = create_str_obj((*tokens)->str_val, (*tokens)->str_val_len);
+    Obj* str = create_str_obj((*tokens)->type, (*tokens)->str_val);
     Node* node = new_var_node(*tokens, str);
     *tokens = (*tokens)->next;
     return node;

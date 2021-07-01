@@ -69,7 +69,6 @@ struct Token {
   double float_val;
 
   char* str_val;
-  int str_val_len;
 };
 
 struct Member {
@@ -263,10 +262,52 @@ struct Relocation {
   long addend;
 };
 
+// main.c
 extern Str* include_paths;
 
-extern File* files;
+// preprocess.c
+Token* preprocess(Token* tokens);
+void define_builtin_macros();
+void define_builtin_macro(char* name, char* raw_body);
+void undefine_macro(char* name);
 
+// tokenize.c
+void error_token(Token* token, char* fmt, ...);
+void warn_token(Token* token, char* fmt, ...);
+bool equal_to_token(Token* token, char* s);
+bool equal_to_tokens(Token* token, int len, ...);
+bool equal_to_ident_token(Token* token, char* s);
+bool consume_token(Token** token, char* s);
+Token* expect_token(Token** token, char* s);
+Token* expect_tokens(Token** tokens, int len, ...);
+Token* expect_ident_token(Token** tokens);
+Token* tokenize(char* input_filename);
+Token* tokenize_in(File* file);
+Token* new_token_in(TokenKind kind, File* file, char* loc, int len);
+Token* new_eof_token_in(File* file);
+Token* copy_token(Token* src);
+Token* copy_tokens(Token* src);
+bool can_be_keyword(char* c, int len);
+void print_tokens(char* output_filename, Token* tokens);
+
+// parse.c
+TopLevelObj* parse(Token* tokens);
+int align_up(int n, int align);
+int64_t const_expr(Token** tokens);
+
+// gen.c
+void gen(char* output_filename, TopLevelObj* codes);
+
+// Utils
+
+// error.c
+void error(char* fmt, ...);
+void vprint_at(File* file, char* loc, char* fmt, va_list args);
+void error_at(File* file, char* loc, char* fmt, ...);
+void warn_at(File* file, char* loc, char* fmt, ...);
+
+// file.c
+extern File* files;
 File* new_file(int index, char* name, char* contents);
 File* copy_file_with_contents(File* src, char* contents);
 char* replace_file_ext(char* name, char* ext);
@@ -278,11 +319,7 @@ FILE* open_input_file(char* fname);
 FILE* open_output_file(char* fname);
 char* read_file_contents(char* fname);
 
-void error(char* fmt, ...);
-void vprint_at(File* file, char* loc, char* fmt, va_list args);
-void error_at(File* file, char* loc, char* fmt, ...);
-void warn_at(File* file, char* loc, char* fmt, ...);
-
+// string.c
 void add_str(Str** strs, Str* str);
 Str* new_str(char* data);
 Str* copy_str(Str* src);
@@ -295,6 +332,12 @@ bool equal_to_n_chars(char* s, char* c, int n);
 bool start_with(char* s, char* prefix);
 bool start_with_insensitive(char* s, char* prefix);
 
+// type.c
+Type* new_void_type();
+Type* new_bool_type();
+Type* new_char_type();
+Type* new_uchar_type();
+Type* new_short_type();
 Type* new_ushort_type();
 Type* new_int_type();
 Type* new_uint_type();
@@ -302,41 +345,24 @@ Type* new_long_type();
 Type* new_ulong_type();
 Type* new_float_type();
 Type* new_double_type();
-
+Type* new_ptr_type(Type* base);
+Type* new_func_type(Type* return_type, Type* params, bool is_variadic);
+Type* new_array_type(Type* base, int len);
+Type* new_chars_type(int len);
+Type* new_struct_type(int size, int alignment, Member* mems);
+Type* new_union_type(int size, int alignment, Member* mems);
+Type* copy_type(Type* src);
+Type* copy_type_with_name(Type* src, char* name);
+Type* copy_composite_type(Type* src, TypeKind kind);
+Type* get_common_type(Type* a, Type* b);
+Type* deref_ptr_type(Type* type);
+Type* inherit_decl(Type* dst, Type* src);
+bool is_pointable_type(Type* type);
 bool is_int_type(Type* type);
 bool is_float_type(Type* type);
+bool is_numeric_type(Type* type);
 bool is_composite_type(Type* type);
 
+// unicode.c
 int encode_to_utf8(char* dst, uint32_t code);
 uint32_t decode_from_utf8(char** dst, char* src);
-
-void error_token(Token* token, char* fmt, ...);
-void warn_token(Token* token, char* fmt, ...);
-
-bool equal_to_token(Token* token, char* s);
-bool equal_to_tokens(Token* token, int len, ...);
-bool equal_to_ident_token(Token* token, char* s);
-bool consume_token(Token** token, char* s);
-Token* expect_token(Token** token, char* s);
-Token* expect_tokens(Token** tokens, int len, ...);
-Token* expect_ident_token(Token** tokens);
-
-Token* tokenize(char* input_filename);
-Token* tokenize_in(File* file);
-Token* new_token_in(TokenKind kind, File* file, char* loc, int len);
-Token* new_eof_token_in(File* file);
-Token* copy_token(Token* src);
-Token* copy_tokens(Token* src);
-bool can_be_keyword(char* c, int len);
-void print_tokens(char* output_filename, Token* tokens);
-
-Token* preprocess(Token* tokens);
-void define_builtin_macros();
-void define_builtin_macro(char* name, char* raw_body);
-void undefine_macro(char* name);
-
-TopLevelObj* parse(Token* tokens);
-int align_up(int n, int align);
-int64_t const_expr(Token** tokens);
-
-void gen(char* output_filename, TopLevelObj* codes);

@@ -678,20 +678,20 @@ static Token* concat_adjecent_strs(Token* tokens) {
 
     int len = 0;
     for (Token* t = token; t != not_str; t = t->next) {
-      len += t->str_val_len;
+      len += t->type->len - 1;
     }
 
-    char* val = calloc(len, sizeof(token->type->base));
+    char* val = calloc(token->type->base->size, len);
     char* c = val;
     for (Token* t = token; t != not_str; t = t->next) {
-      strncpy(c, t->str_val, t->str_val_len);
-      c += t->str_val_len;
+      strncpy(c, t->str_val, t->type->size);
+      c += t->type->size - t->type->base->size;  // not to proceed by the NULL termination
     }
 
     cur = cur->next = copy_token(token);
     cur->len = not_str->loc - cur->loc;
+    cur->type = new_array_type(cur->type->base, len + 1);
     cur->str_val = val;
-    cur->str_val_len = len;
 
     token->next = not_str;
   }

@@ -667,8 +667,8 @@ static bool consume_str(Token** dst, char** c) {
   }
 
   Token* token = new_token(TK_STR, token_start, end - token_start + 1);
+  token->type = new_array_type(new_char_type(), val_len + 1);
   token->str_val = val;
-  token->str_val_len = val_len;
   *dst = token;
   return true;
 }
