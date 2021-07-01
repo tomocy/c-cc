@@ -669,19 +669,45 @@ static Token* read_utf16_str_literal(char* start, char* opening, char* closing) 
   return token;
 }
 
+static Token* read_utf32_str_literal(char* start, char* opening, char* closing) {
+  uint32_t* val = calloc(4, closing - opening);
+  int len = 0;
+  for (char* c = opening + 1; c < closing;) {
+    if (*c == '\\') {
+      c++;
+      val[len++] = read_escaped_char(&c);
+      continue;
+    }
+
+    val[len++] = decode_from_utf8(&c, c);
+  }
+
+  Token* token = new_token(TK_STR, start, closing - start + 1);
+  token->type = new_array_type(new_uint_type(), len + 1);
+  token->str_val = (char*)val;
+  return token;
+}
+
 static bool consume_str(Token** dst, char** c) {
-  if (**c != '"' && !start_with(*c, "u8\"") && !start_with(*c, "u\"")) {
+  if (**c != '"' && !start_with(*c, "u8\"") && !start_with(*c, "u\"") && !start_with(*c, "U\"")) {
     return false;
   }
 
   char* start = *c;
 
-  enum { VANILLA = 1 << 0, UTF16 = 1 << 1 };
+  enum {
+    VANILLA = 1 << 0,
+    UTF16 = 1 << 1,
+    UTF32 = 1 << 2,
+  };
   int kind = VANILLA;
   if (start_with(*c, "u8\"")) {
     *c += 2;
   } else if (**c == 'u') {
     kind = UTF16;
+    (*c)++;
+  } else if (**c == 'U') {
+    kind = UTF32;
     (*c)++;
   }
 
@@ -699,6 +725,9 @@ static bool consume_str(Token** dst, char** c) {
   switch (kind) {
     case UTF16:
       *dst = read_utf16_str_literal(start, opening, end);
+      break;
+    case UTF32:
+      *dst = read_utf32_str_literal(start, opening, end);
       break;
     default:
       *dst = read_str_literal(start, opening, end);

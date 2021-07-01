@@ -292,7 +292,11 @@ static Obj* create_anon_gvar_obj(Type* type) {
 static Obj* create_str_obj(Type* type, char* val) {
   Obj* str = create_stray_gvar_obj(type, new_id());
   str->is_static = true;
-  str->val = strdup(val);
+
+  // The val may contain \0, so use memcpy instead of strdup.
+  str->val = calloc(type->base->size, type->len + 1);
+  memcpy(str->val, val, type->size);
+
   add_code(str);
   return str;
 }
