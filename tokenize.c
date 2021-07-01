@@ -566,19 +566,27 @@ static int read_escaped_char(char** c) {
 }
 
 static bool consume_char(Token** dst, char** c) {
-  if (**c != '\'' && !start_with(*c, "L'") && !start_with(*c, "u'")) {
+  if (**c != '\'' && !start_with(*c, "L'") && !start_with(*c, "u'") && !start_with(*c, "U'")) {
     return false;
   }
 
   char* start = *c;
 
-  bool is_wide = false;
-  bool is_16 = false;
+  enum {
+    VANILLA = 1 << 0,
+    WIDE = 1 << 1,
+    UTF16 = 1 << 2,
+    UTF32 = 1 << 3,
+  };
+  int kind = VANILLA;
   if (**c == 'L') {
-    is_wide = true;
+    kind = WIDE;
     (*c)++;
   } else if (**c == 'u') {
-    is_16 = true;
+    kind = UTF16;
+    (*c)++;
+  } else if (**c == 'U') {
+    kind = UTF32;
     (*c)++;
   }
 
@@ -602,15 +610,23 @@ static bool consume_char(Token** dst, char** c) {
   }
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
-  if (is_wide) {
-    token->type = new_int_type();
-    token->int_val = read;
-  } else if (is_16) {
-    token->type = new_ushort_type();
-    token->int_val = 0xFFFF & read;
-  } else {
-    token->type = new_int_type();
-    token->int_val = (char)read;
+  switch (kind) {
+    case WIDE:
+      token->type = new_int_type();
+      token->int_val = read;
+      break;
+    case UTF16:
+      token->type = new_ushort_type();
+      token->int_val = 0xFFFF & read;
+      break;
+    case UTF32:
+      token->type = new_uint_type();
+      token->int_val = read;
+      break;
+    default:
+      token->type = new_int_type();
+      token->int_val = (char)read;
+      break;
   }
   *dst = token;
   return true;
