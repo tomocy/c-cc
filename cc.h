@@ -295,6 +295,7 @@ bool equal_to_n_chars(char* s, char* c, int n);
 bool start_with(char* s, char* prefix);
 bool start_with_insensitive(char* s, char* prefix);
 
+Type* new_ushort_type();
 Type* new_int_type();
 Type* new_uint_type();
 Type* new_long_type();

@@ -82,7 +82,7 @@ static Type* new_short_type() {
   return new_type(TY_SHORT, 2, 2);
 }
 
-static Type* new_ushort_type() {
+Type* new_ushort_type() {
   Type* type = new_short_type();
   type->is_unsigned = true;
   return type;

@@ -1,5 +1,7 @@
 #include "adapter.h"
 
+#define STR(x) #x
+
 int main() {
   ASSERT(4, sizeof(L'\0'));
   ASSERT(97, L'a');
@@ -13,6 +15,17 @@ int main() {
   ASSERT(946, L'β');
   ASSERT(12354, L'あ');
   ASSERT(127843, L'🍣');
+  ASSERT(99, '🍣');
+
+  ASSERT(2, sizeof(u'\0'));
+  ASSERT(1, u'\xffff' >> 15);
+  ASSERT(97, u'a');
+  ASSERT(946, u'β');
+  ASSERT(12354, u'あ');
+  ASSERT(62307, u'🍣');
+
+  ASSERT(0, strcmp(STR(L'a'), "L'a'"));
+  ASSERT(0, strcmp(STR(u'a'), "u'a'"));
 
   ok();
 }

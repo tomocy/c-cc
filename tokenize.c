@@ -566,17 +566,23 @@ static int read_escaped_char(char** c) {
 }
 
 static bool consume_char(Token** dst, char** c) {
-  if (**c != '\'' && !start_with(*c, "L'")) {
+  if (**c != '\'' && !start_with(*c, "L'") && !start_with(*c, "u'")) {
     return false;
   }
 
-  bool is_long = false;
+  char* start = *c;
+
+  bool is_wide = false;
+  bool is_16 = false;
   if (**c == 'L') {
-    is_long = true;
+    is_wide = true;
+    (*c)++;
+  } else if (**c == 'u') {
+    is_16 = true;
     (*c)++;
   }
 
-  char* start = (*c)++;
+  (*c)++;  // for the opening quote
 
   if (**c == '\n' || **c == '\0') {
     error_at(current_file, start, "unclosed string literal");
@@ -596,8 +602,16 @@ static bool consume_char(Token** dst, char** c) {
   }
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
-  token->type = new_int_type();
-  token->int_val = is_long ? read : (char)read;
+  if (is_wide) {
+    token->type = new_int_type();
+    token->int_val = read;
+  } else if (is_16) {
+    token->type = new_ushort_type();
+    token->int_val = 0xFFFF & read;
+  } else {
+    token->type = new_int_type();
+    token->int_val = (char)read;
+  }
   *dst = token;
   return true;
 }
