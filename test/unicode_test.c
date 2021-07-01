@@ -31,9 +31,13 @@ int main() {
   ASSERT(12354, U'あ');
   ASSERT(127843, U'🍣');
 
+  ASSERT(4, sizeof(u8"abc"));
+  ASSERT(0, strcmp(u8"abc", "abc"));
+
   ASSERT(0, strcmp(STR(L'a'), "L'a'"));
   ASSERT(0, strcmp(STR(u'a'), "u'a'"));
   ASSERT(0, strcmp(STR(U'a'), "U'a'"));
+  ASSERT(0, strcmp(STR(u8"a"), "u8\"a\""));
 
   ok();
 }

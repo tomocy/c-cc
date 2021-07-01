@@ -633,14 +633,21 @@ static bool consume_char(Token** dst, char** c) {
 }
 
 static bool consume_str(Token** dst, char** c) {
-  if (**c != '"') {
+  if (**c != '"' && !start_with(*c, "u8\"")) {
     return false;
   }
 
-  char* start = (*c)++;
+  char* token_start = *c;
+
+  if (start_with(*c, "u8\"")) {
+    *c += 2;
+  }
+
+  char* val_start = (*c)++;  // for the opning "
+
   for (; **c != '"'; (*c)++) {
     if (**c == '\n' || **c == '\0') {
-      error_at(current_file, start, "unclosed string literal");
+      error_at(current_file, token_start, "unclosed string literal");
     }
     if (**c == '\\') {
       (*c)++;
@@ -648,9 +655,9 @@ static bool consume_str(Token** dst, char** c) {
   }
   char* end = (*c)++;
 
-  char* val = calloc(1, end - start);
+  char* val = calloc(1, end - val_start);
   int val_len = 0;
-  for (char* c = start + 1; c < end;) {
+  for (char* c = val_start + 1; c < end;) {
     if (*c == '\\') {
       c++;
       val[val_len++] = read_escaped_char(&c);
@@ -659,7 +666,7 @@ static bool consume_str(Token** dst, char** c) {
     val[val_len++] = *c++;
   }
 
-  Token* token = new_token(TK_STR, start, end - start + 1);
+  Token* token = new_token(TK_STR, token_start, end - token_start + 1);
   token->str_val = val;
   token->str_val_len = val_len;
   *dst = token;
