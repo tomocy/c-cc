@@ -669,7 +669,7 @@ static Token* read_utf16_str_literal(char* start, char* opening, char* closing) 
   return token;
 }
 
-static Token* read_utf32_str_literal(char* start, char* opening, char* closing) {
+static Token* read_utf32_str_literal(Type* type, char* start, char* opening, char* closing) {
   uint32_t* val = calloc(4, closing - opening);
   int len = 0;
   for (char* c = opening + 1; c < closing;) {
@@ -683,13 +683,14 @@ static Token* read_utf32_str_literal(char* start, char* opening, char* closing) 
   }
 
   Token* token = new_token(TK_STR, start, closing - start + 1);
-  token->type = new_array_type(new_uint_type(), len + 1);
+  token->type = new_array_type(type, len + 1);
   token->str_val = (char*)val;
   return token;
 }
 
 static bool consume_str(Token** dst, char** c) {
-  if (**c != '"' && !start_with(*c, "u8\"") && !start_with(*c, "u\"") && !start_with(*c, "U\"")) {
+  if (**c != '"' && !start_with(*c, "u8\"") && !start_with(*c, "u\"") && !start_with(*c, "U\"")
+      && !start_with(*c, "L\"")) {
     return false;
   }
 
@@ -699,6 +700,7 @@ static bool consume_str(Token** dst, char** c) {
     VANILLA = 1 << 0,
     UTF16 = 1 << 1,
     UTF32 = 1 << 2,
+    WIDE = 1 << 3,
   };
   int kind = VANILLA;
   if (start_with(*c, "u8\"")) {
@@ -708,6 +710,9 @@ static bool consume_str(Token** dst, char** c) {
     (*c)++;
   } else if (**c == 'U') {
     kind = UTF32;
+    (*c)++;
+  } else if (**c == 'L') {
+    kind = WIDE;
     (*c)++;
   }
 
@@ -727,7 +732,10 @@ static bool consume_str(Token** dst, char** c) {
       *dst = read_utf16_str_literal(start, opening, end);
       break;
     case UTF32:
-      *dst = read_utf32_str_literal(start, opening, end);
+      *dst = read_utf32_str_literal(new_uint_type(), start, opening, end);
+      break;
+    case WIDE:
+      *dst = read_utf32_str_literal(new_int_type(), start, opening, end);
       break;
     default:
       *dst = read_str_literal(start, opening, end);
