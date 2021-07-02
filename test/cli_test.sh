@@ -230,4 +230,11 @@ else
   failed 'validate: multiple input files with -o and -E'
 fi
 
+# Skip UTF-8 BOM
+if echo -e "\xef\xbb\xbfxyz;" | $CC -E -o - - | grep -q '^xyz'; then
+  passed 'Ignore BOM'
+else
+  failed 'Ignore BOM'
+fi
+
 echo "OK"

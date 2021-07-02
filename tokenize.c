@@ -23,6 +23,11 @@ static bool consume_str(Token** dst, char** c);
 
 Token* tokenize(char* input_filename) {
   File* file = read_file(input_filename);
+
+  // Skip UTF-8 BOM
+  if (memcmp(file->contents, "\xef\xbb\xbf", 3) == 0) {
+    file->contents += 3;
+  }
   canonicalize_newlines(file->contents);
   remove_backslach_newlines(file->contents);
   convert_universal_chars(file->contents);
