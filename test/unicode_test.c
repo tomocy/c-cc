@@ -6,6 +6,8 @@ typedef unsigned short char16_t;
 typedef unsigned int char32_t;
 typedef int wchar_t;
 
+int π = 3;
+
 int main() {
   ASSERT(4, sizeof(L'\0'));
   ASSERT(97, L'a');
@@ -115,6 +117,12 @@ int main() {
   ASSERT(12, ({
     wchar_t x[] = L"🤔x";
     sizeof(x);
+  }));
+
+  ASSERT(3, π);
+  ASSERT(3, ({
+    int あβ0¾ = 3;
+    あβ0¾;
   }));
 
   ok();

@@ -368,3 +368,5 @@ bool is_composite_type(Type* type);
 int encode_to_utf8(char* dst, uint32_t code);
 uint32_t decode_from_utf8(char** dst, char* src);
 int encode_to_utf16(uint16_t* dst, uint32_t code);
+bool can_be_ident(uint32_t code);
+bool can_be_ident2(uint32_t code);

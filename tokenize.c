@@ -375,14 +375,6 @@ void warn_token(Token* token, char* fmt, ...) {
   va_end(args);
 }
 
-static bool can_be_ident(char c) {
-  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
-}
-
-static bool can_be_ident2(char c) {
-  return can_be_ident(c) || ('0' <= c && c <= '9');
-}
-
 static bool consume_comment(char** c) {
   if (start_with(*c, "//")) {
     while (**c != '\n') {
@@ -476,14 +468,18 @@ static bool consume_punct(Token** dst, char** c) {
 }
 
 static bool consume_ident(Token** dst, char** c) {
-  if (!can_be_ident(**c)) {
+  char* peeked = *c;
+  if (!can_be_ident(decode_from_utf8(&peeked, peeked))) {
     return false;
   }
 
   char* start = *c;
-  do {
-    (*c)++;
-  } while (can_be_ident2(**c));
+  *c = peeked;
+
+  for (uint32_t code = decode_from_utf8(&peeked, peeked); can_be_ident2(code);
+       code = decode_from_utf8(&peeked, peeked)) {
+    *c = peeked;
+  }
 
   *dst = new_token(TK_IDENT, start, *c - start);
   return true;
