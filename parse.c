@@ -2517,6 +2517,13 @@ static void init_string_initer(Token** tokens, Initer* init) {
       }
       break;
     }
+    case 4: {
+      uint32_t* val = (uint32_t*)(*tokens)->str_val;
+      for (int i = 0; i < len; i++) {
+        init->children[i]->expr = new_int_node(*tokens, val[i]);
+      }
+      break;
+    }
     default:
       error_token(*tokens, "invalid string initer");
   }
