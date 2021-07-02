@@ -19,7 +19,8 @@ RUN apt update && \
 RUN adduser --disabled-password --gecos '' cc
 RUN echo 'cc ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/cc
 
-
 USER cc
 
 WORKDIR /home/cc/cc
+
+RUN echo "add-auto-load-safe-path /workspaces/c-cc/.gdbinit" > ~/.gdbinit

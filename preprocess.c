@@ -173,7 +173,7 @@ static void expect_dir(Token** tokens, char* dir) {
   if (!is_dir(*tokens, dir)) {
     error_token(*tokens, "expected %s directive", dir);
   }
-  expect_tokens(tokens, 2, "#", dir);
+  expect_tokens(tokens, "#", dir, NULL);
 }
 
 static Token* append(Token* former, Token* latter) {
@@ -539,24 +539,27 @@ static Token* convert_pp_int(Token* token) {
 
   int64_t val = strtoul(c, &c, base);
 
-  bool l = false;
-  bool u = false;
-  if (start_with(c, "LLU") || start_with(c, "LLu") || start_with(c, "llU") || start_with(c, "llu")
-      || start_with(c, "ULL") || start_with(c, "Ull") || start_with(c, "uLL") || start_with(c, "ull")) {
+  enum {
+    VANILLA = 1 << 0,
+    UNSIGNED = 1 << 1,
+    LONG = 1 << 2,
+  };
+  int spec = VANILLA;
+  if (start_with_any(c, "LLU", "LLu", "llU", "llu", "ULL", "Ull", "uLL", "ull", NULL)) {
     c += 3;
-    l = u = true;
+    spec = UNSIGNED + LONG;
   } else if (start_with_insensitive(c, "LU") || start_with_insensitive(c, "UL")) {
     c += 2;
-    l = u = true;
+    spec = UNSIGNED + LONG;
   } else if (start_with(c, "LL") || start_with_insensitive(c, "ll")) {
     c += 2;
-    l = true;
+    spec = LONG;
   } else if (start_with_insensitive(c, "L")) {
     c++;
-    l = true;
+    spec = LONG;
   } else if (start_with_insensitive(c, "U")) {
     c++;
-    u = true;
+    spec = UNSIGNED;
   }
 
   if (c != start + token->len) {
@@ -565,32 +568,39 @@ static Token* convert_pp_int(Token* token) {
 
   Type* type = NULL;
   if (base == 10) {
-    if (l && u) {
-      type = new_ulong_type();
-    } else if (l) {
-      type = new_long_type();
-    } else if (u) {
-      type = val >> 32 ? new_ulong_type() : new_uint_type();
-    } else if (val >> 31) {
-      type = new_long_type();
-    } else {
-      type = new_int_type();
+    switch (spec) {
+      case UNSIGNED + LONG:
+        type = new_ulong_type();
+        break;
+      case UNSIGNED:
+        type = val >> 32 ? new_ulong_type() : new_uint_type();
+        break;
+      case LONG:
+        type = new_long_type();
+      default:
+        type = val >> 31 ? new_long_type() : new_int_type();
     }
   } else {
-    if (l && u) {
-      type = new_ulong_type();
-    } else if (l) {
-      type = val >> 63 ? new_ulong_type() : new_long_type();
-    } else if (u) {
-      type = val >> 32 ? new_ulong_type() : new_uint_type();
-    } else if (val >> 63) {
-      type = new_ulong_type();
-    } else if (val >> 32) {
-      type = new_long_type();
-    } else if (val >> 31) {
-      type = new_uint_type();
-    } else {
-      type = new_int_type();
+    switch (spec) {
+      case UNSIGNED + LONG:
+        type = new_ulong_type();
+        break;
+      case UNSIGNED:
+        type = val >> 32 ? new_ulong_type() : new_uint_type();
+        break;
+      case LONG:
+        type = val >> 63 ? new_ulong_type() : new_long_type();
+        break;
+      default:
+        if (val >> 63) {
+          type = new_ulong_type();
+        } else if (val >> 32) {
+          type = new_long_type();
+        } else if (val >> 31) {
+          type = new_uint_type();
+        } else {
+          type = new_int_type();
+        }
     }
   }
 

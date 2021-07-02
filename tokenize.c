@@ -235,12 +235,12 @@ bool equal_to_token(Token* token, char* s) {
   return token && equal_to_n_chars(s, token->loc, token->len);
 }
 
-bool equal_to_tokens(Token* token, int len, ...) {
+bool equal_to_tokens(Token* token, ...) {
   va_list ss;
-  va_start(ss, len);
+  va_start(ss, token);
   Token* cur = token;
-  for (int i = 0; i < len; i++) {
-    if (!equal_to_token(cur, va_arg(ss, char*))) {
+  for (char* s = va_arg(ss, char*); s; s = va_arg(ss, char*)) {
+    if (!equal_to_token(cur, s)) {
       return false;
     }
     if (cur) {
@@ -274,13 +274,13 @@ Token* expect_token(Token** tokens, char* s) {
   return start;
 }
 
-Token* expect_tokens(Token** tokens, int len, ...) {
+Token* expect_tokens(Token** tokens, ...) {
   Token* start = *tokens;
 
   va_list ss;
-  va_start(ss, len);
-  for (int i = 0; i < len; i++) {
-    expect_token(tokens, va_arg(ss, char*));
+  va_start(ss, tokens);
+  for (char* s = va_arg(ss, char*); s; s = va_arg(ss, char*)) {
+    expect_token(tokens, s);
   }
   va_end(ss);
 
@@ -566,7 +566,7 @@ static int read_escaped_char(char** c) {
 }
 
 static bool consume_char(Token** dst, char** c) {
-  if (**c != '\'' && !start_with(*c, "L'") && !start_with(*c, "u'") && !start_with(*c, "U'")) {
+  if (**c != '\'' && !start_with_any(*c, "u'", "U'", "L'", NULL)) {
     return false;
   }
 
@@ -574,19 +574,19 @@ static bool consume_char(Token** dst, char** c) {
 
   enum {
     VANILLA = 1 << 0,
-    WIDE = 1 << 1,
-    UTF16 = 1 << 2,
-    UTF32 = 1 << 3,
+    UTF16 = 1 << 1,
+    UTF32 = 1 << 2,
+    WIDE = 1 << 3,
   };
   int kind = VANILLA;
-  if (**c == 'L') {
-    kind = WIDE;
-    (*c)++;
-  } else if (**c == 'u') {
+  if (**c == 'u') {
     kind = UTF16;
     (*c)++;
   } else if (**c == 'U') {
     kind = UTF32;
+    (*c)++;
+  } else if (**c == 'L') {
+    kind = WIDE;
     (*c)++;
   }
 
@@ -610,16 +610,16 @@ static bool consume_char(Token** dst, char** c) {
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
   switch (kind) {
-    case WIDE:
-      token->type = new_int_type();
-      token->int_val = read;
-      break;
     case UTF16:
       token->type = new_ushort_type();
       token->int_val = 0xFFFF & read;
       break;
     case UTF32:
       token->type = new_uint_type();
+      token->int_val = read;
+      break;
+    case WIDE:
+      token->type = new_int_type();
       token->int_val = read;
       break;
     default:
@@ -689,8 +689,7 @@ static Token* read_utf32_str_literal(Type* type, char* start, char* opening, cha
 }
 
 static bool consume_str(Token** dst, char** c) {
-  if (**c != '"' && !start_with(*c, "u8\"") && !start_with(*c, "u\"") && !start_with(*c, "U\"")
-      && !start_with(*c, "L\"")) {
+  if (**c != '"' && !start_with_any(*c, "u8\"", "u\"", "U\"", "L\"", NULL)) {
     return false;
   }
 

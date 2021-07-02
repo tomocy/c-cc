@@ -173,11 +173,8 @@ static Str* parse_args(int argc, char** argv) {
     }
 
     // Ignore those options for now
-    if (start_with(argv[i], "-O") || start_with(argv[i], "-W") || start_with(argv[i], "-g")
-        || start_with(argv[i], "-std") || start_with(argv[i], "-ffreestanding") || start_with(argv[i], "-fno-builtin")
-        || start_with(argv[i], "-fno-omit-frame-pointer") || start_with(argv[i], "-fno-stack-protector")
-        || start_with(argv[i], "-fno-strict-aliasing") || start_with(argv[i], "-m64")
-        || start_with(argv[i], "-mno-red-zone") || start_with(argv[i], "-w")) {
+    if (start_with_any(argv[i], "-O", "-W", "-g", "-std", "-ffreestanding", "-fno-builtin", "-fno-omit-frame-pointer",
+          "-fno-stack-protector", "-fno-strict-aliasing", "-m64", "-mno-red-zone", "-w", NULL)) {
       continue;
     }
 

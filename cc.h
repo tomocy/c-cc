@@ -275,11 +275,11 @@ void undefine_macro(char* name);
 void error_token(Token* token, char* fmt, ...);
 void warn_token(Token* token, char* fmt, ...);
 bool equal_to_token(Token* token, char* s);
-bool equal_to_tokens(Token* token, int len, ...);
+bool equal_to_tokens(Token* token, ...);
 bool equal_to_ident_token(Token* token, char* s);
 bool consume_token(Token** token, char* s);
 Token* expect_token(Token** token, char* s);
-Token* expect_tokens(Token** tokens, int len, ...);
+Token* expect_tokens(Token** tokens, ...);
 Token* expect_ident_token(Token** tokens);
 Token* tokenize(char* input_filename);
 Token* tokenize_in(File* file);
@@ -330,6 +330,7 @@ char* format(char* fmt, ...);
 bool equal_to_str(char* s, char* other);
 bool equal_to_n_chars(char* s, char* c, int n);
 bool start_with(char* s, char* prefix);
+bool start_with_any(char* s, ...);
 bool start_with_insensitive(char* s, char* prefix);
 
 // type.c

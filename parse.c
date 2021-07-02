@@ -1355,7 +1355,7 @@ static Node* block_stmt(Token** tokens) {
 static Node* if_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  expect_tokens(tokens, 2, "if", "(");
+  expect_tokens(tokens, "if", "(", NULL);
 
   Node* node = new_node(ND_IF);
   node->token = start;
@@ -1376,7 +1376,7 @@ static Node* if_stmt(Token** tokens) {
 static Node* switch_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  expect_tokens(tokens, 2, "switch", "(");
+  expect_tokens(tokens, "switch", "(", NULL);
 
   Node* prev_switch = current_switch;
   Node* node = current_switch = new_node(ND_SWITCH);
@@ -1442,7 +1442,7 @@ static Node* default_case_stmt(Token** tokens) {
 static Node* for_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  expect_tokens(tokens, 2, "for", "(");
+  expect_tokens(tokens, "for", "(", NULL);
 
   Node* node = new_node(ND_FOR);
   node->token = start;
@@ -1484,7 +1484,7 @@ static Node* for_stmt(Token** tokens) {
 static Node* while_stmt(Token** tokens) {
   Token* start = *tokens;
 
-  expect_tokens(tokens, 2, "while", "(");
+  expect_tokens(tokens, "while", "(", NULL);
 
   Node* node = new_node(ND_FOR);
   node->token = start;
@@ -1520,11 +1520,11 @@ static Node* do_stmt(Token** tokens) {
   current_break_label_id = prev_break_label_id;
   current_continue_label_id = prev_continue_label_id;
 
-  expect_tokens(tokens, 2, "while", "(");
+  expect_tokens(tokens, "while", "(", NULL);
 
   node->cond = expr(tokens);
 
-  expect_tokens(tokens, 2, ")", ";");
+  expect_tokens(tokens, ")", ";", NULL);
 
   Node* first = calloc(1, sizeof(Node));
   *first = *node->then;
@@ -2024,7 +2024,7 @@ static Node* unary(Token** tokens) {
   }
 
   if (equal_to_token(*tokens, "sizeof") && equal_to_abstract_decl_start((*tokens)->next)) {
-    expect_tokens(tokens, 2, "sizeof", "(");
+    expect_tokens(tokens, "sizeof", "(", NULL);
     Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
     return new_ulong_node(start, type->size);
@@ -2036,7 +2036,7 @@ static Node* unary(Token** tokens) {
   }
 
   if (equal_to_token(*tokens, "_Alignof") && equal_to_abstract_decl_start((*tokens)->next)) {
-    expect_tokens(tokens, 2, "_Alignof", "(");
+    expect_tokens(tokens, "_Alignof", "(", NULL);
     Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
     return new_ulong_node(start, type->alignment);
@@ -2209,7 +2209,7 @@ static Node* datum(Token** tokens) {
 static Node* primary(Token** tokens) {
   Token* start = *tokens;
 
-  if (equal_to_tokens(*tokens, 2, "(", "{")) {
+  if (equal_to_tokens(*tokens, "(", "{", NULL)) {
     expect_token(tokens, "(");
     Node* node = new_stmt_expr_node(start, block_stmt(tokens)->body);
     expect_token(tokens, ")");
@@ -2467,7 +2467,7 @@ static void skip_excess_initers(Token** tokens) {
 }
 
 static bool equal_to_initer_end(Token* token) {
-  return equal_to_token(token, "}") || equal_to_tokens(token, 2, ",", "}");
+  return equal_to_token(token, "}") || equal_to_tokens(token, ",", "}", NULL);
 }
 
 static bool consume_initer_end(Token** tokens) {
@@ -2475,8 +2475,8 @@ static bool consume_initer_end(Token** tokens) {
     return true;
   }
 
-  if (equal_to_tokens(*tokens, 2, ",", "}")) {
-    expect_tokens(tokens, 2, ",", "}");
+  if (equal_to_tokens(*tokens, ",", "}", NULL)) {
+    expect_tokens(tokens, ",", "}", NULL);
     return true;
   }
 
@@ -3029,7 +3029,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   };
 
   Type* type = new_int_type();
-  int counter = 0;
+  int spec = 0;
 
   while (equal_to_decl_specifier(*tokens)) {
     Token* start = *tokens;
@@ -3063,7 +3063,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
         error_token(*tokens, "_Alignas is not allowed in this context");
       }
 
-      expect_tokens(tokens, 2, "_Alignas", "(");
+      expect_tokens(tokens, "_Alignas", "(", NULL);
       if (equal_to_decl_specifier(*tokens)) {
         Type* type = abstract_decl(tokens, NULL);
         attr->alignment = type->alignment;
@@ -3076,87 +3076,87 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
 
     Obj* def_type = find_def_type_obj((*tokens)->loc, (*tokens)->len);
     if (def_type) {
-      if (counter > 0) {
+      if (spec > 0) {
         break;
       }
 
-      counter += OTHER;
+      spec += OTHER;
       type = def_type->type;
       *tokens = (*tokens)->next;
       continue;
     }
 
     if (equal_to_token(*tokens, "struct")) {
-      if (counter > 0) {
+      if (spec > 0) {
         break;
       }
 
-      counter += OTHER;
+      spec += OTHER;
       type = struct_decl(tokens);
       continue;
     }
 
     if (equal_to_token(*tokens, "union")) {
-      if (counter > 0) {
+      if (spec > 0) {
         break;
       }
 
-      counter += OTHER;
+      spec += OTHER;
       type = union_decl(tokens);
       continue;
     }
 
     if (equal_to_token(*tokens, "enum")) {
-      if (counter > 0) {
+      if (spec > 0) {
         break;
       }
 
-      counter += OTHER;
+      spec += OTHER;
       type = enum_specifier(tokens);
       continue;
     }
 
     if (consume_token(tokens, "void")) {
-      counter += VOID;
+      spec += VOID;
     }
 
     if (consume_token(tokens, "_Bool")) {
-      counter += BOOL;
+      spec += BOOL;
     }
 
     if (consume_token(tokens, "char")) {
-      counter += CHAR;
+      spec += CHAR;
     }
 
     if (consume_token(tokens, "short")) {
-      counter += SHORT;
+      spec += SHORT;
     }
 
     if (consume_token(tokens, "int")) {
-      counter += INT;
+      spec += INT;
     }
 
     if (consume_token(tokens, "long")) {
-      counter += LONG;
+      spec += LONG;
     }
 
     if (consume_token(tokens, "float")) {
-      counter += FLOAT;
+      spec += FLOAT;
     }
 
     if (consume_token(tokens, "double")) {
-      counter += DOUBLE;
+      spec += DOUBLE;
     }
 
     if (consume_token(tokens, "signed")) {
-      counter |= SIGNED;
+      spec |= SIGNED;
     }
 
     if (consume_token(tokens, "unsigned")) {
-      counter |= UNSIGNED;
+      spec |= UNSIGNED;
     }
 
-    switch (counter) {
+    switch (spec) {
       case VOID:
         type = new_void_type();
         break;
@@ -3290,8 +3290,8 @@ static Type* type_suffix(Token** tokens, Type* type) {
 static Type* func_params(Token** tokens, Type* type) {
   expect_token(tokens, "(");
 
-  if (equal_to_tokens(*tokens, 2, "void", ")")) {
-    expect_tokens(tokens, 2, "void", ")");
+  if (equal_to_tokens(*tokens, "void", ")", NULL)) {
+    expect_tokens(tokens, "void", ")", NULL);
     return new_func_type(type, NULL, false);
   }
 

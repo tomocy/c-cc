@@ -12,13 +12,13 @@
     },
     // Add the IDs of extensions you want installed when the container is created.
     "extensions": [
-        "ms-vscode.cpptools",
         "patbenatar.advanced-new-file",
         "editorconfig.editorconfig",
         "llvm-vs-code-extensions.vscode-clangd",
         "ms-python.python",
         "timonwong.shellcheck",
         "foxundermoon.shell-format",
+        "ms-azuretools.vscode-docker",
     ],
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     // "forwardPorts": [],

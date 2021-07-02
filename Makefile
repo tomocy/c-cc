@@ -3,14 +3,12 @@ CFLAGS=-std=c11 -g -static -Wall
 # Files to make compilers
 SRCS=$(wildcard *.c)
 OBJS=$(SRCS:.c=.o)
-BETA_OBJS=$(wildcard beta/*.o beta/*.s)
 S2_OBJS=$(SRCS:%.c=s2/%.o)
 
 # Files to run tests
 TEST_DIR=test
 TEST_SRCS=$(wildcard $(TEST_DIR)/*_test.c)
 TESTS=$(TEST_SRCS:.c=)
-BETA_TESTS=$(TESTS:%=beta/%)
 S2_TESTS=$(TESTS:%=s2/%)
 
 # stage1
@@ -21,20 +19,6 @@ test/%: cc test/adapter.c test/%.c
 	./cc -c -I test -o test/$*.o test/$*.c
 	$(CC) -o $@ test/adapter.c test/$*.o
 	rm test/$*.o
-
-# beta (stage1 ~> stage2)
-beta/cc: $(BETA_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
-# Compile c files with $(CC)
-beta/%.o: %.c
-	rm -rf beta/$*.s
-	$(CC) -c -o beta/$*.o $*.c
-
-# Compile c files with ./cc
-beta/%.s: cc %.c
-	rm -rf beta/$*.o
-	./cc -S -o beta/$*.s $*.c
 
 # stage2
 s2/cc: $(S2_OBJS)
@@ -81,27 +65,10 @@ s1/test@%: test/%_test
 	./test/$*_test
 	rm -f test/$*_test
 
-# beta test
-# Use 'o' or 's' depends on which compiler you use
-.PHONY: beta/prepare
-beta/prepare:
-	make beta/main.s
-	make beta/tokenize.o
-	make beta/preprocess.s
-	make beta/parse.o
-	make beta/gen.s
-	make beta/file.o
-	make beta/string.s
-	make beta/error.o
-
-.PHONY: beta/test@%
-beta/test@%: test/adapter.c test/%_test.c
-	make beta/prepare
-	make beta/cc
-	./beta/cc -c -I test -o beta/test/$*_test.o test/$*_test.c
-	$(CC) -o beta/test/$*_test test/adapter.c beta/test/$*_test.o
-	./beta/test/$*_test
-	rm -f beta/test/$*_test.o beta/test/$*_test
+# stage1 test debug
+.PHONY: s1/debug@%
+s1/debug@%: test/%_test
+	gdb ./test/$*_test
 
 # stage2 test
 .PHONY: s2/test
@@ -119,9 +86,13 @@ s2/test@%: s2/test/%_test
 	./s2/test/$*_test
 	rm -f s2/test/$*_test
 
+# stage2 test debug
+.PHONY: s2/debug@%
+s2/debug@%: s2/test/%_test
+	gdb ./s2/test/$*_test
+
 .PHONY: clean
 clean:
 	rm -f \
 		cc $(TESTS) $(OBJS) $(wildcard test/*.o test/*.s) \
-		beta/cc $(BETA_TESTS) $(BETA_OBJS) $(wildcard beta/*.c) $(wildcard beta/test/*.o beta/test/*.s beta/test/*.c) \
 		s2/cc $(S2_TESTS) $(S2_OBJS) $(wildcard s2/*.c) $(wildcard s2/test/*.o s2/test/*.s s2/test/*.c)

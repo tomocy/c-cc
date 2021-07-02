@@ -78,6 +78,18 @@ bool start_with(char* s, char* prefix) {
   return strncmp(s, prefix, strlen(prefix)) == 0;
 }
 
+bool start_with_any(char* s, ...) {
+  va_list prefixs;
+  va_start(prefixs, s);
+  for (char* prefix = va_arg(prefixs, char*); prefix; prefix = va_arg(prefixs, char*)) {
+    if (start_with(s, prefix)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool start_with_insensitive(char* s, char* prefix) {
   return strncasecmp(s, prefix, strlen(prefix)) == 0;
 }
