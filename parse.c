@@ -2492,7 +2492,7 @@ static void expect_initer_end(Token** tokens) {
 static void init_initer(Token** tokens, Initer* init);
 
 static void init_string_initer(Token** tokens, Initer* init) {
-  int len = strlen((*tokens)->str_val) + 1;
+  int len = (*tokens)->type->len;
 
   if (init->is_flexible) {
     *init = *new_initer(new_array_type(init->type->base, len));
@@ -2502,9 +2502,25 @@ static void init_string_initer(Token** tokens, Initer* init) {
     len = init->type->len;
   }
 
-  for (int i = 0; i < len; i++) {
-    init->children[i]->expr = new_int_node(*tokens, (*tokens)->str_val[i]);
+  switch (init->type->base->size) {
+    case 1: {
+      char* val = (*tokens)->str_val;
+      for (int i = 0; i < len; i++) {
+        init->children[i]->expr = new_int_node(*tokens, val[i]);
+      }
+      break;
+    }
+    case 2: {
+      uint16_t* val = (uint16_t*)(*tokens)->str_val;
+      for (int i = 0; i < len; i++) {
+        init->children[i]->expr = new_int_node(*tokens, val[i]);
+      }
+      break;
+    }
+    default:
+      error_token(*tokens, "invalid string initer");
   }
+
   *tokens = (*tokens)->next;
 }
 
