@@ -96,6 +96,8 @@ bool can_be_ident(uint32_t code) {
     'z',
     'A',
     'Z',
+    '$',
+    '$',
     0x00A8,
     0x00A8,
     0x00AA,
@@ -204,6 +206,8 @@ bool can_be_ident2(uint32_t code) {
   static uint32_t range[] = {
     '0',
     '9',
+    '$',
+    '$',
     0x0300,
     0x036F,
     0x1DC0,
