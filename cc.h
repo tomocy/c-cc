@@ -41,6 +41,14 @@ struct File {
 };
 
 typedef enum {
+  CHAR_VANILLA,
+  CHAR_UTF8,
+  CHAR_UTF16,
+  CHAR_UTF32,
+  CHAR_WIDE,
+} CharKind;
+
+typedef enum {
   TK_RESERVED,
   TK_PP_NUM,
   TK_NUM,
@@ -68,6 +76,7 @@ struct Token {
   int64_t int_val;
   double float_val;
 
+  CharKind char_kind;
   char* str_val;
 };
 
@@ -287,6 +296,7 @@ Token* new_token_in(TokenKind kind, File* file, char* loc, int len);
 Token* new_eof_token_in(File* file);
 Token* copy_token(Token* src);
 Token* copy_tokens(Token* src);
+Token* read_str_literal_in(File* file, CharKind kind, char* start, char* opening, char* closing);
 bool can_be_keyword(char* c, int len);
 void print_tokens(char* output_filename, Token* tokens);
 

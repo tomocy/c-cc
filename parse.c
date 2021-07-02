@@ -294,7 +294,7 @@ static Obj* create_str_obj(Type* type, char* val) {
   str->is_static = true;
 
   // The val may contain \0, so use memcpy instead of strdup.
-  str->val = calloc(type->base->size, type->len + 1);
+  str->val = calloc(type->len + 1, type->base->size);
   memcpy(str->val, val, type->size);
 
   add_code(str);
@@ -2446,8 +2446,8 @@ static Initer* new_initer(Type* type) {
       return init;
     }
 
-    init->children = calloc(init->type->size, sizeof(Initer*));
-    for (int i = 0; i < init->type->size; i++) {
+    init->children = calloc(init->type->len, sizeof(Initer*));
+    for (int i = 0; i < init->type->len; i++) {
       init->children[i] = new_initer(init->type->base);
     }
     return init;

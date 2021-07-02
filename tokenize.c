@@ -568,21 +568,15 @@ static bool consume_char(Token** dst, char** c) {
 
   char* start = *c;
 
-  enum {
-    VANILLA = 1 << 0,
-    UTF16 = 1 << 1,
-    UTF32 = 1 << 2,
-    WIDE = 1 << 3,
-  };
-  int kind = VANILLA;
+  CharKind kind = CHAR_VANILLA;
   if (**c == 'u') {
-    kind = UTF16;
+    kind = CHAR_UTF16;
     (*c)++;
   } else if (**c == 'U') {
-    kind = UTF32;
+    kind = CHAR_UTF32;
     (*c)++;
   } else if (**c == 'L') {
-    kind = WIDE;
+    kind = CHAR_WIDE;
     (*c)++;
   }
 
@@ -605,16 +599,17 @@ static bool consume_char(Token** dst, char** c) {
   }
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
+  token->char_kind = kind;
   switch (kind) {
-    case UTF16:
+    case CHAR_UTF16:
       token->type = new_ushort_type();
       token->int_val = 0xFFFF & read;
       break;
-    case UTF32:
+    case CHAR_UTF32:
       token->type = new_uint_type();
       token->int_val = read;
       break;
-    case WIDE:
+    case CHAR_WIDE:
       token->type = new_int_type();
       token->int_val = read;
       break;
@@ -627,8 +622,8 @@ static bool consume_char(Token** dst, char** c) {
   return true;
 }
 
-static Token* read_str_literal(char* start, char* opening, char* closing) {
-  char* val = calloc(1, closing - opening);
+static Token* read_vanilla_str_literal(char* start, char* opening, char* closing) {
+  char* val = calloc(closing - opening, 1);
   int len = 0;
   for (char* c = opening + 1; c < closing;) {
     if (*c == '\\') {
@@ -646,7 +641,7 @@ static Token* read_str_literal(char* start, char* opening, char* closing) {
 }
 
 static Token* read_utf16_str_literal(char* start, char* opening, char* closing) {
-  uint16_t* val = calloc(2, closing - opening);
+  uint16_t* val = calloc(closing - opening, 2);
   int len = 0;
   for (char* c = opening + 1; c < closing;) {
     if (*c == '\\') {
@@ -666,7 +661,7 @@ static Token* read_utf16_str_literal(char* start, char* opening, char* closing) 
 }
 
 static Token* read_utf32_str_literal(Type* type, char* start, char* opening, char* closing) {
-  uint32_t* val = calloc(4, closing - opening);
+  uint32_t* val = calloc(closing - opening, 4);
   int len = 0;
   for (char* c = opening + 1; c < closing;) {
     if (*c == '\\') {
@@ -684,6 +679,33 @@ static Token* read_utf32_str_literal(Type* type, char* start, char* opening, cha
   return token;
 }
 
+static Token* read_str_literal(CharKind kind, char* start, char* opening, char* closing) {
+  Token* token = NULL;
+  switch (kind) {
+    case CHAR_UTF16:
+      token = read_utf16_str_literal(start, opening, closing);
+      break;
+    case CHAR_UTF32:
+      token = read_utf32_str_literal(new_uint_type(), start, opening, closing);
+      break;
+    case CHAR_WIDE:
+      token = read_utf32_str_literal(new_int_type(), start, opening, closing);
+      break;
+    default:
+      token = read_vanilla_str_literal(start, opening, closing);
+      break;
+  }
+  token->char_kind = kind;
+
+  return token;
+}
+
+Token* read_str_literal_in(File* file, CharKind kind, char* start, char* opening, char* closing) {
+  Token* token = read_str_literal(kind, start, opening, closing);
+  token->file = file;
+  return token;
+}
+
 static bool consume_str(Token** dst, char** c) {
   if (**c != '"' && !start_with_any(*c, "u8\"", "u\"", "U\"", "L\"", NULL)) {
     return false;
@@ -691,23 +713,18 @@ static bool consume_str(Token** dst, char** c) {
 
   char* start = *c;
 
-  enum {
-    VANILLA = 1 << 0,
-    UTF16 = 1 << 1,
-    UTF32 = 1 << 2,
-    WIDE = 1 << 3,
-  };
-  int kind = VANILLA;
+  CharKind kind = CHAR_VANILLA;
   if (start_with(*c, "u8\"")) {
+    kind = CHAR_UTF8;
     *c += 2;
   } else if (**c == 'u') {
-    kind = UTF16;
+    kind = CHAR_UTF16;
     (*c)++;
   } else if (**c == 'U') {
-    kind = UTF32;
+    kind = CHAR_UTF32;
     (*c)++;
   } else if (**c == 'L') {
-    kind = WIDE;
+    kind = CHAR_WIDE;
     (*c)++;
   }
 
@@ -722,19 +739,7 @@ static bool consume_str(Token** dst, char** c) {
   }
   char* end = (*c)++;
 
-  switch (kind) {
-    case UTF16:
-      *dst = read_utf16_str_literal(start, opening, end);
-      break;
-    case UTF32:
-      *dst = read_utf32_str_literal(new_uint_type(), start, opening, end);
-      break;
-    case WIDE:
-      *dst = read_utf32_str_literal(new_int_type(), start, opening, end);
-      break;
-    default:
-      *dst = read_str_literal(start, opening, end);
-      break;
-  }
+  *dst = read_str_literal(kind, start, opening, end);
+
   return true;
 }

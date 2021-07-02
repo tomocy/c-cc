@@ -677,6 +677,9 @@ static Token* convert_tokens(Token* tokens) {
 static Token* concat_adjecent_strs(Token* tokens) {
   Token head = {};
   Token* cur = &head;
+
+  // Convert regular string literals to wider ones if the regular ones are being concatenated
+  // to the wider ones in order to make it easy to concatenate those strings in the latter step.
   for (Token* token = tokens; token; token = token->next) {
     if (token->kind != TK_STR || token->next->kind != TK_STR) {
       cur = cur->next = copy_token(token);
@@ -688,22 +691,57 @@ static Token* concat_adjecent_strs(Token* tokens) {
       not_str = not_str->next;
     }
 
+    CharKind concated_kind = token->char_kind;
     int len = 0;
-    for (Token* t = token; t != not_str; t = t->next) {
-      len += t->type->len - 1;
+    for (Token* str = token; str != not_str; str = str->next) {
+      if (str->char_kind != concated_kind && str->char_kind != CHAR_VANILLA && concated_kind != CHAR_VANILLA) {
+        error_token(str, "unsupported concatenation of string literals");
+      }
+      if (str->char_kind > concated_kind) {
+        concated_kind = str->char_kind;
+      }
+
+      len += str->type->len - 1;
     }
 
-    char* val = calloc(token->type->base->size, len);
+    for (Token* t = token; t != not_str; t = t->next) {
+      if (concated_kind == CHAR_VANILLA || t->char_kind != CHAR_VANILLA) {
+        cur = cur->next = copy_token(t);
+        continue;
+      }
+
+      cur = cur->next = read_str_literal_in(t->file, concated_kind, t->loc, t->loc, t->loc + t->len - 1);
+    }
+
+    token->next = not_str;
+  }
+
+  for (Token* token = head.next; token; token = token->next) {
+    if (token->kind != TK_STR || token->next->kind != TK_STR) {
+      continue;
+    }
+
+    Token* not_str = token->next;
+    while (not_str->kind == TK_STR) {
+      not_str = not_str->next;
+    }
+
+    int len = 0;
+    for (Token* str = token; str != not_str; str = str->next) {
+      len += str->type->len - 1;
+    }
+
+    char* val = calloc(len + 1, token->type->base->size);
     char* c = val;
-    for (Token* t = token; t != not_str; t = t->next) {
-      strncpy(c, t->str_val, t->type->size);
-      c += t->type->size - t->type->base->size;  // not to proceed by the NULL termination
+    for (Token* str = token; str != not_str; str = str->next) {
+      int size = str->type->size - str->type->base->size;
+      memcpy(c, str->str_val, size);
+      c += size;  // not to proceed by the NULL termination
     }
 
-    cur = cur->next = copy_token(token);
-    cur->len = not_str->loc - cur->loc;
-    cur->type = new_array_type(cur->type->base, len + 1);
-    cur->str_val = val;
+    token->len = not_str->loc - token->loc;
+    token->type = new_array_type(token->type->base, len + 1);
+    token->str_val = val;
 
     token->next = not_str;
   }
