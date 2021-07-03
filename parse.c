@@ -31,6 +31,7 @@ struct Initer {
   Token* token;
   bool is_flexible;
   Node* expr;
+  Member* mem;
   Initer** children;
 };
 
@@ -1221,8 +1222,10 @@ static Relocation* write_gvar_data(char* data, int offset, Initer* init, Relocat
       }
       return reloc;
     }
-    case TY_UNION:
-      return write_gvar_data(data, offset, init->children[0], reloc);
+    case TY_UNION: {
+      Member* mem = init->mem ? init->mem : init->type->members;
+      return write_gvar_data(data, offset, init->children[mem->index], reloc);
+    }
     case TY_ARRAY: {
       int size = init->type->base->size;
       for (int i = 0; i < init->type->len; i++) {
@@ -2529,13 +2532,13 @@ static void init_string_initer(Token** tokens, Initer* init) {
   *tokens = (*tokens)->next;
 }
 
-static Member* struct_designator(Token** tokens, Type* type) {
+static Member* composite_designator(Token** tokens, Type* type) {
   expect_token(tokens, ".");
 
   Token* ident = expect_ident_token(tokens);
   Member* mem = find_member_from(type->members, ident->loc, ident->len);
   if (!mem) {
-    error_token(ident, "struct has no such member");
+    error_token(ident, "struct or union has no such member");
   }
 
   return mem;
@@ -2564,15 +2567,24 @@ static void init_direct_array_initer(Token** tokens, Initer* init, int from);
 
 static void init_designated_initer(Token** tokens, Initer* init) {
   if (equal_to_token(*tokens, ".")) {
-    if (init->type->kind != TY_STRUCT) {
-      error_token(*tokens, "field name in non struct initializer");
+    switch (init->type->kind) {
+      case TY_STRUCT: {
+        Member* mem = composite_designator(tokens, init->type);
+        // Reset the initial value and re-initialize with the designated value.
+        init->expr = NULL;
+        init_designated_initer(tokens, init->children[mem->index]);
+        init_direct_struct_initer(tokens, init, mem->next);
+        return;
+      }
+      case TY_UNION: {
+        Member* mem = composite_designator(tokens, init->type);
+        init_designated_initer(tokens, init->children[mem->index]);
+        return;
+      }
+      default:
+        error_token(*tokens, "field name in non struct or union initializer");
+        return;
     }
-    Member* mem = struct_designator(tokens, init->type);
-    // Reset the initial value and re-initialize with the designated value.
-    init->expr = NULL;
-    init_designated_initer(tokens, init->children[mem->index]);
-    init_direct_struct_initer(tokens, init, mem->next);
-    return;
   }
 
   if (equal_to_token(*tokens, "[")) {
@@ -2601,7 +2613,7 @@ static void init_struct_initer(Token** tokens, Initer* init) {
     is_first = false;
 
     if (equal_to_token(*tokens, ".")) {
-      mem = struct_designator(tokens, init->type);
+      mem = composite_designator(tokens, init->type);
       init_designated_initer(tokens, init->children[mem->index]);
       continue;
     }
@@ -2636,12 +2648,23 @@ static void init_direct_struct_initer(Token** tokens, Initer* init, Member* from
 }
 
 static void init_union_initer(Token** tokens, Initer* init) {
-  if (consume_token(tokens, "{")) {
-    init_initer(tokens, init->children[0]);
+  if (equal_to_tokens(*tokens, "{", ".", NULL)) {
+    expect_token(tokens, "{");
+    init->mem = composite_designator(tokens, init->type);
+    init_designated_initer(tokens, init->children[init->mem->index]);
     expect_initer_end(tokens);
-  } else {
-    init_initer(tokens, init->children[0]);
+    return;
   }
+
+  init->mem = init->type->members;
+
+  if (consume_token(tokens, "{")) {
+    init_initer(tokens, init->children[init->mem->index]);
+    expect_initer_end(tokens);
+    return;
+  }
+
+  init_initer(tokens, init->children[init->mem->index]);
 }
 
 static int count_initers(Token* token, Type* type) {
@@ -2809,32 +2832,36 @@ static Node* designated_expr(Token* token, DesignatedIniter* init) {
 }
 
 static Node* lvar_init(Token* token, Initer* init, DesignatedIniter* designated) {
-  if (init->type->kind == TY_STRUCT && !init->expr) {
-    Node* node = new_null_node(token);
+  switch (init->type->kind) {
+    case TY_STRUCT:
+      if (init->expr) {
+        break;
+      }
 
-    int i = 0;
-    for (Member* mem = init->type->members; mem; mem = mem->next) {
-      DesignatedIniter next = {designated, 0, NULL, mem};
-      node = new_comma_node(token, node, lvar_init(token, init->children[i++], &next));
+      Node* node = new_null_node(token);
+
+      for (Member* mem = init->type->members; mem; mem = mem->next) {
+        DesignatedIniter next = {designated, 0, NULL, mem};
+        node = new_comma_node(token, node, lvar_init(token, init->children[mem->index], &next));
+      }
+
+      return node;
+    case TY_UNION: {
+      DesignatedIniter next = {designated, 0, NULL, init->mem};
+      return lvar_init(token, init->children[init->mem->index], &next);
     }
+    case TY_ARRAY: {
+      Node* node = new_null_node(token);
 
-    return node;
-  }
+      for (int i = 0; i < init->type->len; i++) {
+        DesignatedIniter next = {designated, i, NULL};
+        node = new_comma_node(token, node, lvar_init(token, init->children[i], &next));
+      }
 
-  if (init->type->kind == TY_UNION) {
-    DesignatedIniter next = {designated, 0, NULL, init->type->members};
-    return lvar_init(token, init->children[0], &next);
-  }
-
-  if (init->type->kind == TY_ARRAY) {
-    Node* node = new_null_node(token);
-
-    for (int i = 0; i < init->type->len; i++) {
-      DesignatedIniter next = {designated, i, NULL};
-      node = new_comma_node(token, node, lvar_init(token, init->children[i], &next));
+      return node;
     }
-
-    return node;
+    default: {
+    }
   }
 
   return init->expr ? new_assign_node(token, designated_expr(token, designated), init->expr) : new_null_node(token);

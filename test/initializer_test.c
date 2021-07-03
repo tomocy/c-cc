@@ -52,6 +52,14 @@ struct {
 char g43[][4] = {'f', 'o', 'o', 0, 'b', 'a', 'r', 0};
 char* g44 = {"foo"};
 
+union {
+  int a;
+  char b[4];
+} g50 = {.b[2] = 0x12};
+union {
+  int a;
+} g51[2] = {};
+
 typedef char T60[];
 T60 g60 = {1, 2, 3};
 T60 g61 = {1, 2, 3, 4, 5, 6};
@@ -784,6 +792,25 @@ int main() {
 
   ASSERT(5, ((struct { int a, b, c; }){.c = 5}).c);
   ASSERT(0, ((struct { int a, b, c; }){.c = 5}).a);
+
+  ASSERT(0x00ff, ({
+    union {
+      unsigned short a;
+      char b[2];
+    } x = {.b[0] = 0xff};
+    x.a;
+  }));
+  ASSERT(0xff00, ({
+    union {
+      unsigned short a;
+      char b[2];
+    } x = {.b[1] = 0xff};
+    x.a;
+  }));
+
+  ASSERT(0x00120000, g50.a);
+  ASSERT(0, g51[0].a);
+  ASSERT(0, g51[1].a);
 
   ok();
 }
