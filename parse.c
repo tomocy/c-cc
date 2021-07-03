@@ -2542,9 +2542,7 @@ static void init_struct_initer(Token** tokens, Initer* init) {
     }
 
     if (mem) {
-      init_initer(tokens, init->children[i]);
-      i++;
-
+      init_initer(tokens, init->children[i++]);
       mem = mem->next;
       continue;
     }
@@ -2560,8 +2558,7 @@ static void init_direct_struct_initer(Token** tokens, Initer* init) {
       expect_token(tokens, ",");
     }
 
-    init_initer(tokens, init->children[i]);
-    i++;
+    init_initer(tokens, init->children[i++]);
   }
 }
 
@@ -2587,6 +2584,59 @@ static int count_initers(Token* token, Type* type) {
   return i;
 }
 
+static void init_direct_array_initer(Token** tokens, Initer* init, int from) {
+  if (init->is_flexible) {
+    int len = count_initers(*tokens, init->type->base);
+    *init = *new_initer(new_array_type(init->type->base, len));
+    init->is_flexible = true;
+  }
+
+  for (int i = from; i < init->type->len && !equal_to_initer_end(*tokens); i++) {
+    Token* start = *tokens;
+
+    if (i > 0) {
+      expect_token(tokens, ",");
+    }
+
+    // It should be the array designated initializer for the parent of this init,
+    // so revert tokens and return to the parent initialization.
+    if (equal_to_token(*tokens, "[")) {
+      *tokens = start;
+      return;
+    }
+
+    init_initer(tokens, init->children[i]);
+  }
+}
+
+static int array_designator(Token** tokens, Type* type) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "[");
+  int i = const_expr(tokens);
+  if (i >= type->len) {
+    error_token(start, "array designator index exceeds array bounds");
+  }
+  expect_token(tokens, "]");
+
+  return i;
+}
+
+static void array_designation(Token** tokens, Initer* init) {
+  if (equal_to_token(*tokens, "[")) {
+    if (init->type->kind != TY_ARRAY) {
+      error_token(*tokens, "array index in non array initializer");
+    }
+    int i = array_designator(tokens, init->type);
+    array_designation(tokens, init->children[i]);
+    init_direct_array_initer(tokens, init, i + 1);
+    return;
+  }
+
+  expect_token(tokens, "=");
+  init_initer(tokens, init);
+}
+
 static void init_array_initer(Token** tokens, Initer* init) {
   expect_token(tokens, "{");
 
@@ -2596,9 +2646,17 @@ static void init_array_initer(Token** tokens, Initer* init) {
     init->is_flexible = true;
   }
 
+  bool is_first = true;
   for (int i = 0; !consume_initer_end(tokens); i++) {
-    if (i > 0) {
+    if (!is_first) {
       expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    if (equal_to_token(*tokens, "[")) {
+      i = array_designator(tokens, init->type);
+      array_designation(tokens, init->children[i]);
+      continue;
     }
 
     if (i < init->type->len) {
@@ -2610,68 +2668,53 @@ static void init_array_initer(Token** tokens, Initer* init) {
   }
 }
 
-static void init_direct_array_initer(Token** tokens, Initer* init) {
-  if (init->is_flexible) {
-    int len = count_initers(*tokens, init->type->base);
-    *init = *new_initer(new_array_type(init->type->base, len));
-    init->is_flexible = true;
-  }
-
-  for (int i = 0; i < init->type->len && !equal_to_initer_end(*tokens); i++) {
-    if (i > 0) {
-      expect_token(tokens, ",");
-    }
-    init_initer(tokens, init->children[i]);
-  }
-}
-
 static void init_initer(Token** tokens, Initer* init) {
-  if (init->type->kind == TY_ARRAY && (*tokens)->kind == TK_STR) {
-    init_string_initer(tokens, init);
-    return;
-  }
+  switch (init->type->kind) {
+    case TY_STRUCT: {
+      if (equal_to_token(*tokens, "{")) {
+        init_struct_initer(tokens, init);
+        return;
+      }
 
-  if (init->type->kind == TY_STRUCT) {
-    if (equal_to_token(*tokens, "{")) {
-      init_struct_initer(tokens, init);
+      Token* start = *tokens;
+
+      Node* expr = assign(tokens);
+      if (expr->type->kind == TY_STRUCT) {
+        init->expr = expr;
+        return;
+      }
+
+      *tokens = start;
+
+      init_direct_struct_initer(tokens, init);
       return;
     }
-
-    Token* start = *tokens;
-
-    Node* expr = assign(tokens);
-    if (expr->type->kind == TY_STRUCT) {
-      init->expr = expr;
+    case TY_UNION:
+      init_union_initer(tokens, init);
       return;
-    }
+    case TY_ARRAY:
+      if ((*tokens)->kind == TK_STR) {
+        init_string_initer(tokens, init);
+        return;
+      }
 
-    *tokens = start;
+      if (equal_to_token(*tokens, "{")) {
+        init_array_initer(tokens, init);
+        return;
+      }
 
-    init_direct_struct_initer(tokens, init);
-    return;
+      init_direct_array_initer(tokens, init, 0);
+      return;
+    default:
+      if (consume_token(tokens, "{")) {
+        init->expr = assign(tokens);
+        expect_token(tokens, "}");
+        return;
+      }
+
+      init->expr = assign(tokens);
+      return;
   }
-
-  if (init->type->kind == TY_UNION) {
-    init_union_initer(tokens, init);
-    return;
-  }
-
-  if (init->type->kind == TY_ARRAY) {
-    if (equal_to_token(*tokens, "{")) {
-      init_array_initer(tokens, init);
-    } else {
-      init_direct_array_initer(tokens, init);
-    }
-    return;
-  }
-
-  if (consume_token(tokens, "{")) {
-    init->expr = assign(tokens);
-    expect_token(tokens, "}");
-    return;
-  }
-
-  init->expr = assign(tokens);
 }
 
 static Initer* initer(Token** tokens, Type** type) {
@@ -2719,8 +2762,7 @@ static Node* lvar_init(Token* token, Initer* init, DesignatedIniter* designated)
     int i = 0;
     for (Member* mem = init->type->members; mem; mem = mem->next) {
       DesignatedIniter next = {designated, 0, NULL, mem};
-      node = new_comma_node(token, node, lvar_init(token, init->children[i], &next));
-      i++;
+      node = new_comma_node(token, node, lvar_init(token, init->children[i++], &next));
     }
 
     return node;
