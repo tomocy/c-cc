@@ -2571,6 +2571,41 @@ static void init_union_initer(Token** tokens, Initer* init) {
   }
 }
 
+static void init_direct_array_initer(Token** tokens, Initer* init, int from);
+
+static int array_designator(Token** tokens, Type* type, bool is_flexible) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "[");
+
+  int i = const_expr(tokens);
+  if (consume_token(tokens, "...")) {
+    i = const_expr(tokens);
+  }
+  if (!is_flexible && i >= type->len) {
+    error_token(start, "array designator index exceeds array bounds");
+  }
+
+  expect_token(tokens, "]");
+
+  return i;
+}
+
+static void array_designation(Token** tokens, Initer* init) {
+  if (equal_to_token(*tokens, "[")) {
+    if (init->type->kind != TY_ARRAY) {
+      error_token(*tokens, "array index in non array initializer");
+    }
+    int i = array_designator(tokens, init->type, init->is_flexible);
+    array_designation(tokens, init->children[i]);
+    init_direct_array_initer(tokens, init, i + 1);
+    return;
+  }
+
+  expect_token(tokens, "=");
+  init_initer(tokens, init);
+}
+
 static int count_initers(Token* token, Type* type) {
   Initer* ignored = new_initer(type);
 
@@ -2579,16 +2614,54 @@ static int count_initers(Token* token, Type* type) {
     if (i > 0) {
       expect_token(&token, ",");
     }
+
+    if (equal_to_token(token, "[")) {
+      i = array_designator(&token, type, true);
+      array_designation(&token, ignored);
+      continue;
+    }
+
     init_initer(&token, ignored);
   }
   return i;
+}
+
+static void init_array_initer(Token** tokens, Initer* init) {
+  expect_token(tokens, "{");
+
+  if (init->is_flexible) {
+    int len = count_initers(*tokens, init->type->base);
+    *init = *new_initer(new_array_type(init->type->base, len));
+    init->is_flexible = false;
+  }
+
+  bool is_first = true;
+  for (int i = 0; !consume_initer_end(tokens); i++) {
+    if (!is_first) {
+      expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    if (equal_to_token(*tokens, "[")) {
+      i = array_designator(tokens, init->type, init->is_flexible);
+      array_designation(tokens, init->children[i]);
+      continue;
+    }
+
+    if (i < init->type->len) {
+      init_initer(tokens, init->children[i]);
+      continue;
+    }
+
+    skip_excess_initers(tokens);
+  }
 }
 
 static void init_direct_array_initer(Token** tokens, Initer* init, int from) {
   if (init->is_flexible) {
     int len = count_initers(*tokens, init->type->base);
     *init = *new_initer(new_array_type(init->type->base, len));
-    init->is_flexible = true;
+    init->is_flexible = false;
   }
 
   for (int i = from; i < init->type->len && !equal_to_initer_end(*tokens); i++) {
@@ -2606,65 +2679,6 @@ static void init_direct_array_initer(Token** tokens, Initer* init, int from) {
     }
 
     init_initer(tokens, init->children[i]);
-  }
-}
-
-static int array_designator(Token** tokens, Type* type) {
-  Token* start = *tokens;
-
-  expect_token(tokens, "[");
-  int i = const_expr(tokens);
-  if (i >= type->len) {
-    error_token(start, "array designator index exceeds array bounds");
-  }
-  expect_token(tokens, "]");
-
-  return i;
-}
-
-static void array_designation(Token** tokens, Initer* init) {
-  if (equal_to_token(*tokens, "[")) {
-    if (init->type->kind != TY_ARRAY) {
-      error_token(*tokens, "array index in non array initializer");
-    }
-    int i = array_designator(tokens, init->type);
-    array_designation(tokens, init->children[i]);
-    init_direct_array_initer(tokens, init, i + 1);
-    return;
-  }
-
-  expect_token(tokens, "=");
-  init_initer(tokens, init);
-}
-
-static void init_array_initer(Token** tokens, Initer* init) {
-  expect_token(tokens, "{");
-
-  if (init->is_flexible) {
-    int len = count_initers(*tokens, init->type->base);
-    *init = *new_initer(new_array_type(init->type->base, len));
-    init->is_flexible = true;
-  }
-
-  bool is_first = true;
-  for (int i = 0; !consume_initer_end(tokens); i++) {
-    if (!is_first) {
-      expect_token(tokens, ",");
-    }
-    is_first = false;
-
-    if (equal_to_token(*tokens, "[")) {
-      i = array_designator(tokens, init->type);
-      array_designation(tokens, init->children[i]);
-      continue;
-    }
-
-    if (i < init->type->len) {
-      init_initer(tokens, init->children[i]);
-      continue;
-    }
-
-    skip_excess_initers(tokens);
   }
 }
 
