@@ -2100,20 +2100,22 @@ static Node* member(Token** tokens, Token* token, Node* lhs) {
   Token* ident = expect_ident_token(tokens);
 
   Member* mems = lhs->type->members;
-  Member* mem = NULL;
+  Node* node = lhs;
   for (;;) {
-    mem = find_member_from(mems, ident->loc, ident->len);
+    Member* mem = find_member_from(mems, ident->loc, ident->len);
     if (!mem) {
       error_token(*tokens, "no such member");
     }
+
+    node = new_member_node(ident, node, mem);
+
     if (mem->name) {
       break;
     }
-
     mems = mem->type->members;
   }
 
-  return new_member_node(token, lhs, mem);
+  return node;
 }
 
 static Node* postfix(Token** tokens) {
@@ -2533,12 +2535,20 @@ static void init_string_initer(Token** tokens, Initer* init) {
 }
 
 static Member* composite_designator(Token** tokens, Type* type) {
+  Token* start = *tokens;
+
   expect_token(tokens, ".");
 
   Token* ident = expect_ident_token(tokens);
   Member* mem = find_member_from(type->members, ident->loc, ident->len);
   if (!mem) {
     error_token(ident, "struct or union has no such member");
+  }
+  if (mem->type->kind == TY_STRUCT && !mem->name) {
+    // Rrever tokens if the designator is the member of an anonymous struct so that the member can be initialized as
+    // usual through the initialization of the anonymous struct at the later step as this function is used in the
+    // initialization of the parent of the anonymous struct in this case.
+    *tokens = start;
   }
 
   return mem;
@@ -2604,9 +2614,8 @@ static void init_designated_initer(Token** tokens, Initer* init) {
 static void init_struct_initer(Token** tokens, Initer* init) {
   expect_token(tokens, "{");
 
-  Member* mem = init->type->members;
   bool is_first = true;
-  while (!consume_initer_end(tokens)) {
+  for (Member* mem = init->type->members; !consume_initer_end(tokens);) {
     if (!is_first) {
       expect_token(tokens, ",");
     }
@@ -2615,6 +2624,7 @@ static void init_struct_initer(Token** tokens, Initer* init) {
     if (equal_to_token(*tokens, ".")) {
       mem = composite_designator(tokens, init->type);
       init_designated_initer(tokens, init->children[mem->index]);
+      mem = mem->next;
       continue;
     }
 
@@ -2799,7 +2809,7 @@ static Initer* initer(Token** tokens, Type** type) {
   Initer* init = new_initer(*type);
   init_initer(tokens, init);
 
-  if (init->type->kind == TY_STRUCT && init->type->is_flexible) {
+  if (is_composite_type(init->type) && init->type->is_flexible) {
     Type* copied = copy_composite_type(*type, init->type->kind);
 
     Member* mem = copied->members;
@@ -3116,8 +3126,12 @@ static Member* members(Token** tokens, bool* is_flexible) {
     Type* spec = decl_specifier(tokens, &attr);
 
     // Anonymous composite member
-    if (is_composite_type(spec) && consume_token(tokens, ";")) {
+    if (is_composite_type(spec) && equal_to_token(*tokens, ";")) {
       Member* mem = new_member(spec, i++);
+      mem->token = *tokens;
+
+      expect_token(tokens, ";");
+
       if (attr.alignment) {
         mem->alignment = attr.alignment;
       }

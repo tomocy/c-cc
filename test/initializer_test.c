@@ -812,5 +812,97 @@ int main() {
   ASSERT(0, g51[0].a);
   ASSERT(0, g51[1].a);
 
+  ASSERT(1, ({
+    struct {
+      struct {
+        int a;
+        int b;
+      };
+    } x = {1, 2};  // NOLINT
+    x.a;
+  }));
+  ASSERT(2, ({
+    struct {
+      struct {
+        int a;
+        int b;
+      };
+    } x = {1, 2};  // NOLINT
+    x.b;
+  }));
+  ASSERT(1, ({
+    struct {
+      struct {
+        int a;
+        struct {
+          int b;
+        };
+      };
+      int c;
+    } x = {1, 2, 3};  // NOLINT
+    x.a;
+  }));
+  ASSERT(2, ({
+    struct {
+      struct {
+        int a;
+        struct {
+          int b;
+        };
+      };
+      int c;
+    } x = {1, 2, 3};  // NOLINT
+    x.b;
+  }));
+  ASSERT(3, ({
+    struct {
+      struct {
+        int a;
+        struct {
+          int b;
+        };
+      };
+      int c;
+    } x = {1, 2, 3};  // NOLINT
+    x.c;
+  }));
+
+  ASSERT(1, ({
+    struct {
+      struct {
+        int a;
+        struct {
+          int b;
+        };
+      };
+      int c;
+    } x = {1, 2, 3, .b = 4, 5};  // NOLINT
+    x.a;
+  }));
+  ASSERT(4, ({
+    struct {
+      struct {
+        int a;
+        struct {
+          int b;
+        };
+      };
+      int c;
+    } x = {1, 2, 3, .b = 4, 5};  // NOLINT
+    x.b;
+  }));
+  ASSERT(5, ({
+    struct {
+      struct {
+        int a;
+        struct {
+          int b;
+        };
+      };
+      int c;
+    } x = {1, 2, 3, .b = 4, 5};  // NOLINT
+    x.c;
+  }));
+
   ok();
 }
