@@ -82,6 +82,7 @@ struct_initer = "{" initer ("," initer)* ","? "}"
 direct_struct_initer = initer ("," initer)*
 union_initer = "{" initer ","? "}"
 array_initer = "{" initer ("," initer)* ","? "}"
+array_designation = ("[" const_expr "]")+ "="? initer
 direct_array_initer = initer ("," initer)*
 lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer)?)*)?
 

@@ -2602,7 +2602,7 @@ static void array_designation(Token** tokens, Initer* init) {
     return;
   }
 
-  expect_token(tokens, "=");
+  consume_token(tokens, "=");
   init_initer(tokens, init);
 }
 
