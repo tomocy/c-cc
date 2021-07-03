@@ -75,14 +75,15 @@ initer = string_initer |
     struct_initer | direct_struct_initer |
     union_initer |
     array_initer | direct_array_initer |
+    designated_initer |
     "{" assign "}" |
     assign
+designated_initer = (("[" const_expr "]") | ("." ident))+ "="? initer
 string_initer = str
 struct_initer = "{" initer ("," initer)* ","? "}"
 direct_struct_initer = initer ("," initer)*
 union_initer = "{" initer ","? "}"
 array_initer = "{" initer ("," initer)* ","? "}"
-array_designation = ("[" const_expr "]")+ "="? initer
 direct_array_initer = initer ("," initer)*
 lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer)?)*)?
 

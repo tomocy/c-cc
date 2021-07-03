@@ -84,6 +84,8 @@ struct Member {
   Member* next;
   Type* type;
   Token* token;
+
+  int index;
   char* name;
   int offset;
   int alignment;

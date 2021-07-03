@@ -67,10 +67,11 @@ static int align_down(int n, int align) {
   return align_up(n - align + 1, align);
 }
 
-static Member* new_member(Type* type) {
+static Member* new_member(Type* type, int index) {
   Member* mem = calloc(1, sizeof(Member));
   mem->type = type;
   mem->token = type->ident;
+  mem->index = index;
   mem->name = type->name;
   mem->alignment = type->alignment;
   return mem;
@@ -2428,14 +2429,11 @@ static Initer* new_initer(Type* type) {
     }
 
     init->children = calloc(mems, sizeof(Initer*));
-    int i = 0;
     for (Member* mem = init->type->members; mem; mem = mem->next) {
-      init->children[i] = new_initer(mem->type);
+      init->children[mem->index] = new_initer(mem->type);
       if (!mem->next && type->is_flexible) {
-        init->children[i]->is_flexible = true;
+        init->children[mem->index]->is_flexible = true;
       }
-
-      i++;
     }
     return init;
   }
@@ -2531,47 +2529,17 @@ static void init_string_initer(Token** tokens, Initer* init) {
   *tokens = (*tokens)->next;
 }
 
-static void init_struct_initer(Token** tokens, Initer* init) {
-  expect_token(tokens, "{");
+static Member* struct_designator(Token** tokens, Type* type) {
+  expect_token(tokens, ".");
 
-  int i = 0;
-  Member* mem = init->type->members;
-  while (!consume_initer_end(tokens)) {
-    if (i > 0) {
-      expect_token(tokens, ",");
-    }
-
-    if (mem) {
-      init_initer(tokens, init->children[i++]);
-      mem = mem->next;
-      continue;
-    }
-
-    skip_excess_initers(tokens);
+  Token* ident = expect_ident_token(tokens);
+  Member* mem = find_member_from(type->members, ident->loc, ident->len);
+  if (!mem) {
+    error_token(ident, "struct has no such member");
   }
+
+  return mem;
 }
-
-static void init_direct_struct_initer(Token** tokens, Initer* init) {
-  int i = 0;
-  for (Member* mem = init->type->members; mem && !equal_to_initer_end(*tokens); mem = mem->next) {
-    if (i > 0) {
-      expect_token(tokens, ",");
-    }
-
-    init_initer(tokens, init->children[i++]);
-  }
-}
-
-static void init_union_initer(Token** tokens, Initer* init) {
-  if (consume_token(tokens, "{")) {
-    init_initer(tokens, init->children[0]);
-    expect_initer_end(tokens);
-  } else {
-    init_initer(tokens, init->children[0]);
-  }
-}
-
-static void init_direct_array_initer(Token** tokens, Initer* init, int from);
 
 static int array_designator(Token** tokens, Type* type, bool is_flexible) {
   Token* start = *tokens;
@@ -2591,13 +2559,28 @@ static int array_designator(Token** tokens, Type* type, bool is_flexible) {
   return i;
 }
 
-static void array_designation(Token** tokens, Initer* init) {
+static void init_direct_struct_initer(Token** tokens, Initer* init, Member* from);
+static void init_direct_array_initer(Token** tokens, Initer* init, int from);
+
+static void init_designated_initer(Token** tokens, Initer* init) {
+  if (equal_to_token(*tokens, ".")) {
+    if (init->type->kind != TY_STRUCT) {
+      error_token(*tokens, "field name in non struct initializer");
+    }
+    Member* mem = struct_designator(tokens, init->type);
+    // Reset the initial value and re-initialize with the designated value.
+    init->expr = NULL;
+    init_designated_initer(tokens, init->children[mem->index]);
+    init_direct_struct_initer(tokens, init, mem->next);
+    return;
+  }
+
   if (equal_to_token(*tokens, "[")) {
     if (init->type->kind != TY_ARRAY) {
       error_token(*tokens, "array index in non array initializer");
     }
     int i = array_designator(tokens, init->type, init->is_flexible);
-    array_designation(tokens, init->children[i]);
+    init_designated_initer(tokens, init->children[i]);
     init_direct_array_initer(tokens, init, i + 1);
     return;
   }
@@ -2606,24 +2589,82 @@ static void array_designation(Token** tokens, Initer* init) {
   init_initer(tokens, init);
 }
 
+static void init_struct_initer(Token** tokens, Initer* init) {
+  expect_token(tokens, "{");
+
+  Member* mem = init->type->members;
+  bool is_first = true;
+  while (!consume_initer_end(tokens)) {
+    if (!is_first) {
+      expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    if (equal_to_token(*tokens, ".")) {
+      mem = struct_designator(tokens, init->type);
+      init_designated_initer(tokens, init->children[mem->index]);
+      continue;
+    }
+
+    if (mem) {
+      init_initer(tokens, init->children[mem->index]);
+      mem = mem->next;
+      continue;
+    }
+
+    skip_excess_initers(tokens);
+  }
+}
+
+static void init_direct_struct_initer(Token** tokens, Initer* init, Member* from) {
+  for (Member* mem = from; mem && !equal_to_initer_end(*tokens); mem = mem->next) {
+    Token* start = *tokens;
+
+    if (mem->index > 0) {
+      expect_token(tokens, ",");
+    }
+
+    // When it is the designated initializer, revert tokens and
+    // let the parent continue initializing with the tokens.
+    if (equal_to_token(*tokens, "[") || equal_to_token(*tokens, ".")) {
+      *tokens = start;
+      return;
+    }
+
+    init_initer(tokens, init->children[mem->index]);
+  }
+}
+
+static void init_union_initer(Token** tokens, Initer* init) {
+  if (consume_token(tokens, "{")) {
+    init_initer(tokens, init->children[0]);
+    expect_initer_end(tokens);
+  } else {
+    init_initer(tokens, init->children[0]);
+  }
+}
+
 static int count_initers(Token* token, Type* type) {
   Initer* ignored = new_initer(type);
 
   int i = 0;
-  for (; !consume_initer_end(&token); i++) {
+  int len = 0;
+  while (!consume_initer_end(&token)) {
     if (i > 0) {
       expect_token(&token, ",");
     }
 
     if (equal_to_token(token, "[")) {
       i = array_designator(&token, type, true);
-      array_designation(&token, ignored);
-      continue;
+      init_designated_initer(&token, ignored);
+    } else {
+      init_initer(&token, ignored);
     }
 
-    init_initer(&token, ignored);
+    i++;
+    len = MAX(len, i);
   }
-  return i;
+  return len;
 }
 
 static void init_array_initer(Token** tokens, Initer* init) {
@@ -2644,7 +2685,7 @@ static void init_array_initer(Token** tokens, Initer* init) {
 
     if (equal_to_token(*tokens, "[")) {
       i = array_designator(tokens, init->type, init->is_flexible);
-      array_designation(tokens, init->children[i]);
+      init_designated_initer(tokens, init->children[i]);
       continue;
     }
 
@@ -2671,9 +2712,9 @@ static void init_direct_array_initer(Token** tokens, Initer* init, int from) {
       expect_token(tokens, ",");
     }
 
-    // It should be the array designated initializer for the parent of this init,
-    // so revert tokens and return to the parent initialization.
-    if (equal_to_token(*tokens, "[")) {
+    // When it is the designated initializer, revert tokens and
+    // let the parent continue initializing with the tokens.
+    if (equal_to_token(*tokens, "[") || equal_to_token(*tokens, ".")) {
       *tokens = start;
       return;
     }
@@ -2700,7 +2741,7 @@ static void init_initer(Token** tokens, Initer* init) {
 
       *tokens = start;
 
-      init_direct_struct_initer(tokens, init);
+      init_direct_struct_initer(tokens, init, init->type->members);
       return;
     }
     case TY_UNION:
@@ -2738,13 +2779,11 @@ static Initer* initer(Token** tokens, Type** type) {
   if (init->type->kind == TY_STRUCT && init->type->is_flexible) {
     Type* copied = copy_composite_type(*type, init->type->kind);
 
-    int i = 0;
     Member* mem = copied->members;
     while (mem->next) {
-      i++;
       mem = mem->next;
     }
-    mem->type = init->children[i]->type;
+    mem->type = init->children[mem->index]->type;
     copied->size += mem->type->size;
 
     *type = copied;
@@ -3043,13 +3082,15 @@ static Type* union_decl(Token** tokens) {
 static Member* members(Token** tokens, bool* is_flexible) {
   Member head = {};
   Member* cur = &head;
+  int i = 0;
   *is_flexible = false;
   while (!consume_token(tokens, "}")) {
     VarAttr attr = {};
     Type* spec = decl_specifier(tokens, &attr);
 
+    // Anonymous composite member
     if (is_composite_type(spec) && consume_token(tokens, ";")) {
-      Member* mem = new_member(spec);
+      Member* mem = new_member(spec, i++);
       if (attr.alignment) {
         mem->alignment = attr.alignment;
       }
@@ -3066,7 +3107,7 @@ static Member* members(Token** tokens, bool* is_flexible) {
 
       Type* type = declarator(tokens, spec);
 
-      Member* mem = new_member(type);
+      Member* mem = new_member(type, i++);
       if (attr.alignment) {
         mem->alignment = attr.alignment;
       }
