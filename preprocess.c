@@ -1237,7 +1237,11 @@ static Token* endif_dir(Token* token) {
 static Token* line_dir(Token* tokens) {
   Token* start = tokens;
 
-  expect_dir(&tokens, "line");
+  if (is_hash(tokens) && tokens->next->kind == TK_PP_NUM) {
+    expect_token(&tokens, "#");
+  } else {
+    expect_dir(&tokens, "line");
+  }
 
   Token* line = append(inline_tokens(&tokens), new_eof_token_in(tokens->file));
   line = preprocess(line);
@@ -1313,7 +1317,7 @@ static Token* process(Token* tokens) {
       continue;
     }
 
-    if (is_dir(token, "line")) {
+    if (is_dir(token, "line") || (is_hash(token) && token->next->kind == TK_PP_NUM)) {
       token->next = line_dir(token);
       continue;
     }

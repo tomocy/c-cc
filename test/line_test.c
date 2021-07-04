@@ -16,5 +16,9 @@ int main() {
   ASSERT(2, __LINE__);
   ASSERT(0, strcmp(__FILE__, "bar"));
 
+# 200 "xyz" 2 3
+  ASSERT(201, __LINE__);
+  ASSERT(0, strcmp(__FILE__, "xyz"));
+
   ok();
 }
