@@ -1396,6 +1396,13 @@ static Token* process(Token* tokens) {
       continue;
     }
 
+    if (is_dir(token, "pragma")) {
+      do {
+        token = token->next;
+      } while (token->next && !token->next->is_bol);
+      continue;
+    }
+
     error_token(token, "invalid preprocessor directive");
   }
 
