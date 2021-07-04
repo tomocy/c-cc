@@ -25,6 +25,7 @@ stmt = func |
     "goto" ident ";" |
     "break" ";" |
     "continue" ";" |
+    "asm" ("inline" | "volatile")* "(" str ")" |
     lvar |
     expr_stmt
 expr_stmt = expr? ";"

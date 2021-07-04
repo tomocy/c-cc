@@ -1179,6 +1179,9 @@ static void gen_stmt(Node* node) {
     case ND_GOTO:
       genln("  jmp %s", node->label_id);
       return;
+    case ND_ASM:
+      genln("  %s", node->asm_str);
+      return;
     case ND_EXPR_STMT:
       gen_expr(node->lhs);
       return;

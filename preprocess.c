@@ -518,6 +518,7 @@ static bool is_keyword(char* c, int len) {
     "switch",
     "case",
     "default",
+    "asm",
     "_Alignof",
     "_Alignas",
     "signed",

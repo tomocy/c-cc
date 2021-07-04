@@ -976,6 +976,13 @@ static Node* new_contextual_goto_node(Token* token, char* label_id) {
   return node;
 }
 
+static Node* new_asm_node(Token* token, char* str) {
+  Node* node = new_node(ND_ASM);
+  node->token = token;
+  node->asm_str = str;
+  return node;
+}
+
 static Node* new_block_node(Token* token, Node* body) {
   Node* node = new_node(ND_BLOCK);
   node->token = token;
@@ -1606,6 +1613,27 @@ static Node* continue_stmt(Token** tokens) {
   return new_contextual_goto_node(start, current_continue_label_id);
 }
 
+static Node* asm_stmt(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_token(tokens, "asm");
+
+  while (consume_token(tokens, "inline") || consume_token(tokens, "volatile")) {}
+
+  expect_token(tokens, "(");
+
+  if ((*tokens)->kind != TK_STR || (*tokens)->type->base->kind != TY_CHAR) {
+    error_token(start, "expected string literal");
+  }
+  Node* node = new_asm_node(start, (*tokens)->str_val);
+
+  *tokens = (*tokens)->next;
+
+  expect_token(tokens, ")");
+
+  return node;
+}
+
 static Node* stmt(Token** tokens) {
   if (equal_to_token(*tokens, "{")) {
     return block_stmt(tokens);
@@ -1657,6 +1685,10 @@ static Node* stmt(Token** tokens) {
 
   if (equal_to_token(*tokens, "continue")) {
     return continue_stmt(tokens);
+  }
+
+  if (equal_to_token(*tokens, "asm")) {
+    return asm_stmt(tokens);
   }
 
   if (equal_to_decl_specifier(*tokens)) {

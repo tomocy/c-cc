@@ -149,6 +149,7 @@ typedef enum {
   ND_RETURN,
   ND_LABEL,
   ND_GOTO,
+  ND_ASM,
   ND_EXPR_STMT,
   ND_ASSIGN,
   ND_COMMA,
@@ -218,6 +219,8 @@ struct Node {
 
   int64_t int_val;
   double float_val;
+
+  char* asm_str;
 
   bool is_definition;
 
