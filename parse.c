@@ -1312,6 +1312,7 @@ static void tydef(Token** tokens) {
     if (!type->name) {
       error_token(type->ident, "typedef name omitted");
     }
+    type->is_defined = true;
     create_def_type_obj(type, type->name);
   }
 }
@@ -2064,6 +2065,15 @@ static Node* unary(Token** tokens) {
       return new_int_node(start, 1);
     }
     return new_int_node(start, 2);
+  }
+
+  if (consume_token(tokens, "__builtin_types_compatible_p")) {
+    expect_token(tokens, "(");
+    Type* left = abstract_decl(tokens, NULL);
+    expect_token(tokens, ",");
+    Type* right = abstract_decl(tokens, NULL);
+    expect_token(tokens, ")");
+    return new_int_node(start, is_type_compatible_with(left, right));
   }
 
   return postfix(tokens);

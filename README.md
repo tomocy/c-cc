@@ -49,6 +49,7 @@ unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     "_Alignof" "(" abstract_declarator ")" |
     "_Alignof" unary |
     "__builtin_reg_class" "(" abstract_declarator ")" |
+    "__builtin_types_compatible_p" "(" abstract_decl "," abstract_decl ")" |
     postifx
 postfix = primary (
     func_args |
@@ -91,7 +92,7 @@ struct_decl = "struct" ident? "{" member* "}"
 union_decl = "union" ident? "{" member* "}"
 member = decl_specifier (declarator ("," declarator)*)? ";"
 enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* ","? "}"
-typeof_specifier = "typeof" "(" (decl_specifier | expr) ")"
+typeof_specifier = "typeof" "(" (abstract_decl | expr) ")"
 
 decl_specifier = (
     "void" | "_Bool" | "char" |

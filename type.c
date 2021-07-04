@@ -199,3 +199,66 @@ bool is_numeric_type(Type* type) {
 bool is_composite_type(Type* type) {
   return type->kind == TY_STRUCT || type->kind == TY_UNION;
 }
+
+bool is_type_compatible_with(Type* type, Type* other) {
+  if (type->kind != other->kind) {
+    return false;
+  }
+
+  switch (type->kind) {
+    case TY_VOID:
+      return true;
+    case TY_CHAR:
+    case TY_SHORT:
+    case TY_INT:
+    case TY_LONG:
+      return type->is_unsigned == other->is_unsigned;
+    case TY_FLOAT:
+    case TY_DOUBLE:
+      return true;
+    case TY_STRUCT:
+    case TY_UNION: {
+      if (!type->is_defined || !other->is_defined) {
+        return false;
+      }
+
+      Member* mem = type->members;
+      Member* other_mem = other->members;
+      for (; mem && other_mem; mem = mem->next, other_mem = other_mem->next) {
+        if (!is_type_compatible_with(mem->type, other_mem->type)) {
+          return false;
+        }
+      }
+      return mem == NULL && other_mem == NULL;
+    }
+    case TY_PTR:
+      return is_type_compatible_with(type->base, other->base);
+    case TY_FUNC: {
+      if (!is_type_compatible_with(type->return_type, other->return_type)) {
+        fprintf(stderr, "  is compatible: 0\n");
+        return false;
+      }
+
+      if (type->is_variadic != other->is_variadic) {
+        return false;
+      }
+
+      Type* param = type->params;
+      Type* other_param = other->params;
+      for (; param && other_param; param = param->next, other_param = other_param->next) {
+        if (!is_type_compatible_with(param, other_param)) {
+          return false;
+        }
+      }
+      return param == NULL && other_param == NULL;
+    }
+    case TY_ARRAY:
+      if (!is_type_compatible_with(type->base, other->base)) {
+        return false;
+      }
+
+      return (type->len < 0 && other->len < 0) || (type->len == other->len);
+    default:
+      return false;
+  }
+}

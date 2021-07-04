@@ -135,6 +135,8 @@ struct Type {
   Type* params;
   bool is_variadic;
 
+  bool is_defined;
+
   Type* next;
 };
 
@@ -376,6 +378,7 @@ bool is_int_type(Type* type);
 bool is_float_type(Type* type);
 bool is_numeric_type(Type* type);
 bool is_composite_type(Type* type);
+bool is_type_compatible_with(Type* type, Type* other);
 
 // unicode.c
 int encode_to_utf8(char* dst, uint32_t code);
