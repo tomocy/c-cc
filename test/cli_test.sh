@@ -256,5 +256,46 @@ if $CC -o /dev/null "$TMP/inline1.c" "$TMP/out.c"; then
 else
   failed 'Inline function (extern)'
 fi
+# static and not referenced
+if ! echo "static inline void f1() {}" | $CC -S -o - - | grep -q f1:; then
+  passed 'Inline function (static and not referenced)'
+else
+  failed 'Inline function (static and not referenced)'
+fi
+# static and referenced by external one
+if echo "static inline void f1() {} void f() { f1(); }" | $CC -S -o - - | grep -q f1:; then
+  passed 'Inline function (static and referenced)'
+else
+  failed 'Inline function (static and referenced)'
+fi
+# static and referenced by not referenced static one
+if
+  echo "static inline void f1() {} static inline void f2() { f1(); }" | $CC -S -o - - | grep -q f1: && exit 1
+  ! echo "static inline void f1() {} static inline void f2() { f1(); }" | $CC -S -o - - | grep -q f2:
+then
+  passed 'Inline function (static and referenced by not referenced static one)'
+else
+  failed 'Inline function (static and referenced by not referenced static one)'
+fi
+# static and referenced by each other and by other
+if
+  echo "static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f1(); }" | $CC -S -o - - | grep -q f1:
+  echo "static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f1(); }" | $CC -S -o - - | grep -q f2:
+  echo "static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f2(); }" | $CC -S -o - - | grep -q f1:
+  echo "static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f2(); }" | $CC -S -o - - | grep -q f2:
+then
+  passed 'Inline function (static and referenced by each other and by other)'
+else
+  failed 'Inline function (static and referenced by each other and by other)'
+fi
+# static and referenced by each other and not by other
+if
+  echo "static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); }" | $CC -S -o - - | grep -q f1: && exit 1
+  ! echo "static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); }" | $CC -S -o - - | grep -q f2:
+then
+  passed 'Inline function (static and referenced by each other and not by other)'
+else
+  failed 'Inline function (static and referenced by each other and not by other)'
+fi
 
 echo "OK"

@@ -1396,6 +1396,10 @@ static void gen_text(TopLevelObj* codes) {
       continue;
     }
 
+    if (func->obj->is_static && func->obj->is_inline && !func->obj->is_referred) {
+      continue;
+    }
+
     current_func = func->obj;
 
     genln(".text");

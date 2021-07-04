@@ -254,7 +254,12 @@ struct Obj {
   char* name;
 
   bool is_static;
+  bool is_inline;
+
   bool is_definition;
+
+  Str* refering_funcs;
+  int is_referred;
 
   Node* ptr_to_return_val;
   Node* params;

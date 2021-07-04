@@ -371,8 +371,8 @@ static Obj* create_tag_obj(Type* type, char* name) {
   return tag;
 }
 
-static Obj* find_datum_obj(char* name, int len) {
-  for (Scope* s = current_scope; s; s = s->next) {
+static Obj* find_datum_obj_from(Scope* scope, char* name, int len) {
+  for (Scope* s = scope; s; s = s->next) {
     for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
       if (!equal_to_n_chars(var->key, name, len)) {
         continue;
@@ -390,6 +390,10 @@ static Obj* find_datum_obj(char* name, int len) {
     }
   }
   return NULL;
+}
+
+static Obj* find_datum_obj_from_current_scope(char* name, int len) {
+  return find_datum_obj_from(current_scope, name, len);
 }
 
 static Obj* find_def_type_obj(char* name, int len) {
@@ -1047,6 +1051,26 @@ bool is_func_declarator(Token* token, Type* type) {
   return type->kind == TY_FUNC;
 }
 
+static void mark_referred_funcs(Obj* func) {
+  if (!func || func->is_referred) {
+    return;
+  }
+  if (func->kind != OJ_FUNC) {
+    error("expected a function");
+  }
+
+  func->is_referred = true;
+
+  for (Str* name = func->refering_funcs; name; name = name->next) {
+    Obj* ref = find_datum_obj_from(gscope, name->data, strlen(name->data));
+    if (!ref) {
+      error("expected a function: %s", name->data);
+    }
+
+    mark_referred_funcs(ref);
+  }
+}
+
 TopLevelObj* parse(Token* token) {
   enter_scope();
   gscope = current_scope;
@@ -1070,6 +1094,17 @@ TopLevelObj* parse(Token* token) {
   }
 
   leave_scope();
+
+  for (TopLevelObj* func = codes; func; func = func->next) {
+    if (func->obj->kind != OJ_FUNC) {
+      continue;
+    }
+    if (func->obj->is_static || func->obj->is_inline) {
+      continue;
+    }
+
+    mark_referred_funcs(func->obj);
+  }
 
   return codes;
 }
@@ -1120,6 +1155,7 @@ static void func(Token** tokens) {
   current_func = func;
 
   func->is_static = attr.is_static || (attr.is_inline && !attr.is_extern);
+  func->is_inline = attr.is_inline;
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
     current_lvars = NULL;
@@ -2300,7 +2336,7 @@ static Node* compound_literal(Token** tokens) {
 
 static Node* datum(Token** tokens) {
   Token* ident = expect_ident_token(tokens);
-  Obj* datum = find_datum_obj(ident->loc, ident->len);
+  Obj* datum = find_datum_obj_from_current_scope(ident->loc, ident->len);
   if (!datum) {
     if (equal_to_token(*tokens, "(")) {
       error_token(ident, "implicit declaration of a function");
@@ -2311,6 +2347,9 @@ static Node* datum(Token** tokens) {
 
   switch (datum->kind) {
     case OJ_FUNC:
+      if (current_func) {
+        add_str(&current_func->refering_funcs, new_str(datum->name));
+      }
       return new_func_node(datum->type, ident, datum->name, datum->is_definition);
     case OJ_GVAR:
     case OJ_LVAR:
