@@ -570,5 +570,7 @@ of(char));
 
   ASSERT(24, strlen(__TIMESTAMP__));
 
+  ASSERT(0, strcmp(__BASE_FILE__, "test/macro_test.c"));
+
   ok();
 }

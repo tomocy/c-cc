@@ -275,6 +275,7 @@ struct Relocation {
 
 // main.c
 extern Str* include_paths;
+extern char* input_filename;
 
 // preprocess.c
 Token* preprocess(Token* tokens);

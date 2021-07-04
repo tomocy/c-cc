@@ -1,13 +1,13 @@
 #include "cc.h"
 
-Str* include_paths;
 // the location where this program lives is kept
 // so that the include path relative to the location can be resolved
 static char* location;
-static char* input_filename;
+char* input_filename;
 static char* output_filename;
 static Str* tmp_filenames;
 static Str* input_filenames;
+Str* include_paths;
 static bool do_log_args;
 static bool do_exec;
 static bool in_obj;
