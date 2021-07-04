@@ -87,17 +87,19 @@ array_initer = "{" initer ("," initer)* ","? "}"
 direct_array_initer = initer ("," initer)*
 lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer)?)*)?
 
-enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* ","? "}"
-
 struct_decl = "struct" ident? "{" member* "}"
 union_decl = "union" ident? "{" member* "}"
 member = decl_specifier (declarator ("," declarator)*)? ";"
+enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* ","? "}"
+typeof_specifier = "typeof" "(" (decl_specifier | expr) ")"
 
 decl_specifier = (
     "void" | "_Bool" | "char" |
     "short" | "int" | "long" |
     "float" | "double" |
-    struct_decl | union_decl | defined_type |
+    struct_decl | union_decl |
+    enum_specifier | typeof_specifier |
+    defined_type |
     "extern" | "static" | "_Alignas" | "signed" |
     "const" | "volatile" | "auto" | "register" |
     "restrict" | "__restrict" | "__restrict__" | "_Noreturn"

@@ -444,6 +444,7 @@ static bool equal_to_decl_specifier(Token* token) {
     "struct",
     "union",
     "enum",
+    "typeof",
     "_Alignas",
     "signed",
     "unsigned",
@@ -1008,10 +1009,10 @@ static Node* compound_literal(Token** tokens);
 static Node* primary(Token** tokens);
 static Node* lvar(Token** tokens);
 static Node* lvar_decl(Token** tokens);
-static Type* enum_specifier(Token** tokens);
 static Type* struct_decl(Token** tokens);
 static Type* union_decl(Token** tokens);
-static Member* members(Token** tokens, bool* is_flexible);
+static Type* enum_specifier(Token** tokens);
+static Type* typeof_specifier(Token** tokens);
 static Type* decl_specifier(Token** tokens, VarAttr* attr);
 static Type* declarator(Token** tokens, Type* type);
 static Type* decl(Token** tokens, VarAttr* attr);
@@ -2938,48 +2939,62 @@ static Node* lvar_decl(Token** tokens) {
   return new_block_node(start, head.next);
 }
 
-static Type* enum_specifier(Token** tokens) {
-  expect_token(tokens, "enum");
+static Member* members(Token** tokens, bool* is_flexible) {
+  Member head = {};
+  Member* cur = &head;
+  int i = 0;
+  *is_flexible = false;
+  while (!consume_token(tokens, "}")) {
+    VarAttr attr = {};
+    Type* spec = decl_specifier(tokens, &attr);
 
-  Token* tag = NULL;
-  if ((*tokens)->kind == TK_IDENT) {
-    tag = expect_ident_token(tokens);
-  }
+    // Anonymous composite member
+    if (is_composite_type(spec) && equal_to_token(*tokens, ";")) {
+      Member* mem = new_member(spec, i++);
+      mem->token = *tokens;
 
-  if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found = find_tag_obj(tag->loc, tag->len);
-    if (!found) {
-      error_token(tag, "undefined tag");
-    }
-    return found->type;
-  }
+      expect_token(tokens, ";");
 
-  expect_token(tokens, "{");
-
-  bool is_first = true;
-  int val = 0;
-  while (!consume_initer_end(tokens)) {
-    if (!is_first) {
-      expect_token(tokens, ",");
-    }
-    is_first = false;
-
-    Token* ident = expect_ident_token(tokens);
-
-    if (consume_token(tokens, "=")) {
-      val = const_expr(tokens);
+      if (attr.alignment) {
+        mem->alignment = attr.alignment;
+      }
+      cur = cur->next = mem;
+      continue;
     }
 
-    create_enum_obj(strndup(ident->loc, ident->len), val++);
+    bool is_first = true;
+    while (!consume_token(tokens, ";")) {
+      if (!is_first) {
+        expect_token(tokens, ",");
+      }
+      is_first = false;
+
+      Type* type = declarator(tokens, spec);
+
+      Member* mem = new_member(type, i++);
+      if (attr.alignment) {
+        mem->alignment = attr.alignment;
+      }
+
+      if (consume_token(tokens, ":")) {
+        mem->is_bitfield = true;
+        mem->bit_width = const_expr(tokens);
+      }
+
+      if (!mem->is_bitfield && !type->name) {
+        error_token(type->ident, "member name omitted");
+      }
+
+      cur = cur->next = mem;
+    }
   }
 
-  Type* enu = new_int_type();
-
-  if (tag) {
-    create_tag_obj(enu, strndup(tag->loc, tag->len));
+  if (cur != &head && cur->type->kind == TY_ARRAY && cur->type->size < 0) {
+    cur->type = new_array_type(cur->type->base, 0);
+    *is_flexible = true;
   }
 
-  return enu;
+  return head.next;
 }
 
 static Type* struct_decl(Token** tokens) {
@@ -3116,62 +3131,64 @@ static Type* union_decl(Token** tokens) {
   return uni;
 }
 
-static Member* members(Token** tokens, bool* is_flexible) {
-  Member head = {};
-  Member* cur = &head;
-  int i = 0;
-  *is_flexible = false;
-  while (!consume_token(tokens, "}")) {
-    VarAttr attr = {};
-    Type* spec = decl_specifier(tokens, &attr);
+static Type* enum_specifier(Token** tokens) {
+  expect_token(tokens, "enum");
 
-    // Anonymous composite member
-    if (is_composite_type(spec) && equal_to_token(*tokens, ";")) {
-      Member* mem = new_member(spec, i++);
-      mem->token = *tokens;
-
-      expect_token(tokens, ";");
-
-      if (attr.alignment) {
-        mem->alignment = attr.alignment;
-      }
-      cur = cur->next = mem;
-      continue;
-    }
-
-    bool is_first = true;
-    while (!consume_token(tokens, ";")) {
-      if (!is_first) {
-        expect_token(tokens, ",");
-      }
-      is_first = false;
-
-      Type* type = declarator(tokens, spec);
-
-      Member* mem = new_member(type, i++);
-      if (attr.alignment) {
-        mem->alignment = attr.alignment;
-      }
-
-      if (consume_token(tokens, ":")) {
-        mem->is_bitfield = true;
-        mem->bit_width = const_expr(tokens);
-      }
-
-      if (!mem->is_bitfield && !type->name) {
-        error_token(type->ident, "member name omitted");
-      }
-
-      cur = cur->next = mem;
-    }
+  Token* tag = NULL;
+  if ((*tokens)->kind == TK_IDENT) {
+    tag = expect_ident_token(tokens);
   }
 
-  if (cur != &head && cur->type->kind == TY_ARRAY && cur->type->size < 0) {
-    cur->type = new_array_type(cur->type->base, 0);
-    *is_flexible = true;
+  if (tag && !equal_to_token(*tokens, "{")) {
+    Obj* found = find_tag_obj(tag->loc, tag->len);
+    if (!found) {
+      error_token(tag, "undefined tag");
+    }
+    return found->type;
   }
 
-  return head.next;
+  expect_token(tokens, "{");
+
+  bool is_first = true;
+  int val = 0;
+  while (!consume_initer_end(tokens)) {
+    if (!is_first) {
+      expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    Token* ident = expect_ident_token(tokens);
+
+    if (consume_token(tokens, "=")) {
+      val = const_expr(tokens);
+    }
+
+    create_enum_obj(strndup(ident->loc, ident->len), val++);
+  }
+
+  Type* enu = new_int_type();
+
+  if (tag) {
+    create_tag_obj(enu, strndup(tag->loc, tag->len));
+  }
+
+  return enu;
+}
+
+static Type* typeof_specifier(Token** tokens) {
+  expect_tokens(tokens, "typeof", "(", NULL);
+
+  Type* type = NULL;
+  if (equal_to_decl_specifier(*tokens)) {
+    type = abstract_decl(tokens, NULL);
+  } else {
+    Node* node = expr(tokens);
+    type = node->type;
+  }
+
+  expect_token(tokens, ")");
+
+  return type;
 }
 
 static Type* decl_specifier(Token** tokens, VarAttr* attr) {
@@ -3274,6 +3291,16 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
 
       spec += OTHER;
       type = enum_specifier(tokens);
+      continue;
+    }
+
+    if (equal_to_token(*tokens, "typeof")) {
+      if (spec > 0) {
+        break;
+      }
+
+      spec += OTHER;
+      type = typeof_specifier(tokens);
       continue;
     }
 
