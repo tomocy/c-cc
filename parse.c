@@ -1988,6 +1988,58 @@ static Node* cast(Token** tokens) {
   return unary(tokens);
 }
 
+static Node* generic_select(Token** tokens) {
+  Token* start = *tokens;
+
+  expect_tokens(tokens, "_Generic", "(", NULL);
+
+  Node* control = assign(tokens);
+  expect_token(tokens, ",");
+
+  Type* control_type = control->type;
+  switch (control->type->kind) {
+    case TY_FUNC:
+      control_type = new_ptr_type(control_type);
+      break;
+    case TY_ARRAY:
+      control_type = new_ptr_type(control_type->base);
+      break;
+    default: {
+    }
+  }
+
+  Node* selected = NULL;
+  bool is_first = true;
+  while (!consume_token(tokens, ")")) {
+    if (!is_first) {
+      expect_token(tokens, ",");
+    }
+    is_first = false;
+
+    if (consume_token(tokens, "default")) {
+      expect_token(tokens, ":");
+      Node* node = assign(tokens);
+      if (!selected) {
+        selected = node;
+      }
+      continue;
+    }
+
+    Type* type = abstract_decl(tokens, NULL);
+    expect_token(tokens, ":");
+    Node* node = assign(tokens);
+    if (is_type_compatible_with(control_type, type)) {
+      selected = node;
+    }
+  }
+
+  if (!selected) {
+    error_token(start, "controlling expression type not compatible with any generic accosited type");
+  }
+
+  return selected;
+}
+
 static Node* unary(Token** tokens) {
   Token* start = *tokens;
 
@@ -2051,6 +2103,10 @@ static Node* unary(Token** tokens) {
   if (consume_token(tokens, "_Alignof")) {
     Node* node = unary(tokens);
     return new_ulong_node(start, node->type->size);
+  }
+
+  if (equal_to_token(*tokens, "_Generic")) {
+    return generic_select(tokens);
   }
 
   if (consume_token(tokens, "__builtin_reg_class")) {

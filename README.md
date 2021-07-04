@@ -48,6 +48,7 @@ unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     "sizeof" unary |
     "_Alignof" "(" abstract_declarator ")" |
     "_Alignof" unary |
+    generic_select |
     "__builtin_reg_class" "(" abstract_declarator ")" |
     "__builtin_types_compatible_p" "(" abstract_decl "," abstract_decl ")" |
     postifx
@@ -71,6 +72,9 @@ const_expr
 lvar = var_decl ";"
 
 func_args = "(" (assign (, assign)*)? ")"
+
+generic_select = "_Generic" "(" assign "," generic_assoc ("," generic_assoc)* ")"
+generic_assoc = (abstract_decl | "default") ":" assign
 
 initer = string_initer |
     struct_initer | direct_struct_initer |
