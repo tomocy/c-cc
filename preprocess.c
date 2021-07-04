@@ -889,10 +889,25 @@ static Token* parenthesized_tokens(Token** tokens) {
   return head.next;
 }
 
+static FunclikeMacroArg* find_va_arg_from(FunclikeMacroArg* args) {
+  char* va_args = "__VA_ARGS__";
+  return find_funclike_macro_arg_from(args, va_args, strlen(va_args));
+}
+
 static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
   Token head = {};
   Token* cur = &head;
   for (Token* token = body; token; token = token->next) {
+    if (equal_to_tokens(token, ",", "##", "__VA_ARGS__", NULL)) {
+      Token* semicolon = copy_token(expect_token(&token, ","));
+
+      FunclikeMacroArg* arg = find_va_arg_from(args);
+      if (arg && arg->token) {
+        cur = cur->next = semicolon;
+      }
+      continue;
+    }
+
     if (token == body && equal_to_token(token, "##")) {
       error_token(token, "'##' cannot appear at the start of macro expansion");
     }
@@ -920,8 +935,7 @@ static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
 
       Token* opt = parenthesized_tokens(&token);
 
-      char* va_args = "__VA_ARGS__";
-      FunclikeMacroArg* arg = find_funclike_macro_arg_from(args, va_args, strlen(va_args));
+      FunclikeMacroArg* arg = find_va_arg_from(args);
       if (arg && arg->token) {
         hand_over_tokens(&cur, opt);
       }
