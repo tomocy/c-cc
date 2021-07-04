@@ -871,6 +871,24 @@ static Token* concat_funclike_macro_body(Token** tokens, FunclikeMacroArg* args)
   return head.next;
 }
 
+static Token* parenthesized_tokens(Token** tokens) {
+  Token head = {};
+  Token* cur = &head;
+  int depth = 0;
+  while (depth > 0 || !equal_to_token(*tokens, ")")) {
+    if (equal_to_token(*tokens, "(")) {
+      depth++;
+    }
+    if (equal_to_token(*tokens, ")")) {
+      depth--;
+    }
+
+    proceed_token(&cur, tokens);
+  }
+
+  return head.next;
+}
+
 static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
   Token head = {};
   Token* cur = &head;
@@ -894,6 +912,19 @@ static Token* replace_funclike_macro_body(Token* body, FunclikeMacroArg* args) {
       }
 
       hand_over_tokens(&cur, inherit_token_space(stringize_tokens(arg->token), start));
+      continue;
+    }
+
+    if (equal_to_tokens(token, "__VA_OPT__", "(", NULL)) {
+      expect_tokens(&token, "__VA_OPT__", "(", NULL);
+
+      Token* opt = parenthesized_tokens(&token);
+
+      char* va_args = "__VA_ARGS__";
+      FunclikeMacroArg* arg = find_funclike_macro_arg_from(args, va_args, strlen(va_args));
+      if (arg && arg->token) {
+        hand_over_tokens(&cur, opt);
+      }
       continue;
     }
 
