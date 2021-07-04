@@ -415,6 +415,20 @@ static Token* gen_count(Token* token) {
   return tokenize_as_if(token->file, token->line, format("%d", n++));
 }
 
+static Token* gen_file_last_modified_time(Token* token) {
+  if (!have_file(token->file->name)) {
+    return tokenize_as_if(token->file, token->line, "\"??? ??? ?? ??:??:?? ????\"");
+  }
+
+  struct stat st = {};
+  stat(token->file->name, &st);
+  char* time = calloc(25, sizeof(char));
+  ctime_r(&st.st_mtime, time);
+  time[24] = '\0';
+  time = quote_str(time);
+  return tokenize_as_if(token->file, token->line, time);
+}
+
 void define_builtin_macros(File* file) {
   define_builtin_macro("_LP64", "1");
   define_builtin_macro("__C99_MACRO_WITH_VA_ARGS", "1");
@@ -468,6 +482,7 @@ void define_builtin_macros(File* file) {
   create_macro_with_generator("__FILE__", gen_filename);
   create_macro_with_generator("__LINE__", gen_line);
   create_macro_with_generator("__COUNTER__", gen_count);
+  create_macro_with_generator("__TIMESTAMP__", gen_file_last_modified_time);
 }
 
 static bool is_keyword(char* c, int len) {

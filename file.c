@@ -47,7 +47,7 @@ char* dir(char* name) {
 }
 
 bool have_file(char* name) {
-  struct stat s;
+  struct stat s = {};
   return stat(name, &s) == 0;
 }
 
