@@ -1789,6 +1789,15 @@ static Node* conditional(Token** tokens) {
   if (consume_token(tokens, "?")) {
     Token* start = *tokens;
 
+    // Convert A ?: B to tmp = A, tmp ? tmp : B in order not to re-evaluate the A node.
+    if (equal_to_token(*tokens, ":")) {
+      Node* tmp_var = new_var_node(start, create_anon_lvar_obj(node->type));
+      Node* tmp_assign = new_assign_node(start, tmp_var, node);
+      expect_token(tokens, ":");
+      Node* els = conditional(tokens);
+      return new_comma_node(start, tmp_assign, new_cond_node(start, tmp_var, tmp_var, els));
+    }
+
     Node* then = expr(tokens);
     expect_token(tokens, ":");
     Node* els = conditional(tokens);
