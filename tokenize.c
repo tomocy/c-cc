@@ -273,7 +273,7 @@ bool consume_token(Token** token, char* s) {
 Token* expect_token(Token** tokens, char* s) {
   Token* start = *tokens;
   if (!consume_token(tokens, s)) {
-    error_at((*tokens)->file, (*tokens)->loc, "expected '%s'", s);
+    error_token(*tokens, "expected '%s'", s);
   }
 
   return start;
@@ -368,7 +368,7 @@ void print_tokens(char* output_filename, Token* tokens) {
 void error_token(Token* token, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  vprint_at(token->file, token->loc, fmt, args);
+  vprint_at(token->file, token->line, token->loc, fmt, args);
   va_end(args);
   exit(1);
 }
@@ -376,7 +376,7 @@ void error_token(Token* token, char* fmt, ...) {
 void warn_token(Token* token, char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  vprint_at(token->file, token->loc, fmt, args);
+  vprint_at(token->file, token->line, token->loc, fmt, args);
   va_end(args);
 }
 

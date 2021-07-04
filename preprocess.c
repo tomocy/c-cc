@@ -187,8 +187,13 @@ static Token* append(Token* former, Token* latter) {
   return head.next;
 }
 
-static Token* tokenize_as_if(File* file, char* contents) {
-  return append(tokenize_in(copy_file_with_contents(file, contents)), NULL);
+static Token* tokenize_as_if(File* file, int line, char* contents) {
+  Token* tokens = append(tokenize_in(copy_file_with_contents(file, contents)), NULL);
+  for (Token* token = tokens; token; token = token->next) {
+    token->line = line + token->line - 1;
+  }
+
+  return tokens;
 }
 
 static Token* expect_macro_ident_token(Token** tokens) {
@@ -279,7 +284,7 @@ static Token* stringize_tokens(Token* tokens) {
   // the error reporting can indicate the locations,
   // so tokenize those tokens as if they are in the file of the tokens which are replaced
   char* quoted = quote_str(restore_contents(tokens));
-  return tokenize_as_if(tokens->file, quoted);
+  return tokenize_as_if(tokens->file, tokens->line, quoted);
 }
 
 static Token* inherit_token_space(Token* token, Token* src) {
@@ -298,7 +303,7 @@ static Token* inherit_token_space(Token* token, Token* src) {
 static Token* concat_tokens(Token* lhs, Token* rhs) {
   File* file = lhs->file ? lhs->file : rhs->file;
   char* contents = format("%.*s%.*s", lhs->len, lhs->loc, rhs->len, rhs->loc);
-  return inherit_token_space(tokenize_as_if(file, contents), lhs);
+  return inherit_token_space(tokenize_as_if(file, lhs->line, contents), lhs);
 }
 
 static Token* inherit_original_token(Token* token, Token* original) {
@@ -364,7 +369,7 @@ static Token* add_hideset(Token* tokens, Str* hideset) {
 }
 
 void define_builtin_macro(char* name, char* raw_body) {
-  create_objlike_macro(name, tokenize_as_if(new_file(1, "built-in", ""), raw_body));
+  create_objlike_macro(name, tokenize_as_if(new_file(1, "built-in", ""), 1, raw_body));
 }
 
 static char* format_date(struct tm* time) {
@@ -395,19 +400,19 @@ static Token* gen_filename(Token* token) {
   while (token->original) {
     token = token->original;
   }
-  return tokenize_as_if(token->file, quote_str(token->file->name));
+  return tokenize_as_if(token->file, token->line, quote_str(token->file->name));
 }
 
 static Token* gen_line(Token* token) {
   while (token->original) {
     token = token->original;
   }
-  return tokenize_as_if(token->file, format("%d", token->line));
+  return tokenize_as_if(token->file, token->line, format("%d", token->line));
 }
 
 static Token* gen_count(Token* token) {
   static int n = 0;
-  return tokenize_as_if(token->file, format("%d", n++));
+  return tokenize_as_if(token->file, token->line, format("%d", n++));
 }
 
 void define_builtin_macros(File* file) {
@@ -607,6 +612,7 @@ static Token* convert_pp_int(Token* token) {
   }
 
   Token* converted = new_token_in(TK_NUM, token->file, start, c - start);
+  converted->line = token->line;
   converted->type = type;
   converted->int_val = val;
   return inherit_token_space(converted, token);
@@ -634,6 +640,7 @@ static Token* convert_pp_float(Token* token) {
   }
 
   Token* converted = new_token_in(TK_NUM, token->file, start, c - start);
+  converted->line = token->line;
   converted->type = type;
   converted->float_val = val;
   return inherit_token_space(converted, token);
@@ -1108,7 +1115,7 @@ static Token* if_dir_defined_cond(Token** tokens) {
     expect_token(tokens, ")");
   }
 
-  return tokenize_as_if(start->file, format("%d", macro != NULL));
+  return tokenize_as_if(start->file, start->line, format("%d", macro != NULL));
 }
 
 static bool if_dir_cond(Token** tokens) {
@@ -1134,7 +1141,7 @@ static bool if_dir_cond(Token** tokens) {
     }
 
     Token* next = token->next;
-    *token = *tokenize_as_if(token->file, format("%d", 0));
+    *token = *tokenize_as_if(token->file, token->line, format("%d", 0));
     token->next = next;
   }
 

@@ -38,36 +38,39 @@ static int count_lines(char* contents, char* loc) {
   return line;
 }
 
-static void print_loc(File* file, char* loc) {
-  int line = count_lines(file->contents, loc);
+static void print_loc(File* file, int line, char* loc) {
   char* begin = bol(file->contents, loc);
   char* end = eol(file->contents, loc);
 
   int indent = fprintf(stderr, "%s:%d:%d ", file->name, line, (int)(loc - begin) + 1);
   fprintf(stderr, "%.*s\n", (int)(end - begin), begin);
 
-  int pos = loc - begin + indent;
+  int pos = str_width(begin, loc - begin) + indent;
   fprintf(stderr, "%*s", pos, "");
   fprintf(stderr, "^ ");
 }
 
-void vprint_at(File* file, char* loc, char* fmt, va_list args) {
-  print_loc(file, loc);
+void vprint_at(File* file, int line, char* loc, char* fmt, va_list args) {
+  print_loc(file, line, loc);
   vfprintf(stderr, fmt, args);
   fprintf(stderr, "\n");
 }
 
 void warn_at(File* file, char* loc, char* fmt, ...) {
+  int line = count_lines(file->contents, loc);
+
   va_list args;
   va_start(args, fmt);
-  vprint_at(file, loc, fmt, args);
+  vprint_at(file, line, loc, fmt, args);
   va_end(args);
 }
 
 void error_at(File* file, char* loc, char* fmt, ...) {
+  int line = count_lines(file->contents, loc);
+
   va_list args;
   va_start(args, fmt);
-  vprint_at(file, loc, fmt, args);
+  vprint_at(file, line, loc, fmt, args);
   va_end(args);
   exit(1);
 }

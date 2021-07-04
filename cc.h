@@ -314,7 +314,7 @@ void gen(char* output_filename, TopLevelObj* codes);
 
 // error.c
 void error(char* fmt, ...);
-void vprint_at(File* file, char* loc, char* fmt, va_list args);
+void vprint_at(File* file, int line, char* loc, char* fmt, va_list args);
 void error_at(File* file, char* loc, char* fmt, ...);
 void warn_at(File* file, char* loc, char* fmt, ...);
 
@@ -382,3 +382,4 @@ uint32_t decode_from_utf8(char** dst, char* src);
 int encode_to_utf16(uint16_t* dst, uint32_t code);
 bool can_be_ident(uint32_t code);
 bool can_be_ident2(uint32_t code);
+int str_width(char* s, int len);
