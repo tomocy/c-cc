@@ -1234,6 +1234,31 @@ static Token* endif_dir(Token* token) {
   return skip_extra_tokens(token);
 }
 
+static Token* line_dir(Token* tokens) {
+  Token* start = tokens;
+
+  expect_dir(&tokens, "line");
+
+  Token* line = append(inline_tokens(&tokens), new_eof_token_in(tokens->file));
+  line = preprocess(line);
+
+  if (line->kind != TK_NUM || line->type->kind != TY_INT) {
+    error_token(line, "invalid line marker");
+  }
+  int delta = line->int_val - start->line;
+
+  line = line->next;
+
+  char* filename = line->kind == TK_STR ? line->str_val : start->file->name;
+
+  for (Token* token = tokens; token; token = token->next) {
+    token->file->name = filename;
+    token->line += delta;
+  }
+
+  return tokens;
+}
+
 static Token* process(Token* tokens) {
   Token head = {};
   Token* cur = &head;
@@ -1285,6 +1310,11 @@ static Token* process(Token* tokens) {
     }
     if (is_dir(token, "endif")) {
       token->next = endif_dir(token);
+      continue;
+    }
+
+    if (is_dir(token, "line")) {
+      token->next = line_dir(token);
       continue;
     }
 
