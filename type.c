@@ -72,7 +72,8 @@ Type* new_ptr_type(Type* base) {
 }
 
 Type* new_func_type(Type* return_type, Type* params, bool is_variadic) {
-  Type* func = new_type(TY_FUNC, 0, 0);
+  // [GNU] The C spec disallows sizeof(<function type>), but GCC evaluates it to 1.
+  Type* func = new_type(TY_FUNC, 1, 1);
   func->return_type = return_type;
   func->params = params;
   func->is_variadic = is_variadic;
