@@ -106,7 +106,7 @@ decl_specifier = (
     struct_decl | union_decl |
     enum_specifier | typeof_specifier |
     defined_type |
-    "extern" | "static" | "_Alignas" | "signed" |
+    "extern" | "static" | "inline" | "_Alignas" | "signed" |
     "const" | "volatile" | "auto" | "register" |
     "restrict" | "__restrict" | "__restrict__" | "_Noreturn"
 )*

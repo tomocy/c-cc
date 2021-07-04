@@ -211,19 +211,20 @@ else
   failed 'validate: no input files'
 fi
 
-# validate multiple input files, -o and -c
+# validte multiple input files
+# -o and -c
 if $CC -c -o out.o out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with '-c', '-S' or '-E' with multiple files"; then
   passed 'validate: multiple input files with -o and -c'
 else
   failed 'validate: multiple input files with -o and -c'
 fi
-# validate multiple input files, -o and -S
+# -o and -S
 if $CC -S -o out.s out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with '-c', '-S' or '-E' with multiple files"; then
   passed 'validate: multiple input files with -o and -S'
 else
   failed 'validate: multiple input files with -o and -S'
 fi
-# validate multiple input files, -o and -E
+# -o and -E
 if $CC -E -o out.s out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with '-c', '-S' or '-E' with multiple files"; then
   passed 'validate: multiple input files with -o and -E'
 else
@@ -235,6 +236,25 @@ if echo -e "\xef\xbb\xbfxyz;" | $CC -E -o - - | grep -q '^xyz'; then
   passed 'Ignore BOM'
 else
   failed 'Ignore BOM'
+fi
+
+# Inline function
+# static implicitly
+echo "inline void foo() {}" > "$TMP/inline1.c"
+echo "inline void foo() {}" > "$TMP/inline2.c"
+echo "int main() { return 0; }" > "$TMP/out.c"
+if $CC -o /dev/null "$TMP/inline1.c" "$TMP/inline2.c" "$TMP/out.c"; then
+  passed 'Inline function (static implicitly)'
+else
+  failed 'Inline function (static implicitly)'
+fi
+# extern
+echo "extern inline void foo() {}" > "$TMP/inline1.c"
+echo "int foo(); int main() { foo(); }" > "$TMP/out.c"
+if $CC -o /dev/null "$TMP/inline1.c" "$TMP/out.c"; then
+  passed 'Inline function (extern)'
+else
+  failed 'Inline function (extern)'
 fi
 
 echo "OK"

@@ -21,6 +21,7 @@ typedef struct VarAttr {
   bool is_typedef;
   bool is_extern;
   bool is_static;
+  bool is_inline;
 
   int alignment;
 } VarAttr;
@@ -433,6 +434,7 @@ static bool equal_to_decl_specifier(Token* token) {
     "typedef",
     "extern",
     "static",
+    "inline",
     "void",
     "_Bool",
     "char",
@@ -1117,7 +1119,7 @@ static void func(Token** tokens) {
   Obj* func = create_func_obj(type, type->name);
   current_func = func;
 
-  func->is_static = attr.is_static;
+  func->is_static = attr.is_static || (attr.is_inline && !attr.is_extern);
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
     current_lvars = NULL;
@@ -3319,17 +3321,27 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   while (equal_to_decl_specifier(*tokens)) {
     Token* start = *tokens;
 
-    if (equal_to_token(*tokens, "typedef") || equal_to_token(*tokens, "extern") || equal_to_token(*tokens, "static")) {
+    if (equal_to_token(*tokens, "typedef") || equal_to_token(*tokens, "extern") || equal_to_token(*tokens, "static")
+        || equal_to_token(*tokens, "inline")) {
       if (!attr) {
         error_token(*tokens, "storage class specifier is not allowed in this context");
       }
 
-      attr->is_typedef = equal_to_token(*tokens, "typedef");
-      attr->is_extern = equal_to_token(*tokens, "extern");
-      attr->is_static = equal_to_token(*tokens, "static");
+      if (equal_to_token(*tokens, "typedef")) {
+        attr->is_typedef = true;
+      }
+      if (equal_to_token(*tokens, "extern")) {
+        attr->is_extern = true;
+      }
+      if (equal_to_token(*tokens, "static")) {
+        attr->is_static = true;
+      }
+      if (equal_to_token(*tokens, "inline")) {
+        attr->is_inline = true;
+      }
 
-      if (attr->is_typedef && (attr->is_extern || attr->is_static)) {
-        error_token(*tokens, "typedef may not be used with extern or static");
+      if (attr->is_typedef && attr->is_extern + attr->is_static + attr->is_inline >= 2) {
+        error_token(*tokens, "typedef may not be used together with extern, static or inline");
       }
 
       *tokens = (*tokens)->next;
