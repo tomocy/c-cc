@@ -296,6 +296,12 @@ if "$TMP/out"; then
 else
   failed 'specify input language (-x) (overridden when an input file is object file)'
 fi
+# implicitly specified to c with -E given
+if echo "int x = 0;" | $CC -E -o - - | grep -q "int x = 0;"; then
+  passed 'specify input language (-x) (implicitly specified to c with -E given)'
+else
+  failed 'specify input language (-x) (implicitly specified to c with -E given)'
+fi
 
 # ignore options for now
 if echo 'int x;' | $CC -E -o /dev/null -x c - \

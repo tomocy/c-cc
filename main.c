@@ -139,6 +139,7 @@ static Str* parse_args(int argc, char** argv) {
 
     if (equal_to_str(argv[i], "-E")) {
       in_c = true;
+      input_file_type = FILE_C;
       continue;
     }
 
