@@ -89,7 +89,7 @@ static int get_type_id(Type* type) {
 static void gen_expr(Node* node);
 static void gen_stmt(Node* node);
 
-static void genln(char* fmt, ...) {
+__attribute__((format(printf, 1, 2))) static void genln(char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
   vfprintf(output_file, fmt, args);
@@ -354,7 +354,7 @@ static void gen_assign(Node* node) {
   load(node->lhs);
   // Merge the node->lhs value of the composite type with the bitfield value.
   int mask = ((1L << mem->bit_width) - 1) << mem->bit_offset;
-  genln("  mov r9, %ld", ~mask);
+  genln("  mov r9, %d", ~mask);
   genln("  and rax, r9");
   genln("  or rax, rdi");
 

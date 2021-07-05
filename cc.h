@@ -18,6 +18,10 @@
 #define MAX(x, y) ((x) > (y) ? x : y)
 #define MIN(x, y) ((x) < (y) ? x : y)
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 typedef struct Str Str;
 typedef struct File File;
 typedef struct Token Token;
@@ -294,8 +298,8 @@ void define_builtin_macro(char* name, char* raw_body);
 void undefine_macro(char* name);
 
 // tokenize.c
-void error_token(Token* token, char* fmt, ...);
-void warn_token(Token* token, char* fmt, ...);
+void error_token(Token* token, char* fmt, ...) __attribute__((format(printf, 2, 3)));
+void warn_token(Token* token, char* fmt, ...) __attribute__((format(printf, 2, 3)));
 bool equal_to_token(Token* token, char* s);
 bool equal_to_tokens(Token* token, ...);
 bool equal_to_ident_token(Token* token, char* s);
@@ -324,10 +328,10 @@ void gen(char* output_filename, TopLevelObj* codes);
 // Utils
 
 // error.c
-void error(char* fmt, ...);
+void error(char* fmt, ...) __attribute__((format(printf, 1, 2)));
 void vprint_at(File* file, int line, char* loc, char* fmt, va_list args);
-void error_at(File* file, char* loc, char* fmt, ...);
-void warn_at(File* file, char* loc, char* fmt, ...);
+void error_at(File* file, char* loc, char* fmt, ...) __attribute__((format(printf, 3, 4)));
+void warn_at(File* file, char* loc, char* fmt, ...) __attribute__((format(printf, 3, 4)));
 #define UNREACHABLE(fmt, ...) error("dev: %s: " fmt "\n", __func__ __VA_OPT__(, ) __VA_ARGS__)
 
 // file.c
@@ -350,7 +354,7 @@ Str* copy_str(Str* src);
 Str* append_strs(Str* former, Str* latter);
 bool contain_str(Str* strs, char* c, int len);
 Str* intersect_strs(Str* a, Str* b);
-char* format(char* fmt, ...);
+char* format(char* fmt, ...) __attribute__((format(printf, 1, 2)));
 bool equal_to_str(char* s, char* other);
 bool equal_to_n_chars(char* s, char* c, int n);
 bool start_with(char* s, char* prefix);
