@@ -8,6 +8,7 @@ static char* output_filename;
 static Str* tmp_filenames;
 static Str* input_filenames;
 Str* include_paths;
+static Str* include_later_paths;
 static bool do_log_args;
 static bool do_exec;
 static bool in_obj;
@@ -17,21 +18,9 @@ static bool in_c;
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
 
-static void add_include_path(Str* path) {
-  add_str(&include_paths, path);
-}
-
-static void add_tmp_filename(Str* fname) {
-  add_str(&tmp_filenames, fname);
-}
-
-static void add_input_filename(Str* fname) {
-  add_str(&input_filenames, fname);
-}
-
 static char* create_tmp_file() {
   char* name = new_tmp_file();
-  add_tmp_filename(new_str(name));
+  add_str(&tmp_filenames, new_str(name));
   return name;
 }
 
@@ -141,12 +130,18 @@ static Str* parse_args(int argc, char** argv) {
 
     // -I include_path
     if (equal_to_str(argv[i], "-I")) {
-      add_include_path(new_str(take_arg(&cur, argv[++i])));
+      add_str(&include_paths, new_str(take_arg(&cur, argv[++i])));
       continue;
     }
     // -I=include_path etc
     if (start_with(argv[i], "-I")) {
-      add_include_path(new_str(argv[i] + 2));
+      add_str(&include_paths, new_str(argv[i] + 2));
+      continue;
+    }
+
+    // -idirafter include_path
+    if (equal_to_str(argv[i], "-idirafter")) {
+      add_str(&include_later_paths, new_str(take_arg(&cur, argv[++i])));
       continue;
     }
 
@@ -182,7 +177,7 @@ static Str* parse_args(int argc, char** argv) {
       error("unknown argument: %s", argv[i]);
     }
 
-    add_input_filename(new_str(argv[i]));
+    add_str(&input_filenames, new_str(argv[i]));
   }
 
   return head.next;
@@ -318,12 +313,18 @@ static void add_default_include_paths() {
   // add the user specified files after the default ones
   Str* paths = include_paths;
   include_paths = NULL;
-  add_include_path(new_str("/usr/include"));
-  add_include_path(new_str("/usr/include/x86_64-linux-gnu"));
-  add_include_path(new_str("/usr/local/include"));
-  add_include_path(new_str(format("%s/include", location)));
+
+  add_str(&include_paths, new_str("/usr/include"));
+  add_str(&include_paths, new_str("/usr/include/x86_64-linux-gnu"));
+  add_str(&include_paths, new_str("/usr/local/include"));
+  add_str(&include_paths, new_str(format("%s/include", location)));
+
   for (Str* path = paths; path; path = path->next) {
-    add_include_path(copy_str(path));
+    add_str(&include_paths, copy_str(path));
+  }
+
+  for (Str* path = include_later_paths; path; path = path->next) {
+    add_str(&include_paths, copy_str(path));
   }
 }
 

@@ -158,9 +158,24 @@ if
   $CC -E -o - -I "$TMP/include1" -I "$TMP/include2" "$TMP/out.c" | grep -q "int x;"
   $CC -E -o - -I "$TMP/include1" -I "$TMP/include2" "$TMP/out.c" | grep -q "int y;"
 then
-  passed "include path"
+  passed "include path (-I)"
 else
-  failed "include path"
+  failed "include path (-I)"
+fi
+
+#include path (-idirafter)
+rm -rf "$TMP/include1" "$TMP/include2"
+mkdir "$TMP/include1"
+mkdir "$TMP/include2"
+echo "int x;" > "$TMP/include1/include.c"
+echo "int y;" > "$TMP/include2/include.c"
+if
+  echo "#include \"include.c\"" | $CC -S -o - - -I "$TMP/include1" -I "$TMP/include2" | grep -q y:
+  echo "#include \"include.c\"" | $CC -S -o - - -idirafter "$TMP/include1" -I "$TMP/include2" | grep -q x:
+then
+  passed "include path (-idirafter)"
+else
+  failed "include path (-idirafter)"
 fi
 
 # define macro (-D)
