@@ -1,5 +1,12 @@
 #include "cc.h"
 
+typedef enum {
+  FILE_NONE,
+  FILE_C,
+  FILE_ASM,
+  FILE_OBJ,
+} FileType;
+
 // the location where this program lives is kept
 // so that the include path relative to the location can be resolved
 static char* location;
@@ -12,6 +19,7 @@ Str* include_paths;
 static Str* include_later_paths;
 static bool do_log_args;
 static bool do_exec;
+static FileType input_file_type = FILE_NONE;
 static bool in_obj;
 static bool in_asm;
 static bool in_c;
@@ -68,6 +76,21 @@ static void define_arg_macro(char* arg) {
   } else {
     define_builtin_macro(strdup(arg), "1");
   }
+}
+
+static FileType parse_file_type(char* type) {
+  if (equal_to_str(type, "none")) {
+    return FILE_NONE;
+  }
+  if (equal_to_str(type, "c")) {
+    return FILE_C;
+  }
+  if (equal_to_str(type, "assembler")) {
+    return FILE_ASM;
+  }
+
+  error("unknown argument for -x: %s", type);
+  return 0;
 }
 
 static Str* parse_args(int argc, char** argv) {
@@ -185,6 +208,17 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    // -x input_language
+    if (equal_to_str(argv[i], "-x")) {
+      input_file_type = parse_file_type(take_arg(&cur, argv[++i]));
+      continue;
+    }
+    // -x=input_language
+    if (start_with(argv[i], "-x")) {
+      input_file_type = parse_file_type(take_arg(&cur, argv[i] + 2));
+      continue;
+    }
+
     // Ignore those options for now
     if (start_with_any(argv[i], "-O", "-W", "-g", "-std", "-ffreestanding", "-fno-builtin", "-fno-omit-frame-pointer",
           "-fno-stack-protector", "-fno-strict-aliasing", "-m64", "-mno-red-zone", "-w", NULL)) {
@@ -246,7 +280,7 @@ static int preprocesss(Str* original, char* input, char* output) {
   return run_subprocess(argc, args);
 }
 
-static int compile(Str* original, char* input, char* output) {
+static int drive_to_compile(Str* original, char* input, char* output) {
   Str head = {};
   Str* cur = &head;
   for (Str* arg = original; arg; arg = arg->next) {
@@ -263,23 +297,32 @@ static int compile(Str* original, char* input, char* output) {
   return run_subprocess(argc, args);
 }
 
-static int assemble(Str* original, char* input, char* output) {
+static int run_assembler(char* input, char* output) {
+  char* args[] = {"as", "-c", input, "-o", output, NULL};
+  return run_subprocess(5, args);
+}
+
+static int drive_to_assemble(Str* original, char* input, char* output) {
   char* tmp_fname = create_tmp_file();
-  int status = compile(original, input, tmp_fname);
+  int status = drive_to_compile(original, input, tmp_fname);
   if (status != 0) {
     return status;
   }
 
-  char* args[] = {"as", "-c", tmp_fname, "-o", output, NULL};
-  return run_subprocess(5, args);
+  return run_assembler(tmp_fname, output);
 }
 
-static int linkk(Str* original, Str* inputs, char* output) {
+static int drive_to_link(Str* original, Str* inputs, char* output) {
   Str head_link_inputs = {};
   Str* link_inputs = &head_link_inputs;
   for (Str* input = inputs; input; input = input->next) {
+    if (!end_with(input->data, ".c")) {
+      link_inputs = link_inputs->next = copy_str(input);
+      continue;
+    }
+
     char* tmp_fname = create_tmp_file();
-    int status = assemble(original, input->data, tmp_fname);
+    int status = drive_to_assemble(original, input->data, tmp_fname);
     if (status != 0) {
       return status;
     }
@@ -383,6 +426,26 @@ static int exec(void) {
   return 0;
 }
 
+static FileType get_file_type(char* fname) {
+  if (end_with(fname, ".o")) {
+    return FILE_OBJ;
+  }
+
+  if (input_file_type != FILE_NONE) {
+    return input_file_type;
+  }
+
+  if (end_with(fname, ".c")) {
+    return FILE_C;
+  }
+  if (end_with(fname, ".s")) {
+    return FILE_ASM;
+  }
+
+  error("unknown file extension: %s", fname);
+  return 0;
+}
+
 static int run(Str* original) {
   if (!input_filenames) {
     error("no input files");
@@ -396,30 +459,63 @@ static int run(Str* original) {
   Str head_link_inputs = {};
   Str* link_inputs = &head_link_inputs;
   for (Str* input = input_filenames; input; input = input->next) {
+    FileType input_ftype = get_file_type(input->data);
+
     char* output = output_filename;
     if (!output) {
       char* ext = in_asm ? ".s" : ".o";
       output = replace_file_ext(input->data, ext);
     }
 
-    // preprocess, compile and assemble
+    // .o -> executable
+    if (input_ftype == FILE_OBJ) {
+      link_inputs = link_inputs->next = new_str(input->data);
+      continue;
+    }
+
+    if (input_ftype == FILE_ASM) {
+      if (in_c || in_asm) {
+        continue;
+      }
+
+      // .s -> .o
+      if (in_obj) {
+        int status = run_assembler(input->data, output);
+        if (status != 0) {
+          return status;
+        }
+        continue;
+      }
+
+      // .s -> executable
+      char* tmp_fname = create_tmp_file();
+      int status = run_assembler(input->data, tmp_fname);
+      if (status != 0) {
+        return status;
+      }
+      link_inputs = link_inputs->next = new_str(tmp_fname);
+      continue;
+    }
+
+    // .c -> .o
     if (in_obj) {
-      int status = assemble(original, input->data, output);
+      int status = drive_to_assemble(original, input->data, output);
       if (status != 0) {
         return status;
       }
       continue;
     }
 
-    // preprocess and compile
+    // .c -> .s
     if (in_asm) {
-      int status = compile(original, input->data, output);
+      int status = drive_to_compile(original, input->data, output);
       if (status != 0) {
         return status;
       }
       continue;
     }
 
+    // .c -> .c
     if (in_c) {
       int status = preprocesss(original, input->data, output_filename ? output_filename : NULL);
       if (status != 0) {
@@ -429,11 +525,13 @@ static int run(Str* original) {
     }
 
     // Keep the input filename to compile, assemble and link later
+    // .c -> executable
     link_inputs = link_inputs->next = new_str(input->data);
   }
 
-  return head_link_inputs.next ? linkk(original, head_link_inputs.next, output_filename ? output_filename : "a.out")
-                               : 0;
+  return head_link_inputs.next
+           ? drive_to_link(original, head_link_inputs.next, output_filename ? output_filename : "a.out")
+           : 0;
 }
 
 int main(int argc, char** argv) {

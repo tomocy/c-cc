@@ -93,3 +93,8 @@ bool start_with_any(char* s, ...) {
 bool start_with_insensitive(char* s, char* prefix) {
   return strncasecmp(s, prefix, strlen(prefix)) == 0;
 }
+
+bool end_with(char* s, char* suffix) {
+  int len = strlen(suffix);
+  return strncmp(s + strlen(s) - len, suffix, len) == 0;
+}

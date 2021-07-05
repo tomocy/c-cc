@@ -33,15 +33,15 @@ else
 fi
 
 # compile (-S)
-if echo 'int main() {}' | $CC -S -o - - | grep -q 'main:'; then
+if echo 'int main() {}' | $CC -S -o - -x c - | grep -q 'main:'; then
   passed 'compile (-S)'
 else
   failed 'compile (-S)'
 fi
 
-# assemble (-o)
+# assemble (-c)
 rm -rf "$TMP/out"
-echo 'int main() { return 0; }' | $CC -c -o "$TMP/out" -
+echo 'int main() { return 0; }' | $CC -c -o "$TMP/out" -x c -
 if [ -f "$TMP/out" ]; then
   passed 'assemble (-o)'
 else
@@ -49,23 +49,41 @@ else
 fi
 
 # link
-rm -rf "$TMP/out"
+# .c -> executable
 echo 'int bar(); int main() { return bar(); }' > "$TMP/out1.c"
 echo 'int bar() { return 0; }' > "$TMP/out2.c"
 $CC -o "$TMP/out" "$TMP/out1.c" "$TMP/out2.c"
 if "$TMP/out"; then
-  passed link
+  passed 'link (.c -> executable)'
 else
-  failed link
+  failed 'link (.c -> executable)'
+fi
+# .s -> executable
+echo 'int x(); int main() { return x(); }' | $CC -S -o "$TMP/out1.s" -x c -
+echo 'int x() { return 0; }' | $CC -S -o "$TMP/out2.s" -x c -
+$CC -o "$TMP/out" "$TMP/out1.s" "$TMP/out2.s"
+if "$TMP/out"; then
+  passed 'link (.s -> executable)'
+else
+  failed 'link (.s -> executable)'
+fi
+# .o -> executable
+echo 'int x(); int main() { return x(); }' | $CC -c -o "$TMP/out1.o" -x c -
+echo 'int x() { return 0; }' | $CC -c -o "$TMP/out2.o" -x c -
+$CC -o "$TMP/out" "$TMP/out1.o" "$TMP/out2.o"
+if "$TMP/out"; then
+  passed 'link (.o -> executable)'
+else
+  failed 'link (.o -> executable)'
 fi
 
 # default output file
 echo 'int main() {}' > "$TMP/out.c"
-# .c -> .c (-E)
+# .c -> .stdout (-E)
 if $CC -E "$TMP/out.c" | grep -q 'int main() {}'; then
-  passed 'default output file (-E): out.c -> stdout'
+  passed 'default output file (-E) (.c -> stdout)'
 else
-  failed 'default output file (-E): out.c -> stdout'
+  failed 'default output file (-E) (.c -> stdout)'
 fi
 # .c -> .s (-S)
 rm -f "$TMP/out.s"
@@ -74,9 +92,9 @@ rm -f "$TMP/out.s"
   "$OLDPWD/$CC" -S "$TMP/out.c"
 )
 if [ -f "$TMP/out.s" ]; then
-  passed 'default output file (-S): out.c -> out.s'
+  passed 'default output file (-S) (.c -> .s)'
 else
-  failed 'default output file (-S): out.c -> out.s'
+  failed 'default output file (-S) (.c -> .s)'
 fi
 # .c -> .o (-c)
 rm -f "$TMP/out.o"
@@ -85,9 +103,9 @@ rm -f "$TMP/out.o"
   "$OLDPWD/$CC" -c "$TMP/out.c"
 )
 if [ -f "$TMP/out.o" ]; then
-  passed 'default output file (-c): out.c -> out.o'
+  passed 'default output file (-c) (.c -> .o)'
 else
-  failed 'default output file (-c): out.c -> out.o'
+  failed 'default output file (-c) (.c -> .o)'
 fi
 # .c -> a.out
 rm -f "$TMP/a.out"
@@ -96,22 +114,22 @@ rm -f "$TMP/a.out"
   "$OLDPWD/$CC" "$TMP/out.c"
 )
 if [ -f "$TMP/a.out" ]; then
-  passed 'default output file: out.c -> a.out'
+  passed 'default output file (.c -> a.out)'
 else
-  failed 'default output file: out.c -> a.out'
+  failed 'default output file (.c -> a.out)'
 fi
 
 # multiple input files
 echo 'int x; int y;' > "$TMP/out1.c"
 echo 'extern int x; int main() { return x; }' > "$TMP/out2.c"
-# .c -> .c (-E)
+# .c -> .stdout (-E)
 if
   $CC -E "$TMP/out1.c" "$TMP/out2.c" | grep -q 'int y;'
   $CC -E "$TMP/out1.c" "$TMP/out2.c" | grep -q 'int main'
 then
-  passed 'multiple input files (-E): out1.c, out2.c -> stdout'
+  passed 'multiple input files (-E) (.c -> stdout)'
 else
-  failed 'multiple input files (-E): out1.c, out2.c -> stdout'
+  failed 'multiple input files (-E) (.c -> stdout)'
 fi
 # .c -> .s (-S)
 rm -f "$TMP/out1.s" "$TMP/out2.s"
@@ -120,9 +138,9 @@ rm -f "$TMP/out1.s" "$TMP/out2.s"
   "$OLDPWD/$CC" -S "$TMP/out1.c" "$TMP/out2.c"
 )
 if [ -f "$TMP/out1.s" ] && [ -f "$TMP/out2.s" ]; then
-  passed 'multiple input files (-S): out1.c -> out1.s, out2.c -> out2.s'
+  passed 'multiple input files (-S) (.c -> .s)'
 else
-  failed 'multiple input files (-S): out1.c -> out1.s, out2.c -> out2.s'
+  failed 'multiple input files (-S) (.c -> .s)'
 fi
 # .c -> .o (-c)
 rm -f "$TMP/out1.o" "$TMP/out2.o"
@@ -131,9 +149,9 @@ rm -f "$TMP/out1.o" "$TMP/out2.o"
   "$OLDPWD/$CC" -c "$TMP/out1.c" "$TMP/out2.c"
 )
 if [ -f "$TMP/out1.o" ] && [ -f "$TMP/out2.o" ]; then
-  passed 'multiple input files (-c): out1.c -> out1.o, out2.c -> out2.o'
+  passed 'multiple input files (-c) (.c -> .o)'
 else
-  failed 'multiple input files (-c): out1.c -> out1.o, out2.c -> out2.o'
+  failed 'multiple input files (-c) (.c -> .o)'
 fi
 # .c -> a.out
 rm -f "$TMP/a.out"
@@ -142,24 +160,24 @@ rm -f "$TMP/a.out"
   "$OLDPWD/$CC" "$TMP/out1.c" "$TMP/out2.c"
 )
 if [ -f "$TMP/a.out" ]; then
-  passed 'multiple input files: out1.c, out2.c -> a.out'
+  passed 'multiple input files (.c -> a.out)'
 else
-  failed 'multiple input files: out1.c, out2.c -> a.out'
+  failed 'multiple input files (.c -> a.out)'
 fi
 
 # included path (-include)
 # user defined file
 echo "int x = 0;" > "$TMP/include.c"
 if
-  echo "int y = 0;" | $CC -S -o - -include "$TMP/include.c" - | grep -q x:
-  echo "int y = 0;" | $CC -S -o - -include "$TMP/include.c" - | grep -q y:
+  echo "int y = 0;" | $CC -S -o - -include "$TMP/include.c" -x c - | grep -q x:
+  echo "int y = 0;" | $CC -S -o - -include "$TMP/include.c" -x c - | grep -q y:
 then
   passed 'included path (-include) (user defined file)'
 else
   failed 'included path (-include) (user defined file)'
 fi
 # system file
-if echo "NULL" | $CC -E -o - -I include -include stdio.h - | grep -q 0; then
+if echo "NULL" | $CC -E -o - -I include -include stdio.h -x c - | grep -q 0; then
   passed 'included path (-include) (system file)'
 else
   failed 'included path (-include) (system file)'
@@ -181,15 +199,15 @@ else
   failed 'include path (-I)'
 fi
 
-#include path (-idirafter)
+# include path (-idirafter)
 rm -rf "$TMP/include1" "$TMP/include2"
 mkdir "$TMP/include1"
 mkdir "$TMP/include2"
 echo 'int x = 0;' > "$TMP/include1/include.c"
 echo 'int y = 0;' > "$TMP/include2/include.c"
 if
-  echo "#include \"include.c\"" | $CC -S -o - - -I "$TMP/include1" -I "$TMP/include2" | grep -q y:
-  echo "#include \"include.c\"" | $CC -S -o - - -idirafter "$TMP/include1" -I "$TMP/include2" | grep -q x:
+  echo "#include \"include.c\"" | $CC -S -o - -I "$TMP/include1" -I "$TMP/include2" -x c - | grep -q y:
+  echo "#include \"include.c\"" | $CC -S -o - -idirafter "$TMP/include1" -I "$TMP/include2" -x c - | grep -q x:
 then
   passed 'include path (-idirafter)'
 else
@@ -197,38 +215,41 @@ else
 fi
 
 # define macro (-D)
-if echo 'foo' | $CC -E -D foo -o - - | grep -q '1'; then
-  passed 'define boolean macro'
+# boolean
+if echo 'foo' | $CC -E -D foo -o - -x c - | grep -q '1'; then
+  passed 'define macro (-D) (boolean)'
 else
-  failed 'define boolean macro'
+  failed 'define macro (-D) (boolean)'
 fi
-if echo 'foo' | $CC -E -D foo=bar -o - - | grep -q 'bar'; then
-  passed 'define macro with body'
+# with body
+if echo 'foo' | $CC -E -D foo=bar -o - -x c - | grep -q 'bar'; then
+  passed 'define macro (-D) (with body)'
 else
-  failed 'define macro with body'
+  failed 'define macro (-D) (with body)'
 fi
-if echo 'foo' | $CC -E -D foo=bar -U foo -D foo -o - - | grep -q '1'; then
-  passed 'define once undefined macro'
+# once undefined
+if echo 'foo' | $CC -E -D foo=bar -U foo -D foo -o - -x c - | grep -q '1'; then
+  passed 'define macro (-D) (once undefined)'
 else
-  failed 'define once undefined macro'
+  failed 'define macro (-D) (once undefined)'
 fi
 
 # undefine macro (-U)
-if echo 'foo' | $CC -E -D foo -U foo -o - - | grep -q 'foo'; then
-  passed 'undefine macro'
+if echo 'foo' | $CC -E -D foo -U foo -o - -x c - | grep -q 'foo'; then
+  passed 'undefine macro (-U)'
 else
-  failed 'undefine macro'
+  failed 'undefine macro (-U)'
 fi
 
 # enable common symbols
 # default
-if echo 'int x;' | $CC -S -o - - | grep -q '.comm x'; then
+if echo 'int x;' | $CC -S -o - -x c - | grep -q '.comm x'; then
   passed 'enable common symbols (default)'
 else
   failed 'enable common symbols (default)'
 fi
 # -fcommon
-if echo 'int x;' | $CC -S -o - -fcommon - | grep -q '.comm x'; then
+if echo 'int x;' | $CC -S -o - -fcommon -x c - | grep -q '.comm x'; then
   passed 'enable common symbols (-fcommon)'
 else
   failed 'enable common symbols (-fcommon)'
@@ -236,16 +257,48 @@ fi
 
 #disable common symbols (-fno-common)
 if
-  echo 'int x;' | $CC -S -o - -fno-common - | grep -q '.comm x' && exit 1
-  echo 'int x;' | $CC -S -o - -fno-common - | grep -q 'x:'
+  echo 'int x;' | $CC -S -o - -fno-common -x c - | grep -q '.comm x' && exit 1
+  echo 'int x;' | $CC -S -o - -fno-common -x c - | grep -q 'x:'
 then
   passed 'disable common symbols (-fno-common)'
 else
   failed 'disable common symbols (-fno-common)'
 fi
 
+# specify input language (-x)
+# none
+echo "int main() { return 0; }" > "$TMP/out.c"
+$CC -o "$TMP/out" -x none "$TMP/out.c"
+if "$TMP/out"; then
+  passed 'specify input language (-x) (none)'
+else
+  failed 'specify input language (-x) (none)'
+fi
+# c
+$CC -o "$TMP/out" -x c "$TMP/out.c"
+if "$TMP/out"; then
+  passed 'specify input language (-x) (c)'
+else
+  failed 'specify input language (-x) (c)'
+fi
+# assembler
+$CC -S -o - "$TMP/out.c" | $CC -o "$TMP/out" -x assembler -
+if "$TMP/out"; then
+  passed 'specify input language (-x) (assembler)'
+else
+  failed 'specify input language (-x) (assembler)'
+fi
+# overridden when an input file is object file
+echo "int main() { return 0; }" | $CC -c -o "$TMP/out.o" -x c -
+$CC -o "$TMP/out" -x c "$TMP/out.o"
+if "$TMP/out"; then
+  passed 'specify input language (-x) (overridden when an input file is object file)'
+else
+  failed 'specify input language (-x) (overridden when an input file is object file)'
+fi
+
 # ignore options for now
-if echo 'int x;' | $CC -E -o /dev/null - \
+if echo 'int x;' | $CC -E -o /dev/null -x c - \
   -O -W -g -std=c11 -ffreestanding -fno-builtin \
   -fno-omit-frame-pointer -fno-stack-protector -fno-strict-aliasing \
   -m64 -mno-red-zone -w; then
@@ -271,88 +324,88 @@ fi
 # validte multiple input files
 # -o and -c
 if $CC -c -o out.o out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with '-c', '-S' or '-E' with multiple files"; then
-  passed 'validate: multiple input files with -o and -c'
+  passed 'validate: multiple input files (-o and -c)'
 else
-  failed 'validate: multiple input files with -o and -c'
+  failed 'validate: multiple input files (-o and -c)'
 fi
 # -o and -S
 if $CC -S -o out.s out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with '-c', '-S' or '-E' with multiple files"; then
-  passed 'validate: multiple input files with -o and -S'
+  passed 'validate: multiple input files (-o and -S)'
 else
-  failed 'validate: multiple input files with -o and -S'
+  failed 'validate: multiple input files (-o and -S)'
 fi
 # -o and -E
 if $CC -E -o out.s out1.c out2.c 2>&1 | grep -q "cannot specify '-o' with '-c', '-S' or '-E' with multiple files"; then
-  passed 'validate: multiple input files with -o and -E'
+  passed 'validate: multiple input files (-o and -E)'
 else
-  failed 'validate: multiple input files with -o and -E'
+  failed 'validate: multiple input files (-o and -E)'
 fi
 
 # Skip UTF-8 BOM
-if echo -e '\xef\xbb\xbfxyz;' | $CC -E -o - - | grep -q '^xyz'; then
-  passed 'Ignore BOM'
+if echo -e '\xef\xbb\xbfxyz;' | $CC -E -o - -x c - | grep -q '^xyz'; then
+  passed 'ignore UTF-8 BOM'
 else
-  failed 'Ignore BOM'
+  failed 'ignore UTF-8 BOM'
 fi
 
-# Inline function
+# inline function
 # static implicitly
 echo 'inline void foo() {}' > "$TMP/inline1.c"
 echo 'inline void foo() {}' > "$TMP/inline2.c"
 echo 'int main() { return 0; }' > "$TMP/out.c"
 if $CC -o /dev/null "$TMP/inline1.c" "$TMP/inline2.c" "$TMP/out.c"; then
-  passed 'Inline function (static implicitly)'
+  passed 'inline function (static implicitly)'
 else
-  failed 'Inline function (static implicitly)'
+  failed 'inline function (static implicitly)'
 fi
 # extern
 echo 'extern inline void foo() {}' > "$TMP/inline1.c"
 echo 'int foo(); int main() { foo(); }' > "$TMP/out.c"
 if $CC -o /dev/null "$TMP/inline1.c" "$TMP/out.c"; then
-  passed 'Inline function (extern)'
+  passed 'inline function (extern)'
 else
-  failed 'Inline function (extern)'
+  failed 'inline function (extern)'
 fi
-# static and not referenced
-if ! echo 'static inline void f1() {}' | $CC -S -o - - | grep -q f1:; then
-  passed 'Inline function (static and not referenced)'
+# static, not referred
+if ! echo 'static inline void f1() {}' | $CC -S -o - -x c - | grep -q f1:; then
+  passed 'inline function (static) (not referred)'
 else
-  failed 'Inline function (static and not referenced)'
+  failed 'inline function (static) (not referred)'
 fi
-# static and referenced by external one
-if echo 'static inline void f1() {} void f() { f1(); }' | $CC -S -o - - | grep -q f1:; then
-  passed 'Inline function (static and referenced)'
+# static, referred by external one
+if echo 'static inline void f1() {} void f() { f1(); }' | $CC -S -o - -x c - | grep -q f1:; then
+  passed 'inline function (static) (referred)'
 else
-  failed 'Inline function (static and referenced)'
+  failed 'inline function (static) (referred)'
 fi
-# static and referenced by not referenced static one
+# static, referred by not referred static one
 if
-  echo 'static inline void f1() {} static inline void f2() { f1(); }' | $CC -S -o - - | grep -q f1: && exit 1
-  ! echo 'static inline void f1() {} static inline void f2() { f1(); }' | $CC -S -o - - | grep -q f2:
+  echo 'static inline void f1() {} static inline void f2() { f1(); }' | $CC -S -o - -x c - | grep -q f1: && exit 1
+  ! echo 'static inline void f1() {} static inline void f2() { f1(); }' | $CC -S -o - -x c - | grep -q f2:
 then
-  passed 'Inline function (static and referenced by not referenced static one)'
+  passed 'inline function (static) (referred by not referred static one)'
 else
-  failed 'Inline function (static and referenced by not referenced static one)'
+  failed 'inline function (static) (referred by not referred static one)'
 fi
-# static and referenced by each other and by other
+# static, referred by each other, reffered by other
 if
-  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f1(); }' | $CC -S -o - - | grep -q f1:
-  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f1(); }' | $CC -S -o - - | grep -q f2:
-  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f2(); }' | $CC -S -o - - | grep -q f1:
-  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f2(); }' | $CC -S -o - - | grep -q f2:
+  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f1(); }' | $CC -S -o - -x c - | grep -q f1:
+  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f1(); }' | $CC -S -o - -x c - | grep -q f2:
+  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f2(); }' | $CC -S -o - -x c - | grep -q f1:
+  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void f() { f2(); }' | $CC -S -o - -x c - | grep -q f2:
 then
-  passed 'Inline function (static and referenced by each other and by other)'
+  passed 'inline function (static) (referred by each other) (referred by other)'
 else
-  failed 'Inline function (static and referenced by each other and by other)'
+  failed 'inline function (static) (referred by each other) (referred by other)'
 fi
-# static and referenced by each other and not by other
+# static, referred by each other, not reffered by other
 if
-  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); }' | $CC -S -o - - | grep -q f1: && exit 1
-  ! echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); }' | $CC -S -o - - | grep -q f2:
+  echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); }' | $CC -S -o - -x c - | grep -q f1: && exit 1
+  ! echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); }' | $CC -S -o - -x c - | grep -q f2:
 then
-  passed 'Inline function (static and referenced by each other and not by other)'
+  passed 'inline function (static) (referred by each other) (not referred by other)'
 else
-  failed 'Inline function (static and referenced by each other and not by other)'
+  failed 'inline function (static) (referred by each other) (not referred by other)'
 fi
 
 echo 'OK'

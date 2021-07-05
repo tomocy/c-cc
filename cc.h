@@ -363,6 +363,7 @@ bool equal_to_n_chars(char* s, char* c, int n);
 bool start_with(char* s, char* prefix);
 bool start_with_any(char* s, ...);
 bool start_with_insensitive(char* s, char* prefix);
+bool end_with(char* s, char* suffix);
 
 // type.c
 Type* new_void_type();
