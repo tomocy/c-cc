@@ -1205,6 +1205,11 @@ static void gen_data(TopLevelObj* codes) {
       genln(".global %s", var->obj->name);
     }
 
+    if (var->obj->is_tentative) {
+      genln(".comm %s, %d, %d", var->obj->name, var->obj->type->size, var->obj->type->alignment);
+      continue;
+    }
+
     if (var->obj->val) {
       genln(".data");
       genln(".align %d", var->obj->alignment);
@@ -1396,7 +1401,7 @@ static void gen_text(TopLevelObj* codes) {
       continue;
     }
 
-    if (func->obj->is_static && func->obj->is_inline && !func->obj->is_referred) {
+    if (func->obj->is_static && !func->obj->is_referred) {
       continue;
     }
 

@@ -1052,7 +1052,7 @@ bool is_func_declarator(Token* token, Type* type) {
   return type->kind == TY_FUNC;
 }
 
-static void mark_referred_funcs(Obj* func) {
+static void mark_referred_func(Obj* func) {
   if (!func || func->is_referred) {
     return;
   }
@@ -1068,7 +1068,43 @@ static void mark_referred_funcs(Obj* func) {
       UNREACHABLE("expected %s to be found", name->data);
     }
 
-    mark_referred_funcs(ref);
+    mark_referred_func(ref);
+  }
+}
+
+static void mark_referred_funcs() {
+  for (TopLevelObj* func = codes; func; func = func->next) {
+    if (func->obj->kind != OJ_FUNC) {
+      continue;
+    }
+    if (func->obj->is_static) {
+      continue;
+    }
+
+    mark_referred_func(func->obj);
+  }
+}
+
+void resolve_tentative_gvars() {
+  for (TopLevelObj* var = codes; var; var = var->next) {
+    if (var->obj->kind != OJ_GVAR) {
+      continue;
+    }
+    if (!var->obj->is_tentative) {
+      continue;
+    }
+
+    for (TopLevelObj* other = codes; other; other = other->next) {
+      if (!equal_to_str(var->obj->name, other->obj->name)) {
+        continue;
+      }
+      if (var == other || !other->obj->is_definition) {
+        continue;
+      }
+
+      var->obj->is_definition = false;
+      break;
+    }
   }
 }
 
@@ -1096,16 +1132,8 @@ TopLevelObj* parse(Token* token) {
 
   leave_scope();
 
-  for (TopLevelObj* func = codes; func; func = func->next) {
-    if (func->obj->kind != OJ_FUNC) {
-      continue;
-    }
-    if (func->obj->is_static || func->obj->is_inline) {
-      continue;
-    }
-
-    mark_referred_funcs(func->obj);
-  }
+  mark_referred_funcs();
+  resolve_tentative_gvars();
 
   return codes;
 }
@@ -1156,7 +1184,6 @@ static void func(Token** tokens) {
   current_func = func;
 
   func->is_static = attr.is_static || (attr.is_inline && !attr.is_extern);
-  func->is_inline = attr.is_inline;
   func->is_definition = !consume_token(tokens, ";");
   if (!func->is_definition) {
     current_lvars = NULL;
@@ -1338,6 +1365,9 @@ static void gvar(Token** tokens) {
 
     if (consume_token(tokens, "=")) {
       gvar_initer(tokens, var);
+    } else if (var->is_definition) {
+      // If there is no assignment for this variable, this declarations may or may not be the definition.
+      var->is_tentative = true;
     }
   }
 }

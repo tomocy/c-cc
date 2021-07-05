@@ -258,9 +258,9 @@ struct Obj {
   char* name;
 
   bool is_static;
-  bool is_inline;
 
   bool is_definition;
+  bool is_tentative;
 
   Str* refering_funcs;
   int is_referred;

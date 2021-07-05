@@ -167,8 +167,8 @@ fi
 rm -rf "$TMP/include1" "$TMP/include2"
 mkdir "$TMP/include1"
 mkdir "$TMP/include2"
-echo "int x;" > "$TMP/include1/include.c"
-echo "int y;" > "$TMP/include2/include.c"
+echo "int x = 0;" > "$TMP/include1/include.c"
+echo "int y = 0;" > "$TMP/include2/include.c"
 if
   echo "#include \"include.c\"" | $CC -S -o - - -I "$TMP/include1" -I "$TMP/include2" | grep -q y:
   echo "#include \"include.c\"" | $CC -S -o - - -idirafter "$TMP/include1" -I "$TMP/include2" | grep -q x:
