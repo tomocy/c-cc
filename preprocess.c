@@ -451,7 +451,6 @@ void define_builtin_macros(File* file) {
   define_builtin_macro("__STDC_HOSTED__", "1");
   define_builtin_macro("__STDC_NO_ATOMICS__", "1");
   define_builtin_macro("__STDC_NO_COMPLEX__", "1");
-  define_builtin_macro("__STDC_NO_THREADS__", "1");
   define_builtin_macro("__STDC_NO_VLA__", "1");
   define_builtin_macro("__STDC_UTF_16__", "1");
   define_builtin_macro("__STDC_UTF_32__", "1");
@@ -531,6 +530,8 @@ static bool is_keyword(char* c, int len) {
     "__restrict",
     "__restrict__",
     "_Noreturn",
+    "_Thread_local",
+    "__thread",
   };
   static int klen = sizeof(keywords) / sizeof(char*);
 
@@ -781,7 +782,7 @@ static Token* funclike_macro_arg(Token** tokens) {
   Token head = {};
   Token* cur = &head;
   int depth = 0;
-  while (depth > 0 || (!equal_to_token(*tokens, ",") && !equal_to_token(*tokens, ")"))) {
+  while (depth > 0 || (!equal_to_any_token(*tokens, ",", ")", NULL))) {
     if (equal_to_token(*tokens, "(")) {
       depth++;
     }

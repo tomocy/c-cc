@@ -22,6 +22,7 @@ typedef struct VarAttr {
   bool is_extern;
   bool is_static;
   bool is_inline;
+  bool is_thread_local;
 
   int alignment;
 } VarAttr;
@@ -463,6 +464,8 @@ static bool equal_to_decl_specifier(Token* token) {
     "__restrict",
     "__restrict__",
     "_Noreturn",
+    "_Thread_local",
+    "__thread",
   };
   static int len = sizeof(names) / sizeof(char*);
 
@@ -550,12 +553,11 @@ static Node* new_stmt_expr_node(Token* token, Node* body) {
   return expr;
 }
 
-static Node* new_func_node(Type* type, Token* token, char* name, bool is_definition) {
+static Node* new_func_node(Token* token, Obj* obj) {
   Node* node = new_node(ND_FUNC);
-  node->type = type;
+  node->type = obj->type;
   node->token = token;
-  node->name = name;
-  node->is_definition = is_definition;
+  node->obj = obj;
   return node;
 }
 
@@ -563,7 +565,6 @@ static Node* new_gvar_node(Token* token, Obj* obj) {
   Node* node = new_node(ND_GVAR);
   node->type = obj->type;
   node->token = token;
-  node->name = obj->name;
   node->obj = obj;
   return node;
 }
@@ -603,7 +604,6 @@ static Node* new_member_node(Token* token, Node* lhs, Member* mem) {
   Node* node = new_unary_node(ND_MEMBER, lhs);
   node->type = mem->type;
   node->token = token;
-  node->name = mem->name;
   node->mem = mem;
   return node;
 }
@@ -1361,11 +1361,12 @@ static void gvar(Token** tokens) {
 
     Obj* var = create_gvar_obj(type, type->name);
     var->is_static = attr.is_static;
+    var->is_thread_local = attr.is_thread_local;
     var->is_definition = !attr.is_extern;
 
     if (consume_token(tokens, "=")) {
       gvar_initer(tokens, var);
-    } else if (var->is_definition) {
+    } else if (!var->is_thread_local && var->is_definition) {
       // If there is no assignment for this variable, this declarations may or may not be the definition.
       var->is_tentative = true;
     }
@@ -2381,7 +2382,7 @@ static Node* datum(Token** tokens) {
       if (current_func) {
         add_str(&current_func->refering_funcs, new_str(datum->name));
       }
-      return new_func_node(datum->type, ident, datum->name, datum->is_definition);
+      return new_func_node(ident, datum);
     case OJ_GVAR:
     case OJ_LVAR:
       return new_var_node(ident, datum);
@@ -2437,7 +2438,7 @@ static int64_t relocate(Node* node, char** label) {
       error_token(node->token, "not a compile-time constant");
       return 0;
     case ND_GVAR:
-      *label = node->name;
+      *label = node->obj->name;
       return 0;
     case ND_DEREF:
       return eval_reloc(node->lhs, label);
@@ -2573,7 +2574,7 @@ static int64_t eval_reloc(Node* node, char** label) {
         error_token(node->token, "invalid initializer");
       }
 
-      *label = node->name;
+      *label = node->obj->name;
       return 0;
     case ND_MEMBER:
       if (!label) {
@@ -3391,8 +3392,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   while (equal_to_decl_specifier(*tokens)) {
     Token* start = *tokens;
 
-    if (equal_to_token(*tokens, "typedef") || equal_to_token(*tokens, "extern") || equal_to_token(*tokens, "static")
-        || equal_to_token(*tokens, "inline")) {
+    if (equal_to_any_token(*tokens, "typedef", "extern", "static", "inline", "_Thread_local", "__thread", NULL)) {
       if (!attr) {
         error_token(*tokens, "storage class specifier is not allowed in this context");
       }
@@ -3408,6 +3408,9 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       }
       if (equal_to_token(*tokens, "inline")) {
         attr->is_inline = true;
+      }
+      if (equal_to_any_token(*tokens, "_Thread_local", "__thread", NULL)) {
+        attr->is_thread_local = true;
       }
 
       if (attr->is_typedef && attr->is_extern + attr->is_static + attr->is_inline >= 2) {

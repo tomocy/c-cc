@@ -17,7 +17,7 @@ cc: $(OBJS)
 
 test/%: cc test/adapter.c test/%.c
 	./cc -c -I test -o test/$*.o test/$*.c
-	$(CC) -o $@ test/adapter.c test/$*.o
+	$(CC) -pthread -o $@ test/adapter.c test/$*.o
 	rm test/$*.o
 
 # stage2
@@ -29,7 +29,7 @@ s2/%.o: cc %.c
 
 s2/test/%: s2/cc test/adapter.c test/%.c
 	./s2/cc -c -I include -I test -o s2/test/$*.o test/$*.c
-	$(CC) -o $@ test/adapter.c s2/test/$*.o
+	$(CC) -pthread -o $@ test/adapter.c s2/test/$*.o
 	rm -rf s2/test/$*.o
 
 # stage1 and stage2 test

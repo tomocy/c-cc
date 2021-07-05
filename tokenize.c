@@ -240,6 +240,18 @@ bool equal_to_token(Token* token, char* s) {
   return token && equal_to_n_chars(s, token->loc, token->len);
 }
 
+bool equal_to_any_token(Token* token, ...) {
+  va_list ss;
+  va_start(ss, token);
+  for (char* s = va_arg(ss, char*); s; s = va_arg(ss, char*)) {
+    if (equal_to_token(token, s)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool equal_to_tokens(Token* token, ...) {
   va_list ss;
   va_start(ss, token);

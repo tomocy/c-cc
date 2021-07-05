@@ -216,8 +216,6 @@ struct Node {
 
   Node* body;
 
-  char* name;
-
   Obj* obj;
   Member* mem;
 
@@ -225,8 +223,6 @@ struct Node {
   double float_val;
 
   char* asm_str;
-
-  bool is_definition;
 
   Node* labels;
   Node* gotos;
@@ -261,6 +257,8 @@ struct Obj {
 
   bool is_definition;
   bool is_tentative;
+
+  bool is_thread_local;
 
   Str* refering_funcs;
   int is_referred;
@@ -302,6 +300,7 @@ void undefine_macro(char* name);
 void error_token(Token* token, char* fmt, ...) __attribute__((format(printf, 2, 3)));
 void warn_token(Token* token, char* fmt, ...) __attribute__((format(printf, 2, 3)));
 bool equal_to_token(Token* token, char* s);
+bool equal_to_any_token(Token* token, ...);
 bool equal_to_tokens(Token* token, ...);
 bool equal_to_ident_token(Token* token, char* s);
 bool consume_token(Token** token, char* s);

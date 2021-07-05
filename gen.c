@@ -106,14 +106,19 @@ static void gen_addr(Node* node) {
       gen_expr(node->lhs);
       break;
     case ND_FUNC:
-      if (node->is_definition) {
-        genln("  lea rax, %s[rip]", node->name);
+      if (node->obj->is_definition) {
+        genln("  lea rax, %s[rip]", node->obj->name);
       } else {
-        genln("  mov rax, %s@GOTPCREL[rip]", node->name);
+        genln("  mov rax, %s@GOTPCREL[rip]", node->obj->name);
       }
       break;
     case ND_GVAR:
-      genln("  lea rax, %s[rip]", node->name);
+      if (node->obj->is_thread_local) {
+        genln("  lea rax, %s@TPOFF", node->obj->name);
+        genln("  add rax, fs:0");
+        break;
+      }
+      genln("  lea rax, %s[rip]", node->obj->name);
       break;
     case ND_LVAR:
       genln("  mov rax, rbp");
@@ -1211,7 +1216,11 @@ static void gen_data(TopLevelObj* codes) {
     }
 
     if (var->obj->val) {
-      genln(".data");
+      if (var->obj->is_thread_local) {
+        genln(".section .tdata, \"awT\", @progbits");
+      } else {
+        genln(".data");
+      }
       genln(".align %d", var->obj->alignment);
       genln("%s:", var->obj->name);
 
@@ -1231,7 +1240,11 @@ static void gen_data(TopLevelObj* codes) {
       continue;
     }
 
-    genln(".bss");
+    if (var->obj->is_thread_local) {
+      genln(".section .tbss, \"awT\", @nobits");
+    } else {
+      genln(".bss");
+    }
     genln(".align %d", var->obj->alignment);
     genln("%s:", var->obj->name);
     genln("  .zero %d", var->obj->type->size);
