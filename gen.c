@@ -129,7 +129,7 @@ static void gen_addr(Node* node) {
       }
       break;
     default:
-      error_token(node->token, "expected a left value");
+      UNREACHABLE("expected a left value but got %d", node->kind);
   }
 }
 
@@ -177,8 +177,8 @@ static void popfn(int n) {
 }
 
 static void push_composite_type(char* reg, Type* type) {
-  if (type->kind != TY_STRUCT && type->kind != TY_UNION) {
-    error("expected struct or union");
+  if (!is_composite_type(type)) {
+    UNREACHABLE("expected a composite typed value but got %d", type->kind);
   }
 
   int size = align_up(type->size, 8);
@@ -903,7 +903,7 @@ static void gen_bin_expr(Node* node) {
       genln("  mov rax, rdx");
       return;
     default:
-      error_token(node->token, "expected an expression");
+      UNREACHABLE("expected an expression but got %d", node->kind);
   }
 }
 
@@ -1007,7 +1007,7 @@ static void gen_expr(Node* node) {
     case ND_MOD:
       break;
     default:
-      error_token(node->token, "expected an expression");
+      UNREACHABLE("expected an expression but got %d", node->kind);
   }
 
   gen_bin_expr(node);

@@ -328,6 +328,7 @@ void error(char* fmt, ...);
 void vprint_at(File* file, int line, char* loc, char* fmt, va_list args);
 void error_at(File* file, char* loc, char* fmt, ...);
 void warn_at(File* file, char* loc, char* fmt, ...);
+#define UNREACHABLE(fmt, ...) error("dev: %s: " fmt "\n", __func__ __VA_OPT__(, ) __VA_ARGS__)
 
 // file.c
 extern File* files;

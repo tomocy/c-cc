@@ -87,7 +87,7 @@ static TopLevelObj* new_top_level_obj(Obj* obj) {
 
 static void add_code(Obj* code) {
   if (code->kind != OJ_FUNC && code->kind != OJ_GVAR) {
-    error("expected a top level object");
+    UNREACHABLE("expected a top level object but got %d", code->kind);
   }
 
   TopLevelObj* top_level = new_top_level_obj(code);
@@ -110,7 +110,7 @@ static void enter_scope(void) {
 
 static void leave_scope(void) {
   if (!current_scope) {
-    error("no scope to leave");
+    UNREACHABLE("no scipe to leave");
   }
   current_scope = current_scope->next;
 }
@@ -128,13 +128,13 @@ static void add_first_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
       break;
     }
     default:
-      error("expected a first class object");
+      UNREACHABLE("expected a first class object but got %d", obj->kind);
   }
 }
 
 static void add_second_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
   if (obj->kind != OJ_TAG) {
-    error("expected a second class object");
+    UNREACHABLE("expected a second class object but got %d", obj->kind);
   }
 
   ScopedObj* scoped = new_scoped_obj(key, obj);
@@ -144,7 +144,7 @@ static void add_second_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
 
 static void add_func_obj_to_scope(Scope* scope, char* key, Obj* func) {
   if (func->kind != OJ_FUNC) {
-    error("expected a function");
+    UNREACHABLE("expected a function but got %d", func->kind);
   }
 
   add_first_class_obj_to_scope(scope, key, func);
@@ -152,7 +152,7 @@ static void add_func_obj_to_scope(Scope* scope, char* key, Obj* func) {
 
 static void add_var_obj_to_scope(Scope* scope, char* key, Obj* var) {
   if (var->kind != OJ_GVAR && var->kind != OJ_LVAR) {
-    error("expected a variable");
+    UNREACHABLE("expected a variable but got %d", var->kind);
   }
 
   add_first_class_obj_to_scope(scope, key, var);
@@ -160,7 +160,7 @@ static void add_var_obj_to_scope(Scope* scope, char* key, Obj* var) {
 
 static void add_enum_obj_to_scope(Scope* scope, char* key, Obj* enu) {
   if (enu->kind != OJ_ENUM) {
-    error("expected an enum");
+    UNREACHABLE("expected an enum but got %d", enu->kind);
   }
 
   add_first_class_obj_to_scope(scope, key, enu);
@@ -168,7 +168,7 @@ static void add_enum_obj_to_scope(Scope* scope, char* key, Obj* enu) {
 
 static void add_def_type_obj_to_scope(Scope* scope, char* key, Obj* def_type) {
   if (def_type->kind != OJ_DEF_TYPE) {
-    error("expected a defined type");
+    UNREACHABLE("expected a defined type but got %d", def_type->kind);
   }
 
   add_first_class_obj_to_scope(scope, key, def_type);
@@ -176,7 +176,7 @@ static void add_def_type_obj_to_scope(Scope* scope, char* key, Obj* def_type) {
 
 static void add_tag_obj_to_scope(Scope* scope, char* key, Obj* tag) {
   if (tag->kind != OJ_TAG) {
-    error("expected a tag");
+    UNREACHABLE("expected a tag but got %d", tag->kind);
   }
 
   add_second_class_obj_to_scope(scope, key, tag);
@@ -188,7 +188,7 @@ static bool is_gscope(Scope* scope) {
 
 static void add_func_obj(Obj* func) {
   if (func->kind != OJ_FUNC) {
-    error("expected a function");
+    UNREACHABLE("expected a function but got %d", func->kind);
   }
 
   add_func_obj_to_scope(current_scope, func->name, func);
@@ -196,10 +196,10 @@ static void add_func_obj(Obj* func) {
 
 static void add_gvar_obj(Obj* var) {
   if (var->kind != OJ_GVAR) {
-    error("expected a global var");
+    UNREACHABLE("expected a global variable but got %d", var->kind);
   }
   if (!is_gscope(gscope)) {
-    error("expected a global scope");
+    UNREACHABLE("expected the global scope");
   }
 
   add_var_obj_to_scope(gscope, var->name, var);
@@ -207,12 +207,13 @@ static void add_gvar_obj(Obj* var) {
 
 static void add_var_obj_to_current_local_scope(char* key, Obj* var) {
   if (is_gscope(current_scope)) {
-    error("expected a local scope");
+    UNREACHABLE("expected a local scope");
   }
 
   int current_offset = current_lvars ? current_lvars->offset : 0;
   if (var->offset < current_offset) {
-    error("expected the variable offset to be adjusted");
+    UNREACHABLE(
+      "expected the variable offset to be adjusted: var->offset: %d, current_offset: %d", var->offset, current_offset);
   }
 
   var->next = current_lvars;
@@ -222,7 +223,7 @@ static void add_var_obj_to_current_local_scope(char* key, Obj* var) {
 
 static void add_lvar_obj(Obj* var) {
   if (var->kind != OJ_LVAR) {
-    error("expected a local var");
+    UNREACHABLE("expected a local variable but got %d", var->kind);
   }
 
   add_var_obj_to_current_local_scope(var->name, var);
@@ -230,7 +231,7 @@ static void add_lvar_obj(Obj* var) {
 
 static void add_tag_obj(Obj* tag) {
   if (tag->kind != OJ_TAG) {
-    error("expected a tag");
+    UNREACHABLE("expected a tag but got %d", tag->kind);
   }
 
   add_tag_obj_to_scope(current_scope, tag->name, tag);
@@ -238,7 +239,7 @@ static void add_tag_obj(Obj* tag) {
 
 static void add_def_type_obj(Obj* def_type) {
   if (def_type->kind != OJ_DEF_TYPE) {
-    error("expected a defined type");
+    UNREACHABLE("expected a defined type but got %d", def_type->kind);
   }
 
   add_def_type_obj_to_scope(current_scope, def_type->name, def_type);
@@ -246,7 +247,7 @@ static void add_def_type_obj(Obj* def_type) {
 
 static void add_enum_obj(Obj* enu) {
   if (enu->kind != OJ_ENUM) {
-    error("expected an enum");
+    UNREACHABLE("expected an enum but got %d", enu->kind);
   }
 
   add_enum_obj_to_scope(current_scope, enu->name, enu);
@@ -306,7 +307,7 @@ static Obj* create_str_obj(Type* type, char* val) {
 
 static void adjust_lvar_obj_offset(Obj* vars, Obj* var, Type* type) {
   if (var->kind != OJ_LVAR) {
-    error("expected a local var");
+    UNREACHABLE("expected a local variable but got %d", var->kind);
   }
 
   var->type = type;
@@ -480,7 +481,7 @@ static bool equal_to_abstract_decl_start(Token* token) {
 
 static void add_label(Node* l) {
   if (l->kind != ND_LABEL) {
-    error("expected a label");
+    UNREACHABLE("expected a label but got %d", l->kind);
   }
 
   l->labels = current_labels;
@@ -503,7 +504,7 @@ static char* renew_continue_label_id(char** next) {
 
 static void add_goto(Node* g) {
   if (g->kind != ND_GOTO) {
-    error("expected a goto");
+    UNREACHABLE("expected a goto but got %d", g->kind);
   }
 
   g->gotos = current_gotos;
@@ -582,7 +583,7 @@ static Node* new_var_node(Token* token, Obj* obj) {
     case OJ_LVAR:
       return new_lvar_node(token, obj);
     default:
-      error_token(token, "expected a variable object");
+      UNREACHABLE("expected a variable but got %d", obj->kind);
       return NULL;
   }
 }
@@ -1056,7 +1057,7 @@ static void mark_referred_funcs(Obj* func) {
     return;
   }
   if (func->kind != OJ_FUNC) {
-    error("expected a function");
+    UNREACHABLE("expected a function but got %d", func->kind);
   }
 
   func->is_referred = true;
@@ -1064,7 +1065,7 @@ static void mark_referred_funcs(Obj* func) {
   for (Str* name = func->refering_funcs; name; name = name->next) {
     Obj* ref = find_datum_obj_from(gscope, name->data, strlen(name->data));
     if (!ref) {
-      error("expected a function: %s", name->data);
+      UNREACHABLE("expected %s to be found", name->data);
     }
 
     mark_referred_funcs(ref);
