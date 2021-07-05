@@ -290,6 +290,7 @@ struct Relocation {
 // main.c
 extern Str* include_paths;
 extern char* input_filename;
+extern bool common_symbols_enabled;
 
 // preprocess.c
 Token* preprocess(Token* tokens);

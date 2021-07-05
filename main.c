@@ -14,6 +14,7 @@ static bool do_exec;
 static bool in_obj;
 static bool in_asm;
 static bool in_c;
+bool common_symbols_enabled = true;
 
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
@@ -164,6 +165,16 @@ static Str* parse_args(int argc, char** argv) {
     // -U=name=body
     if (start_with(argv[i], "-U")) {
       undefine_macro(take_arg(&cur, argv[i] + 2));
+      continue;
+    }
+
+    if (equal_to_str(argv[i], "-fcommon")) {
+      common_symbols_enabled = true;
+      continue;
+    }
+
+    if (equal_to_str(argv[i], "-fno-common")) {
+      common_symbols_enabled = false;
       continue;
     }
 
@@ -334,7 +345,6 @@ static int exec(void) {
   }
 
   add_default_include_paths();
-
   Token* tokens = tokenize(input_filename);
   tokens = preprocess(tokens);
   if (in_c) {

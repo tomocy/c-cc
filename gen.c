@@ -1205,7 +1205,7 @@ static void gen_data(TopLevelObj* codes) {
       genln(".global %s", var->obj->name);
     }
 
-    if (var->obj->is_tentative) {
+    if (common_symbols_enabled && var->obj->is_tentative) {
       genln(".comm %s, %d, %d", var->obj->name, var->obj->type->size, var->obj->type->alignment);
       continue;
     }
