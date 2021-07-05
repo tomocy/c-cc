@@ -147,6 +147,24 @@ else
   failed 'multiple input files: out1.c, out2.c -> a.out'
 fi
 
+# included path (-include)
+# user defined file
+echo "int x = 0;" > "$TMP/include.c"
+if
+  echo "int y = 0;" | $CC -S -o - -include "$TMP/include.c" - | grep -q x:
+  echo "int y = 0;" | $CC -S -o - -include "$TMP/include.c" - | grep -q y:
+then
+  passed 'included path (-include) (user defined file)'
+else
+  failed 'included path (-include) (user defined file)'
+fi
+# system file
+if echo "NULL" | $CC -E -o - -I include -include stdio.h - | grep -q 0; then
+  passed 'included path (-include) (system file)'
+else
+  failed 'included path (-include) (system file)'
+fi
+
 # include path (-I)
 mkdir "$TMP/include1"
 mkdir "$TMP/include2"

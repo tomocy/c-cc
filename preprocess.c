@@ -176,19 +176,8 @@ static void expect_dir(Token** tokens, char* dir) {
   expect_tokens(tokens, "#", dir, NULL);
 }
 
-static Token* append(Token* former, Token* latter) {
-  Token head = {};
-  Token* cur = &head;
-  for (Token* token = former; token && token->kind != TK_EOF; token = token->next) {
-    cur = cur->next = copy_token(token);
-  }
-  cur->next = latter;
-
-  return head.next;
-}
-
 static Token* tokenize_as_if(File* file, int line, char* contents) {
-  Token* tokens = append(tokenize_in(copy_file_with_contents(file, contents)), NULL);
+  Token* tokens = append_tokens(tokenize_in(copy_file_with_contents(file, contents)), NULL);
   for (Token* token = tokens; token; token = token->next) {
     token->line = line + token->line - 1;
   }
@@ -982,14 +971,14 @@ static Token* expand_macro(Token* token) {
     body = inherit_hideset(body, hideset);
     body = add_hideset(body, new_str(macro->name));
 
-    return append(body, token);
+    return append_tokens(body, token);
   }
 
   Token* body = inherit_original_token(macro->body, ident);
   body = inherit_hideset(body, ident->hideset);
   body = add_hideset(body, new_str(macro->name));
 
-  return append(body, token);
+  return append_tokens(body, token);
 }
 
 static Str* funclike_macro_params(Token** tokens, char** va_param) {
@@ -1078,6 +1067,16 @@ static char* compensate_include_filename(char* fname) {
   return fname;
 }
 
+Str* compensate_include_filenames(Str* fnames) {
+  Str head = {};
+  Str* cur = &head;
+  for (Str* fname = fnames; fname; fname = fname->next) {
+    cur = cur->next = new_str(compensate_include_filename(fname->data));
+  }
+
+  return head.next;
+}
+
 static char* include_filename(Token** tokens) {
   // #include "..."
   if ((*tokens)->kind == TK_STR) {
@@ -1117,7 +1116,7 @@ static char* include_filename(Token** tokens) {
   // #include MACRO
   if ((*tokens)->kind == TK_IDENT) {
     Token* next = (*tokens)->next;
-    Token* processed = append(process(copy_token(*tokens)), next);
+    Token* processed = append_tokens(process(copy_token(*tokens)), next);
     char* fname = include_filename(&processed);
     *tokens = processed;
     return fname;
@@ -1130,7 +1129,7 @@ static char* include_filename(Token** tokens) {
 static Token* include_dir(Token* token) {
   expect_dir(&token, "include");
   char* fname = include_filename(&token);
-  return append(tokenize(fname), token);
+  return append_tokens(tokenize(fname), token);
 }
 
 static Token* skip_to_endif_dir(Token* token) {
@@ -1203,7 +1202,7 @@ static bool if_dir_cond(Token** tokens) {
   }
 
   Token* cond = head.next;
-  cond = append(cond, new_eof_token_in(cond->file));
+  cond = append_tokens(cond, new_eof_token_in(cond->file));
   cond = process(cond);
 
   for (Token* token = cond; token; token = token->next) {
@@ -1314,7 +1313,7 @@ static Token* line_dir(Token* tokens) {
     expect_dir(&tokens, "line");
   }
 
-  Token* line = append(inline_tokens(&tokens), new_eof_token_in(tokens->file));
+  Token* line = append_tokens(inline_tokens(&tokens), new_eof_token_in(tokens->file));
   line = preprocess(line);
 
   if (line->kind != TK_NUM || line->type->kind != TY_INT) {

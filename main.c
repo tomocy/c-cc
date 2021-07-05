@@ -7,6 +7,7 @@ char* input_filename;
 static char* output_filename;
 static Str* tmp_filenames;
 static Str* input_filenames;
+static Str* included_paths;
 Str* include_paths;
 static Str* include_later_paths;
 static bool do_log_args;
@@ -126,6 +127,12 @@ static Str* parse_args(int argc, char** argv) {
     // -o=output_filename etc
     if (start_with(argv[i], "-o")) {
       output_filename = argv[i] + 2;
+      continue;
+    }
+
+    // -include file
+    if (equal_to_str(argv[i], "-include")) {
+      add_str(&included_paths, new_str(take_arg(&cur, argv[++i])));
       continue;
     }
 
@@ -339,20 +346,40 @@ static void add_default_include_paths() {
   }
 }
 
+static Str* concat_input_filenames() {
+  Str head = {};
+  Str* cur = &head;
+
+  included_paths = compensate_include_filenames(included_paths);
+  for (Str* path = included_paths; path; path = path->next) {
+    cur = cur->next = copy_str(path);
+  }
+
+  cur = cur->next = new_str(input_filename);
+
+  return head.next;
+}
+
 static int exec(void) {
   if (!input_filename) {
     error("no input file to exec");
   }
 
   add_default_include_paths();
-  Token* tokens = tokenize(input_filename);
+
+  Str* inputs = concat_input_filenames();
+  Token* tokens = tokenize_all(inputs);
+
   tokens = preprocess(tokens);
   if (in_c) {
     print_tokens(output_filename, tokens);
     return 0;
   }
+
   TopLevelObj* codes = parse(tokens);
+
   gen(output_filename, codes);
+
   return 0;
 }
 

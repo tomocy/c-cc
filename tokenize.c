@@ -21,6 +21,15 @@ static bool consume_pp_num(Token** dst, char** c);
 static bool consume_char(Token** dst, char** c);
 static bool consume_str(Token** dst, char** c);
 
+Token* tokenize_all(Str* fnames) {
+  Token* tokens = NULL;
+  for (Str* fname = fnames; fname; fname = fname->next) {
+    tokens = append_tokens(tokens, tokenize(fname->data));
+  }
+
+  return tokens;
+}
+
 Token* tokenize(char* input_filename) {
   File* file = read_file(input_filename);
 
@@ -353,6 +362,17 @@ Token* copy_tokens(Token* src) {
   for (Token* token = src; token; token = token->next) {
     cur = cur->next = copy_token(token);
   }
+
+  return head.next;
+}
+
+Token* append_tokens(Token* former, Token* latter) {
+  Token head = {};
+  Token* cur = &head;
+  for (Token* token = former; token && token->kind != TK_EOF; token = token->next) {
+    cur = cur->next = copy_token(token);
+  }
+  cur->next = latter;
 
   return head.next;
 }

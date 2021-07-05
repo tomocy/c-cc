@@ -295,6 +295,7 @@ Token* preprocess(Token* tokens);
 void define_builtin_macros();
 void define_builtin_macro(char* name, char* raw_body);
 void undefine_macro(char* name);
+Str* compensate_include_filenames(Str* fnames);
 
 // tokenize.c
 void error_token(Token* token, char* fmt, ...) __attribute__((format(printf, 2, 3)));
@@ -307,12 +308,14 @@ bool consume_token(Token** token, char* s);
 Token* expect_token(Token** token, char* s);
 Token* expect_tokens(Token** tokens, ...);
 Token* expect_ident_token(Token** tokens);
+Token* tokenize_all(Str* fnames);
 Token* tokenize(char* input_filename);
 Token* tokenize_in(File* file);
 Token* new_token_in(TokenKind kind, File* file, char* loc, int len);
 Token* new_eof_token_in(File* file);
 Token* copy_token(Token* src);
 Token* copy_tokens(Token* src);
+Token* append_tokens(Token* former, Token* latter);
 Token* read_str_literal_in(File* file, CharKind kind, char* start, char* opening, char* closing);
 bool can_be_keyword(char* c, int len);
 void print_tokens(char* output_filename, Token* tokens);
