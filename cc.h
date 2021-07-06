@@ -113,6 +113,7 @@ typedef enum {
   TY_PTR,
   TY_FUNC,
   TY_ARRAY,
+  TY_VL_ARRAY,
 } TypeKind;
 
 struct Type {
@@ -128,6 +129,9 @@ struct Type {
   bool is_flexible;
   Type* base;
   int len;
+
+  Obj* v_size;
+  Node* v_len;
 
   // The ident and name are used to parse declarations,
   // and those values are not guaranteed to have valid values
@@ -382,6 +386,7 @@ Type* new_double_type();
 Type* new_ptr_type(Type* base);
 Type* new_func_type(Type* return_type, Type* params, bool is_variadic);
 Type* new_array_type(Type* base, int len);
+Type* new_vl_array_type(Type* base, Node* len);
 Type* new_chars_type(int len);
 Type* new_struct_type(int size, int alignment, Member* mems);
 Type* new_union_type(int size, int alignment, Member* mems);

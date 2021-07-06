@@ -46,6 +46,7 @@ struct DesignatedIniter {
 
 static TopLevelObj* codes;
 static Scope* gscope;
+static Obj* alloca_func;
 static Scope* current_scope;
 static Obj* current_lvars;
 static Node* current_switch;
@@ -1039,12 +1040,13 @@ static Node* func_args(Token** tokens, Type* type);
 static int64_t eval(Node* node);
 static double eval_float(Node* node);
 static int64_t eval_reloc(Node* node, char** label);
+static bool is_const_expr(Node* node);
 static void gvar_initer(Token** tokens, Obj* var);
 static Node* lvar_initer(Token** tokens, Obj* var);
 static Initer* initer(Token** tokens, Type** type);
 
 static void declare_builtin_funcs(void) {
-  create_func_obj(new_func_type(new_ptr_type(new_void_type()), new_int_type(), false), "alloca");
+  alloca_func = create_func_obj(new_func_type(new_ptr_type(new_void_type()), new_int_type(), false), "alloca");
 }
 
 bool is_func_declarator(Token* token, Type* type) {
@@ -2208,12 +2210,14 @@ static Node* unary(Token** tokens) {
     expect_tokens(tokens, "sizeof", "(", NULL);
     Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
-    return new_ulong_node(start, type->size);
+
+    return type->kind == TY_VL_ARRAY ? new_var_node(start, type->v_size) : new_ulong_node(start, type->size);
   }
 
   if (consume_token(tokens, "sizeof")) {
     Node* node = unary(tokens);
-    return new_ulong_node(start, node->type->size);
+    return node->type->kind == TY_VL_ARRAY ? new_var_node(start, node->type->v_size)
+                                           : new_ulong_node(start, node->type->size);
   }
 
   if (equal_to_token(*tokens, "_Alignof") && equal_to_abstract_decl_start((*tokens)->next)) {
@@ -2610,10 +2614,76 @@ int64_t const_expr(Token** tokens) {
   return eval(node);
 }
 
+static bool is_const_expr(Node* node) {
+  switch (node->kind) {
+    case ND_COMMA:
+      return is_const_expr(node->rhs);
+    case ND_COND:
+      if (!is_const_expr(node->cond)) {
+        return false;
+      }
+      return is_const_expr(eval(node->cond) ? node->then : node->els);
+    case ND_LOGOR:
+    case ND_LOGAND:
+    case ND_BITOR:
+    case ND_BITXOR:
+    case ND_BITAND:
+    case ND_EQ:
+    case ND_NE:
+    case ND_LT:
+    case ND_LE:
+    case ND_LSHIFT:
+    case ND_RSHIFT:
+    case ND_ADD:
+    case ND_SUB:
+    case ND_MUL:
+    case ND_DIV:
+    case ND_MOD:
+      return is_const_expr(node->lhs) && is_const_expr(node->rhs);
+    case ND_CAST:
+    case ND_NEG:
+    case ND_NOT:
+    case ND_BITNOT:
+      return is_const_expr(node->lhs);
+    case ND_NUM:
+      return true;
+    default:
+      return false;
+  }
+}
+
 static Node* lvar(Token** tokens) {
   Node* node = lvar_decl(tokens);
   expect_token(tokens, ";");
   return node;
+}
+
+static Node* new_vla_size_node(Token* token, Type* type) {
+  Node* node = new_null_node(token);
+
+  if (type->base) {
+    node = new_comma_node(token, node, new_vla_size_node(token, type->base));
+  }
+
+  if (type->kind != TY_VL_ARRAY) {
+    return node;
+  }
+
+  Node* base_size = NULL;
+  if (type->base->kind == TY_VL_ARRAY) {
+    base_size = new_var_node(token, type->base->v_size);
+  } else {
+    base_size = new_int_node(token, type->base->size);
+  }
+
+  type->v_size = create_anon_lvar_obj(new_ulong_type());
+  Node* assign = new_assign_node(token, new_var_node(token, type->v_size), new_mul_node(token, base_size, type->v_len));
+
+  return new_comma_node(token, node, assign);
+}
+
+static Node* new_alloca_call_node(Node* node) {
+  return new_funccall_node(node->token, new_func_node(node->token, alloca_func), node);
 }
 
 static Initer* new_initer(Type* type) {
@@ -3113,6 +3183,21 @@ static Node* lvar_decl(Token** tokens) {
     if (attr.alignment) {
       type = copy_type(type);
       type->alignment = attr.alignment;
+    }
+
+    // Check if the type consists of a variable length array (VLA),
+    // and calculate the size of it if the type is VLA, otherwise do nothing.
+    cur = cur->next = new_expr_stmt_node(new_vla_size_node(*tokens, type));
+
+    if (type->kind == TY_VL_ARRAY) {
+      if (equal_to_token(*tokens, "=")) {
+        error_token(*tokens, "vaiable sized object may not be initialized");
+      }
+
+      Obj* var = create_lvar_obj(type, type->name);
+      Node* call = new_alloca_call_node(new_var_node(type->ident, type->v_size));
+      cur = cur->next = new_assign_node(*tokens, new_var_node(type->ident, var), call);
+      continue;
     }
 
     Obj* var = create_lvar_obj(type, type->name);
@@ -3734,12 +3819,16 @@ static Type* array_dimensions(Token** tokens, Type* type) {
     return new_array_type(type, -1);
   }
 
-  int len = const_expr(tokens);
+  Node* len = conditional(tokens);
   expect_token(tokens, "]");
 
   type = type_suffix(tokens, type);
 
-  return new_array_type(type, len);
+  if (type->kind == TY_VL_ARRAY || !is_const_expr(len)) {
+    return new_vl_array_type(type, len);
+  }
+
+  return new_array_type(type, eval(len));
 }
 
 static Node* func_args(Token** tokens, Type* type) {

@@ -91,6 +91,13 @@ Type* new_chars_type(int len) {
   return new_array_type(new_char_type(), len);
 }
 
+Type* new_vl_array_type(Type* base, Node* len) {
+  Type* arr = new_type(TY_VL_ARRAY, 8, 8);
+  arr->base = base;
+  arr->v_len = len;
+  return arr;
+}
+
 static Type* new_composite_type(TypeKind kind, int size, int alignment, Member* mems) {
   Type* type = new_type(kind, align_up(size, alignment), alignment);
   type->members = mems;
