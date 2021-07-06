@@ -1043,6 +1043,10 @@ static void gvar_initer(Token** tokens, Obj* var);
 static Node* lvar_initer(Token** tokens, Obj* var);
 static Initer* initer(Token** tokens, Type** type);
 
+static void declare_builtin_funcs(void) {
+  create_func_obj(new_func_type(new_ptr_type(new_void_type()), new_int_type(), false), "alloca");
+}
+
 bool is_func_declarator(Token* token, Type* type) {
   if (equal_to_token(token, ";")) {
     return false;
@@ -1112,6 +1116,8 @@ TopLevelObj* parse(Token* token) {
   enter_scope();
   gscope = current_scope;
 
+  declare_builtin_funcs();
+
   while (token->kind != TK_EOF) {
     Token* peeked = token;
     VarAttr attr = {};
@@ -1173,6 +1179,26 @@ static Node* new_func_params(Type* params) {
   return head.next;
 }
 
+static void create_auto_lvars(Token* token, Obj* func) {
+  // The return values whose types are struct or union and whose size are larger than 16 bytes
+  // are returned by the callee's filling those values via the pointers to those values,
+  // so assign the stack of the callee for the pointers.
+  if (is_composite_type(func->type->return_type) && func->type->return_type->size > 16) {
+    func->ptr_to_return_val = new_var_node(token, create_anon_lvar_obj(new_ptr_type(func->type->return_type)));
+  }
+
+  func->params = new_func_params(func->type->params);
+
+  if (func->type->is_variadic) {
+    func->va_area = create_lvar_obj(new_chars_type(136), "__va_area__");
+  }
+
+  func->alloca_bottom = create_lvar_obj(new_ptr_type(new_char_type()), "__alloca_size__");
+
+  create_static_str_lvar_obj("__func__", func->name);
+  create_static_str_lvar_obj("__FUNCTION__", func->name);
+}
+
 static void func(Token** tokens) {
   VarAttr attr = {};
   Type* type = decl(tokens, &attr);
@@ -1193,21 +1219,7 @@ static void func(Token** tokens) {
 
   enter_scope();
 
-  // The return values whose types are struct or union and whose size are larger than 16 bytes
-  // are returned by the callee's filling those values via the pointers to those values,
-  // so assign the stack of the callee for the pointers.
-  if (is_composite_type(func->type->return_type) && func->type->return_type->size > 16) {
-    func->ptr_to_return_val = new_var_node(*tokens, create_anon_lvar_obj(new_ptr_type(func->type->return_type)));
-  }
-
-  func->params = new_func_params(func->type->params);
-
-  if (func->type->is_variadic) {
-    func->va_area = create_lvar_obj(new_chars_type(136), "__va_area__");
-  }
-
-  create_static_str_lvar_obj("__func__", func->name);
-  create_static_str_lvar_obj("__FUNCTION__", func->name);
+  create_auto_lvars(*tokens, func);
 
   func->body = block_stmt(tokens);
 

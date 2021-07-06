@@ -573,12 +573,53 @@ static int push_args(Node* node) {
   return stacked;
 }
 
+static bool equal_to_func(Node* node, char* func) {
+  return node->kind == ND_FUNC && equal_to_str(node->obj->name, func);
+}
+
+static void gen_alloca(Node* node) {
+  gen_expr(node->args);
+  genln("  mov rdi, rax");
+
+  // Align the arg (the size to allocate) to 16 byte boundary.
+  genln("  add rdi, 15");
+  genln("  and edi, 0xfffffff0");
+
+  // Copy values pushed on stack at this time and keep having them at the top of stack
+  // so that those values can be poped, and leave space for the size to allocate.
+  genln("  mov rcx, [rbp - %d]", current_func->alloca_bottom->offset);
+  genln("  sub rcx, rsp");
+  genln("  mov rax, rsp");
+  genln("  sub rsp, rdi");
+  genln("  mov rdx, rsp");
+  genln("1:");
+  genln("  cmp rcx, 0");
+  genln("  je  2f");
+  genln("  mov r8b, [rax]");
+  genln("  mov [rdx], r8b");
+  genln("  inc rdx");
+  genln("  inc rax");
+  genln("  dec rcx");
+  genln("  jmp 1b");
+  genln("2:");
+
+  // Use the left space for the alloca value and keep it for the next alloca.
+  genln("  mov rax, [rbp - %d]", current_func->alloca_bottom->offset);
+  genln("  sub rax, rdi");
+  genln("  mov [rbp - %d], rax", current_func->alloca_bottom->offset);
+}
+
 static void gen_funccall(Node* node) {
+  if (equal_to_func(node->lhs, "alloca")) {
+    gen_alloca(node);
+    return;
+  }
+
   // The number of argments which remain in stack
-  // following x8664 psAPI
+  // following x8664 psAPI.
   // Those arguments which remain in stack are pushed
   // after aligning the stack pointer to 16 bytes boundary
-  // so it is not necessary to align it again on call
+  // so it is not necessary to align it again on call.
   int stacked = push_args(node);
 
   // node->lhs may be another function call, which means that
@@ -586,7 +627,7 @@ static void gen_funccall(Node* node) {
   // so resolve the address of function first
   // keeping the values of the arugments of this function call in stack
   // and then pop them, otherwise the poped values of the arguments of this function call
-  // will be overridden
+  // will be overridden.
   gen_expr(node->lhs);
 
   int int_cnt = 0;
@@ -1431,6 +1472,8 @@ static void gen_text(TopLevelObj* codes) {
     push_outside_frame("rbp");
     genln("  mov rbp, rsp");
     genln("  sub rsp, %d", func->obj->stack_size);
+
+    genln("  mov [rbp - %d], rsp", func->obj->alloca_bottom->offset);
 
     if (func->obj->va_area) {
       store_va_args(func->obj);

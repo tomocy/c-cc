@@ -267,6 +267,7 @@ struct Obj {
   Node* params;
   Obj* lvars;
   Obj* va_area;
+  Obj* alloca_bottom;
   Node* body;
   int stack_size;
 
