@@ -5,6 +5,8 @@ typedef enum {
   FILE_C,
   FILE_ASM,
   FILE_OBJ,
+  FILE_AR,
+  FILE_DSO,
 } FileType;
 
 // the location where this program lives is kept
@@ -444,12 +446,20 @@ static int exec(void) {
 }
 
 static FileType get_file_type(char* fname) {
-  if (end_with(fname, ".o")) {
-    return FILE_OBJ;
-  }
-
   if (input_file_type != FILE_NONE) {
     return input_file_type;
+  }
+
+  if (end_with(fname, ".so")) {
+    return FILE_DSO;
+  }
+
+  if (end_with(fname, ".a")) {
+    return FILE_AR;
+  }
+
+  if (end_with(fname, ".o")) {
+    return FILE_OBJ;
   }
 
   if (end_with(fname, ".c")) {
@@ -489,8 +499,8 @@ static int run(Str* original) {
       output = replace_file_ext(input->data, ext);
     }
 
-    // .o -> executable
-    if (input_ftype == FILE_OBJ) {
+    // .o, .a, .so -> executable
+    if (input_ftype == FILE_OBJ || input_ftype == FILE_AR || input_ftype == FILE_DSO) {
       cur_link_inputs = cur_link_inputs->next = new_str(input->data);
       continue;
     }
