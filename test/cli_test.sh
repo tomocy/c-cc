@@ -303,6 +303,16 @@ else
   failed 'specify input language (-x) (implicitly specified to c with -E given)'
 fi
 
+# pass a library to linker (-l)
+echo "int x() { return 0; }" | $CC -c -o "$TMP/out1.o" -x c -
+echo "int x(); int main() { return x(); }" | $CC -c -o "$TMP/out2.o" -x c -
+$CC -o "$TMP/out" -l"$TMP/out1.o" "$TMP/out2.o"
+if "$TMP/out"; then
+  passed 'pass a library to linker (-l)'
+else
+  failed 'pass a library to linker (-l)'
+fi
+
 # ignore options for now
 if echo 'int x;' | $CC -E -o /dev/null -x c - \
   -O -W -g -std=c11 -ffreestanding -fno-builtin \

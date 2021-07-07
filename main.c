@@ -148,7 +148,7 @@ static Str* parse_args(int argc, char** argv) {
       output_filename = take_arg(&cur, argv[++i]);
       continue;
     }
-    // -o=output_filename etc
+    // -ooutput_filename etc
     if (start_with(argv[i], "-o")) {
       output_filename = argv[i] + 2;
       continue;
@@ -165,7 +165,7 @@ static Str* parse_args(int argc, char** argv) {
       add_str(&include_paths, new_str(take_arg(&cur, argv[++i])));
       continue;
     }
-    // -I=include_path etc
+    // -Iinclude_path etc
     if (start_with(argv[i], "-I")) {
       add_str(&include_paths, new_str(argv[i] + 2));
       continue;
@@ -182,7 +182,7 @@ static Str* parse_args(int argc, char** argv) {
       define_arg_macro(take_arg(&cur, argv[++i]));
       continue;
     }
-    // -D=name=body
+    // -Dname=body
     if (start_with(argv[i], "-D")) {
       define_arg_macro(take_arg(&cur, argv[i] + 2));
       continue;
@@ -193,7 +193,7 @@ static Str* parse_args(int argc, char** argv) {
       undefine_macro(take_arg(&cur, argv[++i]));
       continue;
     }
-    // -U=name=body
+    // -Uname=body
     if (start_with(argv[i], "-U")) {
       undefine_macro(take_arg(&cur, argv[i] + 2));
       continue;
@@ -214,9 +214,15 @@ static Str* parse_args(int argc, char** argv) {
       input_file_type = parse_file_type(take_arg(&cur, argv[++i]));
       continue;
     }
-    // -x=input_language
+    // -xinput_language
     if (start_with(argv[i], "-x")) {
       input_file_type = parse_file_type(take_arg(&cur, argv[i] + 2));
+      continue;
+    }
+
+    // -llibrary
+    if (start_with(argv[i], "-l")) {
+      add_str(&input_filenames, new_str(argv[i]));
       continue;
     }
 
@@ -458,8 +464,13 @@ static int run(Str* original) {
   atexit(unlink_tmp_files);
 
   Str head_link_inputs = {};
-  Str* link_inputs = &head_link_inputs;
+  Str* cur_link_inputs = &head_link_inputs;
   for (Str* input = input_filenames; input; input = input->next) {
+    if (start_with(input->data, "-l")) {
+      cur_link_inputs = cur_link_inputs->next = new_str(input->data + 2);
+      continue;
+    }
+
     FileType input_ftype = get_file_type(input->data);
 
     char* output = output_filename;
@@ -470,7 +481,7 @@ static int run(Str* original) {
 
     // .o -> executable
     if (input_ftype == FILE_OBJ) {
-      link_inputs = link_inputs->next = new_str(input->data);
+      cur_link_inputs = cur_link_inputs->next = new_str(input->data);
       continue;
     }
 
@@ -494,7 +505,7 @@ static int run(Str* original) {
       if (status != 0) {
         return status;
       }
-      link_inputs = link_inputs->next = new_str(tmp_fname);
+      cur_link_inputs = cur_link_inputs->next = new_str(tmp_fname);
       continue;
     }
 
@@ -527,7 +538,7 @@ static int run(Str* original) {
 
     // Keep the input filename to compile, assemble and link later
     // .c -> executable
-    link_inputs = link_inputs->next = new_str(input->data);
+    cur_link_inputs = cur_link_inputs->next = new_str(input->data);
   }
 
   return head_link_inputs.next
