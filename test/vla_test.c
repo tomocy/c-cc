@@ -55,5 +55,73 @@ int main() {
     sizeof(*x);
   }));
 
+  ASSERT(0, ({
+    int x[10 + 1];
+    int* p = x;  // NOLINT
+    p[0] = 0;
+    // for (int i = 0; i < sizeof(x) / 4; i++) {
+    //   p[i] = i;
+    // }
+    x[0];
+  }));
+
+  ASSERT(0, ({
+    int n = 10;
+    int x[n + 1];
+    int* p = x;  // NOLINT
+    p[0] = 0;
+    for (int i = 0; i < sizeof(x) / 4; i++) {
+      p[i] = i;
+    }
+    x[0];
+  }));
+  ASSERT(5, ({
+    int n = 10;
+    int x[n + 1];
+    int* p = x;  // NOLINT
+    for (int i = 0; i < sizeof(x) / 4; i++) {
+      p[i] = i;
+    }
+    x[5];
+  }));
+  ASSERT(10, ({
+    int n = 10;
+    int x[n + 1];
+    int* p = x;  // NOLINT
+    for (int i = 0; i < sizeof(x) / 4; i++) {
+      p[i] = i;
+    }
+    x[10];
+  }));
+
+  ASSERT(0, ({
+    int n = 10;
+    int x[n + 1][n + 6];
+    int* p = x;  // NOLINT
+    p[0] = 0;
+    for (int i = 0; i < sizeof(x) / 4; i++) {
+      p[i] = i;
+    }
+    x[0][0];
+  }));
+  ASSERT(5, ({
+    int n = 10;
+    int x[n + 1][n + 6];
+    int* p = x;  // NOLINT
+    for (int i = 0; i < sizeof(x) / 4; i++) {
+      p[i] = i;
+    }
+    x[0][5];
+  }));
+  ASSERT(5 * 16 + 2, ({
+    int n = 10;
+    int x[n + 1][n + 6];
+    int* p = x;  // NOLINT
+    for (int i = 0; i < sizeof(x) / 4; i++) {
+      p[i] = i;
+    }
+    x[5][2];
+  }));
+
   ok();
 }

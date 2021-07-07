@@ -188,7 +188,7 @@ Type* inherit_decl(Type* dst, Type* src) {
 }
 
 bool is_pointable_type(Type* type) {
-  return type->kind == TY_PTR || type->kind == TY_ARRAY;
+  return type->kind == TY_PTR || type->kind == TY_ARRAY || type->kind == TY_VL_ARRAY;
 }
 
 bool is_int_type(Type* type) {

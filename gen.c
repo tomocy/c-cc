@@ -121,8 +121,12 @@ static void gen_addr(Node* node) {
       genln("  lea rax, %s[rip]", node->obj->name);
       break;
     case ND_LVAR:
-      genln("  mov rax, rbp");
-      genln("  sub rax, %d", node->obj->offset);
+      // The address of VLA is stored in this variable unlike array, so load it.
+      if (node->type->kind == TY_VL_ARRAY) {
+        genln("  mov rax, [rbp-%d]", node->obj->offset);
+      } else {
+        genln("  lea rax, [rbp-%d]", node->obj->offset);
+      }
       break;
     case ND_MEMBER:
       gen_addr(node->lhs);
@@ -252,6 +256,7 @@ static void load(Node* node) {
     case TY_UNION:
     case TY_FUNC:
     case TY_ARRAY:
+    case TY_VL_ARRAY:
       return;
     case TY_FLOAT:
       genln("  movss xmm0, [rax]");
@@ -587,7 +592,7 @@ static void gen_alloca(Node* node) {
 
   // Copy values pushed on stack at this time and keep having them at the top of stack
   // so that those values can be poped, and leave space for the size to allocate.
-  genln("  mov rcx, [rbp - %d]", current_func->alloca_bottom->offset);
+  genln("  mov rcx, [rbp-%d]", current_func->alloca_bottom->offset);
   genln("  sub rcx, rsp");
   genln("  mov rax, rsp");
   genln("  sub rsp, rdi");
@@ -604,9 +609,9 @@ static void gen_alloca(Node* node) {
   genln("2:");
 
   // Use the left space for the alloca value and keep it for the next alloca.
-  genln("  mov rax, [rbp - %d]", current_func->alloca_bottom->offset);
+  genln("  mov rax, [rbp-%d]", current_func->alloca_bottom->offset);
   genln("  sub rax, rdi");
-  genln("  mov [rbp - %d], rax", current_func->alloca_bottom->offset);
+  genln("  mov [rbp-%d], rax", current_func->alloca_bottom->offset);
 }
 
 static void gen_funccall(Node* node) {
@@ -1026,8 +1031,7 @@ static void gen_expr(Node* node) {
       return;
     case ND_MEMZERO:
       genln("  mov rcx, %d", node->type->size);
-      genln("  mov rdi, rbp");
-      genln("  sub rdi, %d", node->obj->offset);
+      genln("  lea rdi, [rbp-%d]", node->obj->offset);
       genln("  mov al, 0");
       genln("  rep stosb");
       return;
@@ -1183,7 +1187,7 @@ static void gen_return(Node* node) {
 
     if (is_composite_type(node->lhs->type)) {
       if (node->lhs->type->size > 16) {
-        genln("  mov [rbp - %d], rax", current_func->ptr_to_return_val->obj->offset);
+        genln("  mov [rbp-%d], rax", current_func->ptr_to_return_val->obj->offset);
       } else {
         return_val_via_regs(node->lhs);
       }
@@ -1473,7 +1477,7 @@ static void gen_text(TopLevelObj* codes) {
     genln("  mov rbp, rsp");
     genln("  sub rsp, %d", func->obj->stack_size);
 
-    genln("  mov [rbp - %d], rsp", func->obj->alloca_bottom->offset);
+    genln("  mov [rbp-%d], rsp", func->obj->alloca_bottom->offset);
 
     if (func->obj->va_area) {
       store_va_args(func->obj);

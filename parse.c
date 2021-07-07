@@ -590,6 +590,14 @@ static Node* new_var_node(Token* token, Obj* obj) {
   }
 }
 
+static Node* new_member_node(Token* token, Node* lhs, Member* mem) {
+  Node* node = new_unary_node(ND_MEMBER, lhs);
+  node->type = mem->type;
+  node->token = token;
+  node->mem = mem;
+  return node;
+}
+
 static Node* new_funccall_node(Token* token, Node* lhs, Node* args) {
   Node* node = new_unary_node(ND_FUNCCALL, lhs);
   node->type = deref_ptr_type(lhs->type)->return_type;
@@ -598,14 +606,6 @@ static Node* new_funccall_node(Token* token, Node* lhs, Node* args) {
   if (is_composite_type(node->type)) {
     node->return_val = new_lvar_node(token, create_anon_lvar_obj(node->type));
   }
-  return node;
-}
-
-static Node* new_member_node(Token* token, Node* lhs, Member* mem) {
-  Node* node = new_unary_node(ND_MEMBER, lhs);
-  node->type = mem->type;
-  node->token = token;
-  node->mem = mem;
   return node;
 }
 
@@ -747,35 +747,29 @@ static Node* new_add_node(Token* token, Node* lhs, Node* rhs) {
     return add;
   }
 
-  // ptr + num
-  if (is_pointable_type(lhs->type) && is_int_type(rhs->type)) {
-    rhs = new_mul_node(rhs->token, rhs, new_long_node(rhs->token, lhs->type->base->size));
-    Node* add = new_binary_node(ND_ADD, lhs, rhs);
-    add->token = token;
-    add->type = add->lhs->type;
-    return add;
+  // int + ptr -> ptr + int
+  if (is_int_type(lhs->type) && rhs->type->base) {
+    Node* tmp = lhs;
+    lhs = rhs;
+    rhs = tmp;
   }
 
-  // num + ptr
-  lhs = new_mul_node(lhs->token, lhs, new_long_node(lhs->token, rhs->type->base->size));
+  // ptr + int
+  if (lhs->type->base->kind == TY_VL_ARRAY) {
+    rhs = new_mul_node(rhs->token, rhs, new_var_node(rhs->token, lhs->type->base->v_size));
+  } else {
+    rhs = new_mul_node(rhs->token, rhs, new_long_node(rhs->token, lhs->type->base->size));
+  }
   Node* add = new_binary_node(ND_ADD, lhs, rhs);
   add->token = token;
-  add->type = add->rhs->type;
+  add->type = add->lhs->type;
   return add;
 }
 
 static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
   // num - ptr
-  if (is_int_type(lhs->type) && is_pointable_type(rhs->type)) {
+  if (is_numeric_type(lhs->type) && is_pointable_type(rhs->type)) {
     error_token(token, "invalid operands");
-  }
-
-  // ptr - ptr
-  if (is_pointable_type(lhs->type) && is_pointable_type(rhs->type)) {
-    Node* sub = new_binary_node(ND_SUB, lhs, rhs);
-    sub->token = token;
-    sub->type = new_long_type();
-    return new_div_node(sub->token, sub, new_int_node(lhs->token, sub->lhs->type->base->size));
   }
 
   // num - num
@@ -787,8 +781,20 @@ static Node* new_sub_node(Token* token, Node* lhs, Node* rhs) {
     return sub;
   }
 
-  // ptr - num
-  rhs = new_mul_node(rhs->token, rhs, new_long_node(rhs->token, lhs->type->base->size));
+  // ptr - ptr
+  if (is_pointable_type(lhs->type) && is_pointable_type(rhs->type)) {
+    Node* sub = new_binary_node(ND_SUB, lhs, rhs);
+    sub->token = token;
+    sub->type = new_long_type();
+    return new_div_node(sub->token, sub, new_int_node(lhs->token, sub->lhs->type->base->size));
+  }
+
+  // ptr - int
+  if (lhs->type->base->kind == TY_VL_ARRAY) {
+    rhs = new_mul_node(rhs->token, rhs, new_var_node(rhs->token, lhs->type->base->v_size));
+  } else {
+    rhs = new_mul_node(rhs->token, rhs, new_long_node(rhs->token, lhs->type->base->size));
+  }
   Node* sub = new_binary_node(ND_SUB, lhs, rhs);
   sub->token = token;
   sub->type = sub->lhs->type;
@@ -3194,9 +3200,14 @@ static Node* lvar_decl(Token** tokens) {
         error_token(*tokens, "vaiable sized object may not be initialized");
       }
 
-      Obj* var = create_lvar_obj(type, type->name);
+      // Unlike array, the address allocated for VLA match not the offset of this variable from the base pointer
+      // but the assigned value by the alloca call in this assignment, so set the type of this variable as a pointer
+      // to the VLA so that it can load and store the address of VLA as other variable whose types are pointers do
+      // normally.
+      Node* var = new_var_node(type->ident, create_lvar_obj(type, type->name));
+      var->type = new_ptr_type(var->type);
       Node* call = new_alloca_call_node(new_var_node(type->ident, type->v_size));
-      cur = cur->next = new_assign_node(*tokens, new_var_node(type->ident, var), call);
+      cur = cur->next = new_assign_node(*tokens, var, call);
       continue;
     }
 
