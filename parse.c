@@ -960,6 +960,34 @@ static Node* new_comma_node(Token* token, Node* lhs, Node* rhs) {
   return comma;
 }
 
+static Node* new_vla_size_node(Token* token, Type* type) {
+  Node* node = new_null_node(token);
+
+  if (type->base) {
+    node = new_comma_node(token, node, new_vla_size_node(token, type->base));
+  }
+
+  if (type->kind != TY_VL_ARRAY) {
+    return node;
+  }
+
+  Node* base_size = NULL;
+  if (type->base->kind == TY_VL_ARRAY) {
+    base_size = new_var_node(token, type->base->v_size);
+  } else {
+    base_size = new_int_node(token, type->base->size);
+  }
+
+  type->v_size = create_anon_lvar_obj(new_ulong_type());
+  Node* assign = new_assign_node(token, new_var_node(token, type->v_size), new_mul_node(token, base_size, type->v_len));
+
+  return new_comma_node(token, node, assign);
+}
+
+static Node* new_alloca_call_node(Node* node) {
+  return new_funccall_node(node->token, new_func_node(node->token, alloca_func), node);
+}
+
 static Node* new_expr_stmt_node(Node* lhs) {
   Node* stmt = new_unary_node(ND_EXPR_STMT, lhs);
   stmt->type = lhs->type;
@@ -2217,7 +2245,17 @@ static Node* unary(Token** tokens) {
     Type* type = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
 
-    return type->kind == TY_VL_ARRAY ? new_var_node(start, type->v_size) : new_ulong_node(start, type->size);
+    if (type->kind != TY_VL_ARRAY) {
+      return new_ulong_node(start, type->size);
+    }
+
+    if (type->v_size) {
+      return new_var_node(start, type->v_size);
+    }
+
+    Node* size = new_vla_size_node(start, type);
+    Node* var = new_var_node(start, type->v_size);
+    return new_comma_node(start, size, var);
   }
 
   if (consume_token(tokens, "sizeof")) {
@@ -2662,34 +2700,6 @@ static Node* lvar(Token** tokens) {
   Node* node = lvar_decl(tokens);
   expect_token(tokens, ";");
   return node;
-}
-
-static Node* new_vla_size_node(Token* token, Type* type) {
-  Node* node = new_null_node(token);
-
-  if (type->base) {
-    node = new_comma_node(token, node, new_vla_size_node(token, type->base));
-  }
-
-  if (type->kind != TY_VL_ARRAY) {
-    return node;
-  }
-
-  Node* base_size = NULL;
-  if (type->base->kind == TY_VL_ARRAY) {
-    base_size = new_var_node(token, type->base->v_size);
-  } else {
-    base_size = new_int_node(token, type->base->size);
-  }
-
-  type->v_size = create_anon_lvar_obj(new_ulong_type());
-  Node* assign = new_assign_node(token, new_var_node(token, type->v_size), new_mul_node(token, base_size, type->v_len));
-
-  return new_comma_node(token, node, assign);
-}
-
-static Node* new_alloca_call_node(Node* node) {
-  return new_funccall_node(node->token, new_func_node(node->token, alloca_func), node);
 }
 
 static Initer* new_initer(Type* type) {

@@ -123,5 +123,10 @@ int main() {
     x[5][2];
   }));
 
+  ASSERT(10, ({
+    int n = 5;
+    sizeof(char[2][n]);
+  }));
+
   ok();
 }
