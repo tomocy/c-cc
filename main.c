@@ -17,6 +17,7 @@ static Str* input_filenames;
 static Str* included_paths;
 Str* include_paths;
 static Str* include_later_paths;
+static Str* link_args;
 static bool do_log_args;
 static bool do_exec;
 static FileType input_file_type = FILE_NONE;
@@ -226,6 +227,12 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    // -s
+    if (equal_to_str(argv[i], "-s")) {
+      add_str(&link_args, new_str(take_arg(&cur, argv[i])));
+      continue;
+    }
+
     // Ignore those options for now
     if (start_with_any(argv[i], "-O", "-W", "-g", "-std", "-ffreestanding", "-fno-builtin", "-fno-omit-frame-pointer",
           "-fno-stack-protector", "-fno-strict-aliasing", "-m64", "-mno-red-zone", "-w", NULL)) {
@@ -359,6 +366,9 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
   ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-redhat-linux");
   ld_args = ld_args->next = new_str("-L/usr/lib");
   ld_args = ld_args->next = new_str("-L/lib");
+  for (Str* arg = link_args; arg; arg = arg->next) {
+    ld_args = ld_args->next = arg;
+  }
   for (Str* input = head_link_inputs.next; input; input = input->next) {
     ld_args = ld_args->next = input;
   }

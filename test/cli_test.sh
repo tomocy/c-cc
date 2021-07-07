@@ -313,6 +313,14 @@ else
   failed 'pass a library to linker (-l)'
 fi
 
+# strip all symbols on link (-s)
+echo "int main() { return 0; }" > "$TMP/out.c"
+if $CC -o "$TMP/out" -s "$TMP/out.c"; then
+  passed 'strip all symbols on link (-s)'
+else
+  failed 'strip all symbols on link (-s)'
+fi
+
 # ignore options for now
 if echo 'int x;' | $CC -E -o /dev/null -x c - \
   -O -W -g -std=c11 -ffreestanding -fno-builtin \
