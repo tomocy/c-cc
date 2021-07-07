@@ -1266,6 +1266,8 @@ static void gen_data(TopLevelObj* codes) {
       } else {
         genln(".data");
       }
+      genln(".type %s, @object", var->obj->name);
+      genln(".size %s, %d", var->obj->name, var->obj->type->size);
       genln(".align %d", var->obj->alignment);
       genln("%s:", var->obj->name);
 
@@ -1465,14 +1467,16 @@ static void gen_text(TopLevelObj* codes) {
 
     current_func = func->obj;
 
-    genln(".text");
     if (func->obj->is_static) {
       genln(".local %s", func->obj->name);
     } else {
       genln(".global %s", func->obj->name);
     }
 
+    genln(".text");
+    genln(".type %s, @function", func->obj->name);
     genln("%s:", func->obj->name);
+
     push_outside_frame("rbp");
     genln("  mov rbp, rsp");
     genln("  sub rsp, %d", func->obj->stack_size);
