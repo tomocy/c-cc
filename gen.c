@@ -21,18 +21,24 @@ static char s16_32[] = "movsx eax, ax";
 static char s32_64[] = "movsxd rax, eax";
 static char i32_f32[] = "cvtsi2ss xmm0, eax";
 static char i32_f64[] = "cvtsi2sd xmm0, eax";
+static char i32_f80[] = "mov [rsp-4], eax; fild DWORD PTR [rsp-4]";
 static char i64_f32[] = "cvtsi2ss xmm0, rax";
 static char i64_f64[] = "cvtsi2sd xmm0, rax";
+static char i64_f80[] = "movq [rsp-8], rax; fildll [rsp-8]";
 static char z8_32[] = "movzx eax, al";
 static char z16_32[] = "movzx eax, ax";
 static char z32_64[] = "mov eax, eax";
 static char u32_f32[] = "mov eax, eax; cvtsi2ss xmm0, rax";
 static char u32_f64[] = "mov eax, eax; cvtsi2sd xmm0, rax";
+static char u32_f80[] = "mov eax, eax; mov [rsp-8], rax; fildll [rsp-8]";
 static char u64_f32[] = "cvtsi2ss xmm0, rax";
 static char u64_f64[]
   = "test rax, rax; js 1f; pxor xmm0, xmm0; cvtsi2sd xmm0, rax; jmp 2f; "
     "1: mov rdi, rax; and eax, 1; pxor xmm0, xmm0; shr rdi; "
     "or rdi, rax; cvtsi2sd xmm0, rdi; addsd xmm0, xmm0; 2:";
+static char u64_f80[]
+  = "mov [rsp-8], rax; fildq [rsp-8]; test rax, rax; jns 1f;"
+    "mov eax, 1602224128; mov [rsp-4], eax; fadd DWORD PTR [rsp-4]; 1:";
 static char f32_i8[] = "cvttss2si eax, xmm0; movsx eax, al";
 static char f32_i16[] = "cvttss2si eax, xmm0; movsx eax, ax";
 static char f32_i32[] = "cvttss2si eax, xmm0";
@@ -42,6 +48,7 @@ static char f32_u16[] = "cvttss2si eax, xmm0; movzx eax, ax";
 static char f32_u32[] = "cvttss2si rax, xmm0";
 static char f32_u64[] = "cvttss2si rax, xmm0";
 static char f32_f64[] = "cvtss2sd xmm0, xmm0";
+static char f32_f80[] = "movss [rsp-4], xmm0; fld DWORD PTR [rsp-4]";
 static char f64_i8[] = "cvttsd2si eax, xmm0; movsx eax, al";
 static char f64_i16[] = "cvttsd2si eax, xmm0; movsx eax, ax";
 static char f64_i32[] = "cvttsd2si eax, xmm0";
@@ -51,21 +58,37 @@ static char f64_u16[] = "cvttsd2si eax, xmm0; movzx eax, ax";
 static char f64_u32[] = "cvttsd2si rax, xmm0";
 static char f64_u64[] = "cvttsd2si rax, xmm0";
 static char f64_f32[] = "cvtsd2ss xmm0, xmm0";
-static char* cast_table[][10] = {
-  // to i8, i16, i32, i64, u8, u16, u32, u64, f32, f64
-  {NULL, NULL, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64},              // from i8
-  {s8_32, NULL, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64},             // from i16
-  {s8_32, s16_32, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64},           // from i32
-  {s8_32, s16_32, NULL, NULL, z8_32, z16_32, NULL, NULL, i64_f32, i64_f64},               // from i64
-  {s8_32, NULL, NULL, s32_64, NULL, NULL, NULL, s32_64, i32_f32, i32_f64},                // from u8
-  {s8_32, s16_32, NULL, s32_64, z8_32, NULL, NULL, s32_64, i32_f32, i32_f64},             // from u16
-  {s8_32, s16_32, NULL, z32_64, z8_32, z16_32, NULL, z32_64, u32_f32, u32_f64},           // from u32
-  {s8_32, s16_32, NULL, NULL, z8_32, z16_32, NULL, NULL, u64_f32, u64_f64},               // from u64
-  {f32_i8, f32_i16, f32_i32, f32_i64, f32_u8, f32_u16, f32_u32, f32_u64, NULL, f32_f64},  // from f32
-  {f64_i8, f64_i16, f64_i32, f64_i64, f64_u8, f64_u16, f64_u32, f64_u64, f64_f32, NULL},  // from f64
+static char f64_f80[] = "movsd [rsp-8], xmm0; fld QWORD PTR [rsp-8]";
+
+#define FROM_F80_1 "fnstcw [rsp-10]; movzx eax, WORD PTR [rsp-10]; or ah, 12; mov [rsp-12], ax; fldcw [rsp-12];"
+#define FROM_F80_2 " [rsp-24]; fldcw [rsp-10]; "
+
+static char f80_i8[] = FROM_F80_1 "fistp WORD PTR" FROM_F80_2 "movsx eax, BYTE PTR [rsp-24]";
+static char f80_i16[] = FROM_F80_1 "fistp WORD PTR" FROM_F80_2 "movzx eax, BYTE PTR [rsp-24]";
+static char f80_i32[] = FROM_F80_1 "fistp DWORD PTR" FROM_F80_2 "mov eax, [rsp-24]";
+static char f80_i64[] = FROM_F80_1 "fistp QWORD PTR" FROM_F80_2 "mov rax, [rsp-24]";
+static char f80_u8[] = FROM_F80_1 "fistp WORD PTR" FROM_F80_2 "movzx eax, BYTE PTR [rsp-24]";
+static char f80_u16[] = FROM_F80_1 "fistp DWORD PTR" FROM_F80_2 "movzx eax, WORD PTR [rsp-24]";
+static char f80_u32[] = FROM_F80_1 "fistp DWORD PTR" FROM_F80_2 "mov eax, [rsp-24]";
+static char f80_u64[] = FROM_F80_1 "fistp QWORD PTR" FROM_F80_2 "mov rax, [rsp-24]";
+static char f80_f32[] = "fstp DWORD PTR [rsp-8]; movss xmm0, [rsp-8]";
+static char f80_f64[] = "fstp QWORD PTR [rsp-8]; movsd xmm0, [rsp-8]";
+static char* cast_table[][11] = {
+  // to i8, i16, i32, i64, u8, u16, u32, u64, f32, f64, f80
+  {NULL, NULL, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64, i32_f80},              // from i8
+  {s8_32, NULL, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64, i32_f80},             // from i16
+  {s8_32, s16_32, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64, i32_f80},           // from i32
+  {s8_32, s16_32, NULL, NULL, z8_32, z16_32, NULL, NULL, i64_f32, i64_f64, i64_f80},               // from i64
+  {s8_32, NULL, NULL, s32_64, NULL, NULL, NULL, s32_64, i32_f32, i32_f64, i32_f80},                // from u8
+  {s8_32, s16_32, NULL, s32_64, z8_32, NULL, NULL, s32_64, i32_f32, i32_f64, i32_f80},             // from u16
+  {s8_32, s16_32, NULL, z32_64, z8_32, z16_32, NULL, z32_64, u32_f32, u32_f64, u32_f80},           // from u32
+  {s8_32, s16_32, NULL, NULL, z8_32, z16_32, NULL, NULL, u64_f32, u64_f64, u64_f80},               // from u64
+  {f32_i8, f32_i16, f32_i32, f32_i64, f32_u8, f32_u16, f32_u32, f32_u64, NULL, f32_f64, f32_f80},  // from f32
+  {f64_i8, f64_i16, f64_i32, f64_i64, f64_u8, f64_u16, f64_u32, f64_u64, f64_f32, NULL, f64_f80},  // from f64
+  {f80_i8, f80_i16, f80_i32, f80_i64, f80_u8, f80_u16, f80_u32, f80_u64, f80_f32, f80_f64, NULL},  // from f80
 };
 
-enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64 };
+enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64, F80 };
 
 static int get_type_id(Type* type) {
   switch (type->kind) {
@@ -81,6 +104,8 @@ static int get_type_id(Type* type) {
       return F32;
     case TY_DOUBLE:
       return F64;
+    case TY_LDOUBLE:
+      return F80;
     default:
       return U64;
   }
@@ -218,7 +243,7 @@ static bool have_float_data_at(Type* type, int low, int high, int offset) {
       }
       return true;
     default:
-      return is_float_type(type) || offset < low || offset >= high;
+      return type->kind == TY_FLOAT || type->kind == TY_DOUBLE || offset < low || offset >= high;
   }
 }
 
@@ -240,6 +265,11 @@ static void cmp_zero(Type* type) {
     case TY_DOUBLE:
       genln("  xorpd xmm1, xmm1");
       genln("  ucomisd xmm0, xmm1");
+      return;
+    case TY_LDOUBLE:
+      genln("  fldz");
+      genln("  fucomip");
+      genln("  fstp st(0)");
       return;
     default:
       if (is_int_type(type) && type->size <= 4) {
@@ -263,6 +293,9 @@ static void load(Node* node) {
       return;
     case TY_DOUBLE:
       genln("  movsd xmm0, [rax]");
+      return;
+    case TY_LDOUBLE:
+      genln("  fldt [rax]");
       return;
     default: {
       char* ins = node->type->is_unsigned ? "movz" : "movs";
@@ -298,6 +331,9 @@ static void store(Node* node) {
       return;
     case TY_DOUBLE:
       genln("  movsd [rdi], xmm0");
+      return;
+    case TY_LDOUBLE:
+      genln("  fstpt [rdi]");
       return;
     default:
       switch (node->type->size) {
@@ -406,6 +442,10 @@ static void gen_neg(Node* node) {
       genln("  shl rax, 63");
       genln("  movq xmm1, rax");
       genln("  xorpd xmm0, xmm1");
+      return;
+    case TY_LDOUBLE:
+      genln("  fchs");
+      return;
     default:
       genln("  neg rax");
       return;
@@ -467,6 +507,11 @@ static void push_arg(Node* arg) {
     case TY_FLOAT:
     case TY_DOUBLE:
       pushf("xmm0");
+      break;
+    case TY_LDOUBLE:
+      genln("  sub rsp, 16");
+      genln("  fstpt [rsp]");
+      depth += 2;
       break;
     default:
       push("rax");
@@ -547,6 +592,10 @@ static int push_args(Node* node) {
           arg->is_passed_by_stack = true;
           stacked++;
         }
+        continue;
+      case TY_LDOUBLE:
+        arg->is_passed_by_stack = true;
+        stacked += 2;
         continue;
       default:
         if (++int_cnt > MAX_INT_REG_ARGS) {
@@ -676,6 +725,8 @@ static void gen_funccall(Node* node) {
           popfn(float_cnt++);
         }
         continue;
+      case TY_LDOUBLE:
+        continue;
       default:
         if (int_cnt < MAX_INT_REG_ARGS) {
           pop(arg_regs64[int_cnt++]);
@@ -716,24 +767,39 @@ static void gen_funccall(Node* node) {
 }
 
 static void gen_num(Node* node) {
-  union {
-    float f32;
-    double f64;
-    uint32_t u32;
-    uint64_t u64;
-  } val;
-
   switch (node->type->kind) {
-    case TY_FLOAT:
-      val.f32 = node->float_val;
-      genln("  mov eax, %u # float %f", val.u32, val.f32);
+    case TY_FLOAT: {
+      union {
+        float f32;
+        uint32_t u32;
+      } val = {node->float_val};
+      genln("  mov eax, %u # float %Lf", val.u32, node->float_val);
       genln("  movq xmm0, rax");
       return;
-    case TY_DOUBLE:
-      val.f64 = node->float_val;
-      genln("  mov rax, %lu # double %f", val.u64, val.f64);
+    }
+    case TY_DOUBLE: {
+      union {
+        double f64;
+        uint64_t u64;
+      } val = {node->float_val};
+      genln("  mov rax, %lu # double %Lf", val.u64, node->float_val);
       genln("  movq xmm0, rax");
       return;
+    }
+    case TY_LDOUBLE: {
+      union {
+        long double f80;
+        uint64_t u64[2];
+      } val;
+      memset(&val, 0, sizeof(val));
+      val.f80 = node->float_val;
+      genln("  mov rax, %lu # double %Lf", val.u64[0], node->float_val);
+      genln("  mov [rsp-16], rax");
+      genln("  mov rax, %lu", val.u64[1]);
+      genln("  mov [rsp-8], rax");
+      genln("  fldt [rsp-16]");
+      return;
+    }
     default:
       genln("  mov rax, %ld", node->int_val);
       return;
@@ -787,61 +853,109 @@ static void gen_logand(Node* node) {
 }
 
 static void gen_float_bin_expr(Node* node) {
-  gen_expr(node->rhs);
-  pushf("xmm0");
-  gen_expr(node->lhs);
-  popf("xmm1");
+  switch (node->lhs->type->kind) {
+    case TY_FLOAT:
+    case TY_DOUBLE: {
+      gen_expr(node->rhs);
+      pushf("xmm0");
+      gen_expr(node->lhs);
+      popf("xmm1");
 
-  char* size = node->lhs->type->kind == TY_FLOAT ? "ss" : "sd";
+      char* size = node->lhs->type->kind == TY_FLOAT ? "ss" : "sd";
 
-  switch (node->kind) {
-    case ND_LOGOR:
-    case ND_LOGAND: {
-      break;
+      switch (node->kind) {
+        case ND_EQ:
+          genln("  ucomi%s xmm1, xmm0", size);
+          genln("  sete al");
+          genln("  setnp dl");
+          genln("  and al, dl");
+          genln("  and al, 1");
+          genln("  movzx rax, al");
+          return;
+        case ND_NE:
+          genln("  ucomi%s xmm1, xmm0", size);
+          genln("  setne al");
+          genln("  setp dl");
+          genln("  or al, dl");
+          genln("  and al, 1");
+          genln("  movzx rax, al");
+          return;
+        case ND_LT:
+          genln("  ucomi%s xmm1, xmm0", size);
+          genln("  seta al");
+          genln("  and al, 1");
+          genln("  movzx rax, al");
+          return;
+        case ND_LE:
+          genln("  ucomi%s xmm1, xmm0", size);
+          genln("  setae al");
+          genln("  and al, 1");
+          genln("  movzx rax, al");
+          return;
+        case ND_ADD:
+          genln("  add%s xmm0, xmm1", size);
+          return;
+        case ND_SUB:
+          genln("  sub%s xmm0, xmm1", size);
+          return;
+        case ND_MUL:
+          genln("  mul%s xmm0, xmm1", size);
+          return;
+        case ND_DIV:
+          genln("  div%s xmm0, xmm1", size);
+          return;
+        default:
+          error_token(node->token, "invalid expression");
+          return;
+      }
     }
-    case ND_EQ:
-      genln("  ucomi%s xmm1, xmm0", size);
-      genln("  sete al");
-      genln("  setnp dl");
-      genln("  and al, dl");
-      genln("  and al, 1");
-      genln("  movzx rax, al");
-      return;
-    case ND_NE:
-      genln("  ucomi%s xmm1, xmm0", size);
-      genln("  setne al");
-      genln("  setp dl");
-      genln("  or al, dl");
-      genln("  and al, 1");
-      genln("  movzx rax, al");
-      return;
-    case ND_LT:
-      genln("  ucomi%s xmm1, xmm0", size);
-      genln("  seta al");
-      genln("  and al, 1");
-      genln("  movzx rax, al");
-      return;
-    case ND_LE:
-      genln("  ucomi%s xmm1, xmm0", size);
-      genln("  setae al");
-      genln("  and al, 1");
-      genln("  movzx rax, al");
-      return;
-    case ND_ADD:
-      genln("  add%s xmm0, xmm1", size);
-      return;
-    case ND_SUB:
-      genln("  sub%s xmm0, xmm1", size);
-      return;
-    case ND_MUL:
-      genln("  mul%s xmm0, xmm1", size);
-      return;
-    case ND_DIV:
-      genln("  div%s xmm0, xmm1", size);
-      return;
+    case TY_LDOUBLE:
+      gen_expr(node->lhs);
+      gen_expr(node->rhs);
+
+      switch (node->kind) {
+        case ND_EQ:
+          genln("  fcomip");
+          genln("  fstp st(0)");
+          genln("  sete al");
+          genln("  movzx rax, al");
+          return;
+        case ND_NE:
+          genln("  fcomip");
+          genln("  fstp st(0)");
+          genln("  setne al");
+          genln("  movzx rax, al");
+          return;
+        case ND_LT:
+          genln("  fcomip");
+          genln("  fstp st(0)");
+          genln("  seta al");
+          genln("  movzx rax, al");
+          return;
+        case ND_LE:
+          genln("  fcomip");
+          genln("  fstp st(0)");
+          genln("  setae al");
+          genln("  movzx rax, al");
+          return;
+        case ND_ADD:
+          genln("  faddp");
+          return;
+        case ND_SUB:
+          genln("  fsubrp");
+          return;
+        case ND_MUL:
+          genln("  fmulp");
+          return;
+        case ND_DIV:
+          genln("  fdivrp");
+          return;
+        default:
+          error_token(node->token, "invalid expression");
+          return;
+      }
     default:
-      error_token(node->token, "invalid expression");
-      return;
+      UNREACHABLE("expected a float but got %d\n", node->lhs->type->kind);
   }
 }
 
@@ -1367,6 +1481,8 @@ static void assign_passed_by_stack_arg_offsets(Obj* func) {
         if (++float_cnt <= MAX_FLOAT_REG_ARGS) {
           continue;
         }
+        break;
+      case TY_LDOUBLE:
         break;
       default:
         if (++int_cnt <= MAX_INT_REG_ARGS) {

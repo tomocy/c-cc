@@ -3707,8 +3707,10 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
         type = new_float_type();
         break;
       case DOUBLE:
-      case LONG + DOUBLE:
         type = new_double_type();
+        break;
+      case LONG + DOUBLE:
+        type = new_ldouble_type();
         break;
       default: {
         error_token(start, "expected a typename");

@@ -64,6 +64,10 @@ Type* new_double_type() {
   return new_type(TY_DOUBLE, 8, 8);
 }
 
+Type* new_ldouble_type() {
+  return new_type(TY_LDOUBLE, 16, 16);
+}
+
 Type* new_ptr_type(Type* base) {
   Type* ptr = new_type(TY_PTR, 8, 8);
   ptr->base = base;
@@ -153,6 +157,9 @@ Type* get_common_type(Type* a, Type* b) {
     return new_ptr_type(a->base);
   }
 
+  if (a->kind == TY_LDOUBLE || b->kind == TY_LDOUBLE) {
+    return new_ldouble_type();
+  }
   if (a->kind == TY_DOUBLE || b->kind == TY_DOUBLE) {
     return new_double_type();
   }
@@ -197,7 +204,7 @@ bool is_int_type(Type* type) {
 }
 
 bool is_float_type(Type* type) {
-  return type->kind == TY_DOUBLE || type->kind == TY_FLOAT;
+  return type->kind == TY_FLOAT || type->kind == TY_DOUBLE || type->kind == TY_LDOUBLE;
 }
 
 bool is_numeric_type(Type* type) {

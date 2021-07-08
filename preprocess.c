@@ -639,7 +639,7 @@ static Token* convert_pp_float(Token* token) {
     type = new_float_type();
     c++;
   } else if (start_with_insensitive(c, "L")) {
-    type = new_double_type();
+    type = new_ldouble_type();
     c++;
   } else {
     type = new_double_type();

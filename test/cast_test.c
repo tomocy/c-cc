@@ -91,6 +91,7 @@ int main() {
   ASSERT(18446744073709551615, (unsigned long)(char)-1);  // NOLINTN
   ASSERT(-1, (float)(char)-1);
   ASSERT(-1, (double)(char)-1);
+  ASSERT(-1, (long double)(char)-1);
   // from i16
   ASSERT(-1, (char)(short)-1);
   ASSERT(-1, (short)(short)-1);
@@ -102,6 +103,7 @@ int main() {
   ASSERT(18446744073709551615, (unsigned long)(short)-1);  // NOLINTN
   ASSERT(-1, (float)(short)-1);
   ASSERT(-1, (double)(short)-1);
+  ASSERT(-1, (long double)(short)-1);
   // from i32
   ASSERT(-1, (char)(int)-1);
   ASSERT(-1, (short)(int)-1);
@@ -113,6 +115,7 @@ int main() {
   ASSERT(18446744073709551615, (unsigned long)(int)-1);  // NOLINTN
   ASSERT(-1, (float)(int)-1);
   ASSERT(-1, (double)(int)-1);
+  ASSERT(-1, (long double)(int)-1);
   // from i64
   ASSERT(-1, (char)(long)-1);
   ASSERT(-1, (short)(long)-1);
@@ -124,6 +127,7 @@ int main() {
   ASSERT(18446744073709551615, (unsigned long)(long)-1);  // NOLINTN
   ASSERT(-1, (float)(long)-1);
   ASSERT(-1, (double)(long)-1);
+  ASSERT(-1, (long double)(long)-1);
   // from u8
   ASSERT(-1, (char)(unsigned char)255);
   ASSERT(255, (short)(unsigned char)255);
@@ -135,6 +139,7 @@ int main() {
   ASSERT(255, (unsigned long)(unsigned char)255);
   ASSERT(255, (float)(unsigned char)255);
   ASSERT(255, (double)(unsigned char)255);
+  ASSERT(255, (long double)(unsigned char)255);
   // from u16
   ASSERT(-1, (char)(unsigned short)65535);
   ASSERT(-1, (short)(unsigned short)65535);
@@ -146,6 +151,7 @@ int main() {
   ASSERT(65535, (unsigned long)(unsigned short)65535);
   ASSERT(65535, (float)(unsigned short)65535);
   ASSERT(65535, (double)(unsigned short)65535);
+  ASSERT(65535, (long double)(unsigned short)65535);
   // from u32
   ASSERT(-1, (char)(unsigned int)4294967295);
   ASSERT(-1, (short)(unsigned int)4294967295);
@@ -157,6 +163,7 @@ int main() {
   ASSERT(4294967295, (unsigned long)(unsigned int)4294967295);  // NOLINT
   ASSERT(-2147483648, (float)(unsigned int)4294967295);
   ASSERT(-2147483648, (double)(unsigned int)4294967295);
+  ASSERT(-2147483648, (long double)(unsigned int)4294967295);
   // from u64
   ASSERT(-1, (char)(unsigned long)18446744073709551615UL);
   ASSERT(-1, (short)(unsigned long)18446744073709551615UL);
@@ -168,6 +175,7 @@ int main() {
   ASSERT(18446744073709551615, (unsigned long)(unsigned long)18446744073709551615UL);  // NOLINT
   ASSERT(-1, (float)(unsigned long)18446744073709551615UL);
   ASSERT(-2147483648, (double)(unsigned long)18446744073709551615UL);
+  ASSERT(-2147483648, (long double)(unsigned long)18446744073709551615UL);
   // f32
   ASSERT(0, (char)(float)2147483647);
   ASSERT(0, (short)(float)2147483647);
@@ -179,6 +187,7 @@ int main() {
   ASSERT(-2147483648, (unsigned long)(float)2147483647);
   ASSERT(-2147483648, (float)(float)2147483647);
   ASSERT(-2147483648, (double)(float)2147483647);
+  ASSERT(-2147483648, (long double)(float)2147483647);
   // f64
   ASSERT(-1, (char)(double)2147483647);
   ASSERT(-1, (short)(double)2147483647);
@@ -190,6 +199,18 @@ int main() {
   ASSERT(1, (unsigned long)(double)1);
   ASSERT(-2147483648, (float)(double)2147483647);
   ASSERT(2147483647, (double)(double)2147483647);
+  ASSERT(2147483647, (long double)(double)2147483647);
+  // f80
+  ASSERT(1, (char)(long double)1);
+  ASSERT(1, (short)(long double)1);
+  ASSERT(1, (int)(long double)1);
+  ASSERT(1, (long)(long double)1);
+  ASSERT(1, (unsigned char)(long double)1);
+  ASSERT(1, (unsigned short)(long double)1);
+  ASSERT(1, (unsigned int)(long double)1);
+  ASSERT(1, (unsigned long)(long double)1);
+  ASSERT(1, (float)(long double)1);
+  ASSERT(1, (double)(long double)1);
 
   ok();
 }

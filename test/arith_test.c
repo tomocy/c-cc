@@ -335,5 +335,26 @@ int main() {
     ++i ?: 10;
   }));
 
+  ASSERT(3, (long double)3);
+  ASSERT(5, (long double)3 + 2);
+  ASSERT(6, (long double)3 * 2);
+  ASSERT(5, (long double)3 + 2.0);
+  ASSERT(0, (long double)0 == 1);
+  ASSERT(1, (long double)42 == 42);
+  ASSERT(1, (long double)0 != 1);
+  ASSERT(0, (long double)42 != 42);
+  ASSERT(1, (long double)0 < 1);
+  ASSERT(0, (long double)1 < 1);
+  ASSERT(0, (long double)2 < 1);
+  ASSERT(1, (long double)0 <= 1);
+  ASSERT(1, (long double)1 <= 1);
+  ASSERT(0, (long double)2 <= 1);
+  ASSERT(1, (long double)1 > 0);
+  ASSERT(0, (long double)1 > 1);
+  ASSERT(0, (long double)1 > 2);
+  ASSERT(1, (long double)1 >= 0);
+  ASSERT(1, (long double)1 >= 1);
+  ASSERT(0, (long double)1 >= 2);
+
   ok();
 }

@@ -78,7 +78,7 @@ struct Token {
   Str* hideset;
 
   int64_t int_val;
-  double float_val;
+  long double float_val;
 
   CharKind char_kind;
   char* str_val;
@@ -108,6 +108,7 @@ typedef enum {
   TY_LONG,
   TY_FLOAT,
   TY_DOUBLE,
+  TY_LDOUBLE,
   TY_STRUCT,
   TY_UNION,
   TY_PTR,
@@ -224,7 +225,7 @@ struct Node {
   Member* mem;
 
   int64_t int_val;
-  double float_val;
+  long double float_val;
 
   char* asm_str;
 
@@ -383,6 +384,7 @@ Type* new_long_type();
 Type* new_ulong_type();
 Type* new_float_type();
 Type* new_double_type();
+Type* new_ldouble_type();
 Type* new_ptr_type(Type* base);
 Type* new_func_type(Type* return_type, Type* params, bool is_variadic);
 Type* new_array_type(Type* base, int len);
