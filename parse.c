@@ -1088,7 +1088,7 @@ static Type* array_dimensions(Token** tokens, Type* type);
 static Node* func_args(Token** tokens, Type* type);
 static int64_t eval(Node* node);
 static double eval_float(Node* node);
-static int64_t eval_reloc(Node* node, char** label);
+static int64_t eval_reloc(Node* node, char*** label);
 static bool is_const_expr(Node* node);
 static void gvar_initer(Token** tokens, Obj* var);
 static Node* lvar_initer(Token** tokens, Obj* var);
@@ -1326,7 +1326,7 @@ static void write_float_data(char* loc, Type* type, double val) {
   }
 }
 
-static Relocation* new_reloc(char* label, int offset, long addend) {
+static Relocation* new_reloc(char** label, int offset, long addend) {
   Relocation* reloc = calloc(1, sizeof(Relocation));
   reloc->label = label;
   reloc->offset = offset;
@@ -1380,7 +1380,7 @@ static Relocation* write_gvar_data(char* data, int offset, Initer* init, Relocat
         return reloc;
       }
 
-      char* label = NULL;
+      char** label = NULL;
       uint64_t val = eval_reloc(init->expr, &label);
       if (!label) {
         write_int_data(data + offset, init->type->size, val);
@@ -2531,13 +2531,13 @@ static Node* primary(Token** tokens) {
   return NULL;
 }
 
-static int64_t relocate(Node* node, char** label) {
+static int64_t relocate(Node* node, char*** label) {
   switch (node->kind) {
     case ND_LVAR:
       error_token(node->token, "not a compile-time constant");
       return 0;
     case ND_GVAR:
-      *label = node->obj->name;
+      *label = &node->obj->name;
       return 0;
     case ND_DEREF:
       return eval_reloc(node->lhs, label);
@@ -2583,7 +2583,7 @@ static double eval_float(Node* node) {
   }
 }
 
-static int64_t eval_reloc(Node* node, char** label) {
+static int64_t eval_reloc(Node* node, char*** label) {
   if (is_float_type(node->type)) {
     return eval_float(node);
   }
@@ -2660,6 +2660,9 @@ static int64_t eval_reloc(Node* node, char** label) {
       return -eval(node->lhs);
     case ND_ADDR:
       return relocate(node->lhs, label);
+    case ND_LABEL_ADDR:
+      *label = &node->label_id;
+      return 0;
     case ND_NOT:
       return !eval(node->lhs);
     case ND_BITNOT:
@@ -2673,7 +2676,7 @@ static int64_t eval_reloc(Node* node, char** label) {
         error_token(node->token, "invalid initializer");
       }
 
-      *label = node->obj->name;
+      *label = &node->obj->name;
       return 0;
     case ND_MEMBER:
       if (!label) {

@@ -290,7 +290,7 @@ struct Obj {
 
 struct Relocation {
   Relocation* next;
-  char* label;
+  char** label;
   int offset;
   long addend;
 };

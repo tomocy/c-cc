@@ -1407,7 +1407,7 @@ static void gen_data(TopLevelObj* codes) {
       int offset = 0;
       while (offset < var->obj->type->size) {
         if (reloc && offset == reloc->offset) {
-          genln("  .quad %s%+ld", reloc->label, reloc->addend);
+          genln("  .quad %s%+ld", *reloc->label, reloc->addend);
           reloc = reloc->next;
           offset += 8;
           continue;
