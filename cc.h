@@ -182,6 +182,7 @@ typedef enum {
   ND_CAST,
   ND_NEG,
   ND_ADDR,
+  ND_LABEL_ADDR,
   ND_DEREF,
   ND_NOT,
   ND_BITNOT,
@@ -233,7 +234,7 @@ struct Node {
   char* asm_str;
 
   Node* labels;
-  Node* gotos;
+  Node* label_unresolved_nodes;
   char* label;
   char* label_id;
   char* default_label_id;

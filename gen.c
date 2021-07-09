@@ -1096,6 +1096,9 @@ static void gen_expr(Node* node) {
     case ND_ADDR:
       gen_addr(node->lhs);
       return;
+    case ND_LABEL_ADDR:
+      genln("  lea rax, %s[rip]", node->label_id);
+      return;
     case ND_DEREF:
       gen_expr(node->lhs);
       load(node);
@@ -1350,6 +1353,12 @@ static void gen_stmt(Node* node) {
       gen_stmt(node->lhs);
       return;
     case ND_GOTO:
+      if (node->lhs) {
+        gen_expr(node->lhs);
+        genln("  jmp rax");
+        return;
+      }
+
       genln("  jmp %s", node->label_id);
       return;
     case ND_ASM:
@@ -1636,7 +1645,7 @@ static void gen_text(TopLevelObj* codes) {
 
 static void assert_depth_offset(char* name, int depth) {
   if (depth != 0) {
-    error("%s: push and pop do not offset each other: %d", name, depth);
+    UNREACHABLE("%s: push and pop do not offset each other: %d", name, depth);
   }
 }
 

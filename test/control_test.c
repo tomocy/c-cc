@@ -601,5 +601,42 @@ int main() {
     i;
   }));
 
+  ASSERT(3, ({
+    void* p = &&v11;
+    int i = 0;
+    goto* p;
+  v11:
+    i++;
+  v12:  // NOLINT
+    i++;
+  v13:  // NOLINT
+    i++;
+    i;
+  }));
+  ASSERT(2, ({
+    void* p = &&v22;
+    int i = 0;
+    goto* p;
+  v21:  // NOLINT
+    i++;
+  v22:
+    i++;
+  v23:  // NOLINT
+    i++;
+    i;
+  }));
+  ASSERT(1, ({
+    void* p = &&v33;
+    int i = 0;
+    goto* p;
+  v31:  // NOLINT
+    i++;
+  v32:  // NOLINT
+    i++;
+  v33:
+    i++;
+    i;
+  }));
+
   ok();
 }

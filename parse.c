@@ -51,7 +51,7 @@ static Scope* current_scope;
 static Obj* current_lvars;
 static Node* current_switch;
 static Node* current_labels;
-static Node* current_gotos;
+static Node* current_label_unresolved_nodes;
 static char* current_break_label_id;
 static char* current_continue_label_id;
 static Obj* current_func;
@@ -506,13 +506,13 @@ static char* renew_continue_label_id(char** next) {
   return renew_label_id(&current_continue_label_id, next);
 }
 
-static void add_goto(Node* g) {
-  if (g->kind != ND_GOTO) {
-    UNREACHABLE("expected a goto but got %d", g->kind);
+static void add_label_unresolved_node(Node* node) {
+  if (node->kind != ND_GOTO && node->kind != ND_LABEL_ADDR) {
+    UNREACHABLE("expected a goto or label address but got %d", node->kind);
   }
 
-  g->gotos = current_gotos;
-  current_gotos = g;
+  node->label_unresolved_nodes = current_label_unresolved_nodes;
+  current_label_unresolved_nodes = node;
 }
 
 static Node* new_node(NodeKind kind) {
@@ -670,6 +670,15 @@ static Node* new_addr_node(Token* token, Node* lhs) {
     addr->type = new_ptr_type(addr->lhs->type);
   }
   addr->token = token;
+  return addr;
+}
+
+static Node* create_label_addr_node(Token* token, char* label) {
+  Node* addr = new_node(ND_LABEL_ADDR);
+  addr->type = new_ptr_type(new_void_type());
+  addr->token = token;
+  addr->label = label;
+  add_label_unresolved_node(addr);
   return addr;
 }
 
@@ -1007,8 +1016,14 @@ static Node* create_goto_node(Token* token, char* label) {
   Node* g = new_node(ND_GOTO);
   g->token = token;
   g->label = label;
-  add_goto(g);
+  add_label_unresolved_node(g);
   return g;
+}
+
+static Node* new_goto_label_addr_node(Token* token, Node* lhs) {
+  Node* node = new_unary_node(ND_GOTO, lhs);
+  node->token = token;
+  return node;
 }
 
 static Node* new_contextual_goto_node(Token* token, char* label_id) {
@@ -1180,24 +1195,24 @@ TopLevelObj* parse(Token* token) {
   return codes;
 }
 
-static void resolve_goto_labels(void) {
-  for (Node* g = current_gotos; g; g = g->gotos) {
-    for (Node* l = current_labels; l; l = l->labels) {
-      if (!equal_to_str(g->label, l->label)) {
+static void resolve_labels(void) {
+  for (Node* node = current_label_unresolved_nodes; node; node = node->label_unresolved_nodes) {
+    for (Node* label = current_labels; label; label = label->labels) {
+      if (!equal_to_str(node->label, label->label)) {
         continue;
       }
 
-      g->label_id = l->label_id;
+      node->label_id = label->label_id;
       break;
     }
 
-    if (g->label_id == NULL) {
-      error_token(g->token->next, "use of undeclared label");
+    if (node->label_id == NULL) {
+      error_token(node->token->next, "use of undeclared label");
     }
   }
 
   current_labels = NULL;
-  current_gotos = NULL;
+  current_label_unresolved_nodes = NULL;
 }
 
 static Node* new_func_params(Type* params) {
@@ -1265,7 +1280,7 @@ static void func(Token** tokens) {
   func->stack_size = align_up(func->lvars ? func->lvars->offset : 0, 16);
 
   current_lvars = NULL;
-  resolve_goto_labels();
+  resolve_labels();
   current_func = NULL;
 }
 
@@ -1711,6 +1726,14 @@ static Node* goto_stmt(Token** tokens) {
   Token* start = *tokens;
 
   expect_token(tokens, "goto");
+
+  // [GNU] goto statement to a label address
+  if (consume_token(tokens, "*")) {
+    Node* lhs = expr(tokens);
+    expect_token(tokens, ";");
+
+    return new_goto_label_addr_node(start, lhs);
+  }
 
   Token* ident = expect_ident_token(tokens);
   expect_token(tokens, ";");
@@ -2227,6 +2250,11 @@ static Node* unary(Token** tokens) {
       error_token(start, "cannot take the address of bitfield");
     }
     return new_addr_node(start, lhs);
+  }
+
+  if (consume_token(tokens, "&&")) {
+    Token* label = expect_ident_token(tokens);
+    return create_label_addr_node(start, strndup(label->loc, label->len));
   }
 
   if (consume_token(tokens, "*")) {
