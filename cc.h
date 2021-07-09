@@ -214,6 +214,9 @@ struct Node {
 
   Node* cases;
 
+  long case_begin;
+  long case_end;
+
   Node* return_val;
 
   Node* args;

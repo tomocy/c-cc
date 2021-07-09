@@ -1200,10 +1200,19 @@ static void gen_if(Node* node) {
 static void gen_switch(Node* node) {
   gen_expr(node->cond);
 
-  char* r = node->cond->type->size == 8 ? "rax" : "eax";
+  char* ax = node->cond->type->size == 8 ? "rax" : "eax";
+  char* di = node->cond->type->size == 8 ? "rdi" : "edi";
   for (Node* c = node->cases; c; c = c->cases) {
-    genln("  cmp %s, %ld", r, c->int_val);
-    genln("  je %s", c->label_id);
+    if (c->case_begin == c->case_end) {
+      genln("  cmp %s, %ld", ax, c->case_begin);
+      genln("  je %s", c->label_id);
+      continue;
+    }
+
+    genln("  mov %s, %s", di, ax);
+    genln("  sub %s, %ld", di, c->case_begin);
+    genln("  cmp %s, %ld", ax, c->case_end - c->case_begin);
+    genln("  jbe %s", c->label_id);
   }
 
   if (node->default_label_id) {

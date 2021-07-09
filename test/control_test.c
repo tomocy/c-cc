@@ -564,5 +564,42 @@ int main() {
     x;
   }));
 
+  ASSERT(2, ({
+    int i = 0;
+    switch (7) {
+      case 0 ... 5:
+        i = 1;
+        break;
+      case 6 ... 20:
+        i = 2;
+        break;
+    }
+    i;
+  }));
+  ASSERT(1, ({
+    int i = 0;
+    switch (7) {
+      case 0 ... 7:
+        i = 1;
+        break;
+      case 8 ... 10:
+        i = 2;
+        break;
+    }
+    i;
+  }));
+  ASSERT(1, ({
+    int i = 0;
+    switch (7) {
+      case 0:
+        i = 1;
+        break;
+      case 7 ... 7:
+        i = 1;
+        break;
+    }
+    i;
+  }));
+
   ok();
 }

@@ -1540,7 +1540,18 @@ static Node* case_stmt(Token** tokens) {
   node->token = start;
   node->label_id = new_id();
 
-  node->int_val = const_expr(tokens);
+  node->case_begin = const_expr(tokens);
+
+  // [GNU] case range
+  if (consume_token(tokens, "...")) {
+    node->case_end = const_expr(tokens);
+    if (node->case_end < node->case_begin) {
+      error_token(start, "empty case range specified");
+    }
+  } else {
+    node->case_end = node->case_begin;
+  }
+
   expect_token(tokens, ":");
 
   node->lhs = stmt(tokens);
