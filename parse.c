@@ -2844,22 +2844,27 @@ static Member* composite_designator(Token** tokens, Type* type) {
   return mem;
 }
 
-static int array_designator(Token** tokens, Type* type, bool is_flexible) {
+static void array_designator(Token** tokens, Type* type, bool is_flexible, int* begin, int* end) {
   Token* start = *tokens;
 
   expect_token(tokens, "[");
 
-  int i = const_expr(tokens);
+  *begin = const_expr(tokens);
+
+  // [GNU] range designator
   if (consume_token(tokens, "...")) {
-    i = const_expr(tokens);
+    *end = const_expr(tokens);
+  } else {
+    *end = *begin;
   }
-  if (!is_flexible && i >= type->len) {
+  if (*end < *begin) {
+    error_token(start, "array designator [%d, %d] is empty", *begin, *end);
+  }
+  if (!is_flexible && *end >= type->len) {
     error_token(start, "array designator index exceeds array bounds");
   }
 
   expect_token(tokens, "]");
-
-  return i;
 }
 
 static void init_direct_struct_initer(Token** tokens, Initer* init, Member* from);
@@ -2891,9 +2896,17 @@ static void init_designated_initer(Token** tokens, Initer* init) {
     if (init->type->kind != TY_ARRAY) {
       error_token(*tokens, "array index in non array initializer");
     }
-    int i = array_designator(tokens, init->type, init->is_flexible);
-    init_designated_initer(tokens, init->children[i]);
-    init_direct_array_initer(tokens, init, i + 1);
+    int begin = 0;
+    int end = 0;
+    array_designator(tokens, init->type, init->is_flexible, &begin, &end);
+    for (int i = begin; i <= end; i++) {
+      Token* assign = *tokens;
+      init_designated_initer(&assign, init->children[i]);
+      if (i == end) {
+        *tokens = assign;
+      }
+    }
+    init_direct_array_initer(tokens, init, end + 1);
     return;
   }
 
@@ -2978,7 +2991,10 @@ static int count_initers(Token* token, Type* type) {
     }
 
     if (equal_to_token(token, "[")) {
-      i = array_designator(&token, type, true);
+      int begin = 0;
+      int end = 0;
+      array_designator(&token, type, true, &begin, &end);
+      i = end;
       init_designated_initer(&token, ignored);
     } else {
       init_initer(&token, ignored);
@@ -3007,8 +3023,17 @@ static void init_array_initer(Token** tokens, Initer* init) {
     is_first = false;
 
     if (equal_to_token(*tokens, "[")) {
-      i = array_designator(tokens, init->type, init->is_flexible);
-      init_designated_initer(tokens, init->children[i]);
+      int begin = 0;
+      int end = 0;
+      array_designator(tokens, init->type, init->is_flexible, &begin, &end);
+      for (int i = begin; i <= end; i++) {
+        Token* assign = *tokens;
+        init_designated_initer(&assign, init->children[i]);
+        if (i == end) {
+          *tokens = assign;
+        }
+      }
+      i = end;
       continue;
     }
 
