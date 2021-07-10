@@ -413,46 +413,49 @@ static Obj* find_tag_obj(char* name) {
 }
 
 static bool equal_to_decl_specifier(Token* token) {
-  static char* names[] = {
-    "typedef",
-    "extern",
-    "static",
-    "inline",
-    "void",
-    "_Bool",
-    "char",
-    "short",
-    "int",
-    "long",
-    "float",
-    "double",
-    "struct",
-    "union",
-    "enum",
-    "typeof",
-    "_Alignas",
-    "signed",
-    "unsigned",
-    "const",
-    "volatile",
-    "auto",
-    "register",
-    "restrict",
-    "__restrict",
-    "__restrict__",
-    "_Noreturn",
-    "_Thread_local",
-    "__thread",
-  };
-  static int len = sizeof(names) / sizeof(char*);
+  static Map map;
 
-  for (int i = 0; i < len; i++) {
-    if (equal_to_token(token, names[i])) {
-      return true;
+  if (map.cap == 0) {
+    static char* specs[] = {
+      "typedef",
+      "extern",
+      "static",
+      "inline",
+      "void",
+      "_Bool",
+      "char",
+      "short",
+      "int",
+      "long",
+      "float",
+      "double",
+      "struct",
+      "union",
+      "enum",
+      "typeof",
+      "_Alignas",
+      "signed",
+      "unsigned",
+      "const",
+      "volatile",
+      "auto",
+      "register",
+      "restrict",
+      "__restrict",
+      "__restrict__",
+      "_Noreturn",
+      "_Thread_local",
+      "__thread",
+    };
+    static int len = sizeof(specs) / sizeof(char*);
+
+    for (int i = 0; i < len; i++) {
+      put_to_map(&map, specs[i], (void*)true);
     }
   }
 
-  return find_def_type_obj(strndup(token->loc, token->len)) != NULL;
+  char* name = strndup(token->loc, token->len);
+  return get_from_map(&map, name) != NULL || find_def_type_obj(name) != NULL;
 }
 
 static bool equal_to_abstract_decl_start(Token* token) {

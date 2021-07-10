@@ -458,61 +458,60 @@ void define_builtin_macros(File* file) {
 }
 
 static bool is_keyword(char* c, int len) {
-  static char* keywords[] = {
-    "if",
-    "else",
-    "for",
-    "while",
-    "do",
-    "return",
-    "sizeof",
-    "void",
-    "_Bool",
-    "char",
-    "short",
-    "int",
-    "long",
-    "float",
-    "double",
-    "struct",
-    "union",
-    "enum",
-    "typedef",
-    "static",
-    "goto",
-    "break",
-    "continue",
-    "switch",
-    "case",
-    "default",
-    "asm",
-    "_Alignof",
-    "_Alignas",
-    "signed",
-    "unsigned",
-    "const",
-    "volatile",
-    "auto",
-    "register",
-    "restrict",
-    "__restrict",
-    "__restrict__",
-    "_Noreturn",
-    "_Thread_local",
-    "__thread",
-  };
-  static int klen = sizeof(keywords) / sizeof(char*);
+  static Map map;
 
-  for (int i = 0; i < klen; i++) {
-    if (!can_be_keyword(c, len)) {
-      continue;
-    }
-    if (equal_to_n_chars(keywords[i], c, len)) {
-      return true;
+  if (map.cap == 0) {
+    static char* keywords[] = {
+      "if",
+      "else",
+      "for",
+      "while",
+      "do",
+      "return",
+      "sizeof",
+      "void",
+      "_Bool",
+      "char",
+      "short",
+      "int",
+      "long",
+      "float",
+      "double",
+      "struct",
+      "union",
+      "enum",
+      "typedef",
+      "static",
+      "goto",
+      "break",
+      "continue",
+      "switch",
+      "case",
+      "default",
+      "asm",
+      "_Alignof",
+      "_Alignas",
+      "signed",
+      "unsigned",
+      "const",
+      "volatile",
+      "auto",
+      "register",
+      "restrict",
+      "__restrict",
+      "__restrict__",
+      "_Noreturn",
+      "_Thread_local",
+      "__thread",
+    };
+    static int klen = sizeof(keywords) / sizeof(char*);
+
+    for (int i = 0; i < klen; i++) {
+      put_to_map(&map, keywords[i], (void*)true);
     }
   }
 
-  return false;
+  return can_be_keyword(c, len) && get_from_map(&map, strndup(c, len)) != NULL;
 }
 
 static bool isbdigit(char c) {
