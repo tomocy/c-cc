@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <libgen.h>
@@ -295,6 +296,18 @@ struct Relocation {
   long addend;
 };
 
+typedef struct {
+  char* key;
+  int key_len;
+  void* val;
+} MapEntry;
+
+typedef struct {
+  MapEntry* buckets;
+  int cap;
+  int len;
+} Map;
+
 // main.c
 extern Str* include_paths;
 extern char* input_filename;
@@ -359,6 +372,12 @@ bool have_file(char* name);
 FILE* open_input_file(char* fname);
 FILE* open_output_file(char* fname);
 char* read_file_contents(char* fname);
+
+// map.c
+void* get_from_map(Map* map, char* key);
+void put_to_map(Map* map, char* key, void* val);
+void delete_from_map(Map* map, char* key);
+void test_map(void);
 
 // string.c
 void add_str(Str** strs, Str* str);

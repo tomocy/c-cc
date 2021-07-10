@@ -387,6 +387,14 @@ else
   failed 'validate: multiple input files (-o and -E)'
 fi
 
+# Test self sources
+# map.c
+if $CC -test/map; then
+  passed 'map.c'
+else
+  failed 'map.c'
+fi
+
 # Skip UTF-8 BOM
 if echo -e '\xef\xbb\xbfxyz;' | $CC -E -o - -x c - | grep -q '^xyz'; then
   passed 'ignore UTF-8 BOM'

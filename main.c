@@ -241,6 +241,12 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    // Test map.c
+    if (equal_to_str(argv[i], "-test/map")) {
+      test_map();
+      continue;
+    }
+
     if (start_with(argv[i], "-") && !equal_to_str(argv[i], "-")) {
       error("unknown argument: %s", argv[i]);
     }
