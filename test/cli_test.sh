@@ -377,6 +377,14 @@ if $CC -M -MT foo "$TMP/out.c" | grep -q -z foo:; then
 else
   failed 'print dependencies as those of the target (-MT)'
 fi
+# print dependencies as those of the Makefile target (-MQ)
+echo "int x;" > "$TMP/include1.h"
+echo "#include \"include1.h\"" > "$TMP/out.c"
+if $CC -M -MQ "\$foo" "$TMP/out.c" | grep -q -z "\$\$foo:"; then
+  passed 'print dependencies as those of the Makefile target (-MQ)'
+else
+  failed 'print dependencies as those of the Makefile target (-MQ)'
+fi
 
 # print header dependencies (-MP)
 echo "int x;" > "$TMP/include1.h"

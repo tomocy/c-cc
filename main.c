@@ -101,6 +101,36 @@ static FileType parse_file_type(char* type) {
   return 0;
 }
 
+static char* escape_makefile_target(char* target) {
+  char* escaped = calloc(strlen(target) * 2 + 1, sizeof(char));
+
+  for (int src = 0, dst = 0; target[src]; src++) {
+    switch (target[src]) {
+      case '$':
+        escaped[dst++] = '$';
+        escaped[dst++] = '$';
+        continue;
+      case '#':
+        escaped[dst++] = '\\';
+        escaped[dst++] = '#';
+        continue;
+      case ' ':
+      case '\t':
+        for (int i = src - 1; i >= 0 && i == '\\'; i--) {
+          escaped[dst++] = '\\';
+        }
+        escaped[dst++] = '\\';
+        escaped[dst++] = target[src];
+        continue;
+      default:
+        escaped[dst++] = target[src];
+        continue;
+    }
+  }
+
+  return escaped;
+}
+
 static Str* parse_args(int argc, char** argv) {
   Str head = {};
   Str* cur = &head;
@@ -255,6 +285,17 @@ static Str* parse_args(int argc, char** argv) {
     // -MT target
     if (equal_to_str(argv[i], "-MT")) {
       deps_target = take_arg(&cur, argv[++i]);
+      continue;
+    }
+
+    // -MQ target
+    if (equal_to_str(argv[i], "-MQ")) {
+      char* target = escape_makefile_target(take_arg(&cur, argv[++i]));
+      if (deps_target) {
+        deps_target = format("%s %s", deps_target, target);
+      } else {
+        deps_target = target;
+      }
       continue;
     }
 
