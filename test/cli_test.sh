@@ -364,9 +364,22 @@ echo "#include \"include2.h\"" >> "$TMP/out.c"
   "$OLDPWD/$CC" -MD "$TMP/out.c"
 )
 if grep -q -z 'out.o: .*\out\.c .*\include1\.h .*include2\.h' "$TMP/out.d"; then
-  passed 'print dependencies to .d file (-MD) (default)'
+  passed 'print dependencies to .d file (-MD)'
 else
-  failed 'print dependencies to .d file (-MD) (default)'
+  failed 'print dependencies to .d file (-MD)'
+fi
+# print dependencies except system ones to .d file (-MMD)
+echo "int x;" > "$TMP/include1.h"
+echo "#include <stdio.h>" > "$TMP/out.c"
+echo "#include \"include1.h\"" >> "$TMP/out.c"
+(
+  cd "$TMP"
+  "$OLDPWD/$CC" -I "$OLDPWD/include" -MMD "$TMP/out.c"
+)
+if ! grep -q stdio.h "$TMP/out.d"; then
+  passed 'print dependencies except system ones to .d file (-MMD)'
+else
+  failed 'print dependencies except system ones to .d file (-MMD)'
 fi
 
 # print dependencies as those of the target (-MT)

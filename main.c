@@ -18,6 +18,7 @@ static Str* tmp_filenames;
 static Str* input_filenames;
 static Str* included_paths;
 Str* include_paths;
+Str* std_include_paths;
 static Str* include_later_paths;
 static Str* link_args;
 static bool do_log_args;
@@ -29,6 +30,7 @@ static bool in_c;
 bool common_symbols_enabled = true;
 static bool do_print_deps;
 static bool do_print_header_deps;
+static bool do_print_std_deps = true;
 static char* deps_target;
 static char* deps_output_filename;
 static char* deps_output_file_ext;
@@ -275,22 +277,21 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
-    if (equal_to_str(argv[i], "-MD")) {
+    if (equal_to_str(argv[i], "-MD") || equal_to_str(argv[i], "-MMD")) {
       in_c = true;
       do_print_deps = true;
+      do_print_std_deps = !equal_to_str(argv[i], "-MMD");
       deps_output_file_ext = ".d";
       continue;
     }
 
-    // -MT target
-    if (equal_to_str(argv[i], "-MT")) {
-      deps_target = take_arg(&cur, argv[++i]);
-      continue;
-    }
+    // -MT target, -MQ target
+    if (equal_to_str(argv[i], "-MT") || equal_to_str(argv[i], "-MQ")) {
+      char* target = take_arg(&cur, argv[++i]);
+      if (equal_to_str(argv[i - 1], "-MQ")) {
+        target = escape_makefile_target(target);
+      }
 
-    // -MQ target
-    if (equal_to_str(argv[i], "-MQ")) {
-      char* target = escape_makefile_target(take_arg(&cur, argv[++i]));
       if (deps_target) {
         deps_target = format("%s %s", deps_target, target);
       } else {
@@ -480,6 +481,10 @@ static void add_default_include_paths() {
   add_str(&include_paths, new_str("/usr/local/include"));
   add_str(&include_paths, new_str(format("%s/include", location)));
 
+  for (Str* path = include_paths; path; path = path->next) {
+    add_str(&std_include_paths, copy_str(path));
+  }
+
   for (Str* path = paths; path; path = path->next) {
     add_str(&include_paths, copy_str(path));
   }
@@ -520,10 +525,10 @@ static int exec(void) {
       output = replace_file_ext(output_filename ?: input_filename, deps_output_file_ext);
     }
 
-    print_deps(output, deps_target ?: replace_file_ext(input_filename, ".o"));
+    print_deps(output, deps_target ?: replace_file_ext(input_filename, ".o"), do_print_std_deps);
 
     if (do_print_header_deps) {
-      print_header_deps(output);
+      print_header_deps(output, do_print_std_deps);
     }
 
     return 0;

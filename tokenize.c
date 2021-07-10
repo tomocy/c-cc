@@ -377,40 +377,59 @@ Token* append_tokens(Token* former, Token* latter) {
   return head.next;
 }
 
-static void print_dep(FILE* dst, File* file) {
+static bool is_std_include_file(char* fname) {
+  for (Str* path = std_include_paths; path; path = path->next) {
+    if (start_with(fname, path->data)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static void print_dep(FILE* dst, File* file, bool with_std) {
   if (!file) {
     return;
   }
 
-  print_dep(dst, file->next);
+  print_dep(dst, file->next, with_std);
+
+  if (!with_std && is_std_include_file(file->name)) {
+    return;
+  }
+
   fprintf(dst, " \\\n  %s", file->name);
 }
 
-void print_deps(char* output_filename, char* target) {
+void print_deps(char* output_filename, char* target, bool with_std) {
   FILE* dst = open_output_file(output_filename);
 
   fprintf(dst, "%s:", target);
-  print_dep(dst, files);
+  print_dep(dst, files, with_std);
   fprintf(dst, "\n\n");
 }
 
-static void print_header_dep(FILE* dst, File* file) {
+static void print_header_dep(FILE* dst, File* file, bool with_std) {
   if (!file) {
     return;
   }
 
-  print_header_dep(dst, file->next);
+  print_header_dep(dst, file->next, with_std);
+
   if (!end_with(file->name, ".h")) {
+    return;
+  }
+  if (!with_std && is_std_include_file(file->name)) {
     return;
   }
 
   fprintf(dst, "%s:\n\n", file->name);
 }
 
-void print_header_deps(char* output_filename) {
+void print_header_deps(char* output_filename, bool with_std) {
   FILE* dst = open_output_file(output_filename);
 
-  print_header_dep(dst, files);
+  print_header_dep(dst, files, with_std);
 }
 
 void print_tokens(char* output_filename, Token* tokens) {
