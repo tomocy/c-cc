@@ -377,6 +377,23 @@ Token* append_tokens(Token* former, Token* latter) {
   return head.next;
 }
 
+static void print_dep(FILE* dst, File* file) {
+  if (!file) {
+    return;
+  }
+
+  print_dep(dst, file->next);
+  fprintf(dst, " \\\n  %s", file->name);
+}
+
+void print_deps(char* output_filename) {
+  FILE* dst = open_output_file(output_filename);
+
+  fprintf(dst, "%s:", replace_file_ext(input_filename, ".o"));
+  print_dep(dst, files);
+  fprintf(dst, "\n\n");
+}
+
 void print_tokens(char* output_filename, Token* tokens) {
   FILE* file = open_output_file(output_filename);
 

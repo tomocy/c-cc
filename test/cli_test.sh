@@ -343,6 +343,17 @@ else
   failed 'strip all symbols on link (-s)'
 fi
 
+# print dependencies (-M)
+echo "int x;" > "$TMP/include1.h"
+echo "int y;" > "$TMP/include2.h"
+echo "#include \"include1.h\"" > "$TMP/out.c"
+echo "#include \"include2.h\"" >> "$TMP/out.c"
+if $CC -M "$TMP/out.c" | grep -q -z 'out.o: .*\out\.c .*\include1\.h .*include2\.h'; then
+  passed 'print dependencies (-M)'
+else
+  failed 'print dependencies (-M)'
+fi
+
 # ignore options for now
 if echo 'int x;' | $CC -E -o /dev/null -x c - \
   -O -W -g -std=c11 -ffreestanding -fno-builtin \

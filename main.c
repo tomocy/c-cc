@@ -27,6 +27,7 @@ static bool in_obj;
 static bool in_asm;
 static bool in_c;
 bool common_symbols_enabled = true;
+static bool do_print_deps;
 
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
@@ -229,9 +230,14 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
-    // -s
     if (equal_to_str(argv[i], "-s")) {
       add_str(&link_args, new_str(take_arg(&cur, argv[i])));
+      continue;
+    }
+
+    if (equal_to_str(argv[i], "-M")) {
+      in_c = true;
+      do_print_deps = true;
       continue;
     }
 
@@ -439,6 +445,10 @@ static int exec(void) {
   Token* tokens = tokenize_all(inputs);
 
   tokens = preprocess(tokens);
+  if (do_print_deps) {
+    print_deps(output_filename);
+    return 0;
+  }
   if (in_c) {
     print_tokens(output_filename, tokens);
     return 0;
