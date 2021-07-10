@@ -28,9 +28,10 @@ static bool in_asm;
 static bool in_c;
 bool common_symbols_enabled = true;
 static bool do_print_deps;
-static char* deps_target;
 static bool do_print_header_deps;
-char* deps_output_filename;
+static char* deps_target;
+static char* deps_output_filename;
+static char* deps_output_file_ext;
 
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
@@ -241,6 +242,13 @@ static Str* parse_args(int argc, char** argv) {
     if (equal_to_str(argv[i], "-M")) {
       in_c = true;
       do_print_deps = true;
+      continue;
+    }
+
+    if (equal_to_str(argv[i], "-MD")) {
+      in_c = true;
+      do_print_deps = true;
+      deps_output_file_ext = ".d";
       continue;
     }
 
@@ -467,6 +475,9 @@ static int exec(void) {
   tokens = preprocess(tokens);
   if (do_print_deps) {
     char* output = deps_output_filename ?: output_filename;
+    if (!deps_output_filename && deps_output_file_ext) {
+      output = replace_file_ext(output_filename ?: input_filename, deps_output_file_ext);
+    }
 
     print_deps(output, deps_target ?: replace_file_ext(input_filename, ".o"));
 

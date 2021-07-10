@@ -354,6 +354,21 @@ else
   failed 'print dependencies (-M)'
 fi
 
+# print dependencies to .d file (-MD)
+echo "int x;" > "$TMP/include1.h"
+echo "int y;" > "$TMP/include2.h"
+echo "#include \"include1.h\"" > "$TMP/out.c"
+echo "#include \"include2.h\"" >> "$TMP/out.c"
+(
+  cd "$TMP"
+  "$OLDPWD/$CC" -MD "$TMP/out.c"
+)
+if grep -q -z 'out.o: .*\out\.c .*\include1\.h .*include2\.h' "$TMP/out.d"; then
+  passed 'print dependencies to .d file (-MD) (default)'
+else
+  failed 'print dependencies to .d file (-MD) (default)'
+fi
+
 # print dependencies as those of the target (-MT)
 echo "int x;" > "$TMP/include1.h"
 echo "#include \"include1.h\"" > "$TMP/out.c"
