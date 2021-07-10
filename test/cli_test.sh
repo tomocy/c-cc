@@ -354,6 +354,18 @@ else
   failed 'print dependencies (-M)'
 fi
 
+# print dependencies to the file (-MF)
+echo "int x;" > "$TMP/include1.h"
+echo "int y;" > "$TMP/include2.h"
+echo "#include \"include1.h\"" > "$TMP/out.c"
+echo "#include \"include2.h\"" >> "$TMP/out.c"
+$CC -MF "$TMP/deps.txt" -M "$TMP/out.c"
+if grep -q -z 'out.o: .*\out\.c .*\include1\.h .*include2\.h' "$TMP/deps.txt"; then
+  passed 'print dependencies to the file (-MF)'
+else
+  failed 'print dependencies to the file (-MF)'
+fi
+
 # ignore options for now
 if echo 'int x;' | $CC -E -o /dev/null -x c - \
   -O -W -g -std=c11 -ffreestanding -fno-builtin \

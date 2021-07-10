@@ -28,6 +28,7 @@ static bool in_asm;
 static bool in_c;
 bool common_symbols_enabled = true;
 static bool do_print_deps;
+char* deps_output_filename;
 
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
 static char* gcc_lib_path = "/usr/lib/gcc/x86_64-linux-gnu/9";
@@ -241,6 +242,12 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    // -MF output_filename
+    if (equal_to_str(argv[i], "-MF")) {
+      deps_output_filename = take_arg(&cur, argv[++i]);
+      continue;
+    }
+
     // Ignore those options for now
     if (start_with_any(argv[i], "-O", "-W", "-g", "-std", "-ffreestanding", "-fno-builtin", "-fno-omit-frame-pointer",
           "-fno-stack-protector", "-fno-strict-aliasing", "-m64", "-mno-red-zone", "-w", NULL)) {
@@ -446,7 +453,7 @@ static int exec(void) {
 
   tokens = preprocess(tokens);
   if (do_print_deps) {
-    print_deps(output_filename);
+    print_deps(deps_output_filename ?: output_filename);
     return 0;
   }
   if (in_c) {
