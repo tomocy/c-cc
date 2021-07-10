@@ -386,10 +386,10 @@ static void print_dep(FILE* dst, File* file) {
   fprintf(dst, " \\\n  %s", file->name);
 }
 
-void print_deps(char* output_filename) {
+void print_deps(char* output_filename, char* target) {
   FILE* dst = open_output_file(output_filename);
 
-  fprintf(dst, "%s:", replace_file_ext(input_filename, ".o"));
+  fprintf(dst, "%s:", target);
   print_dep(dst, files);
   fprintf(dst, "\n\n");
 }

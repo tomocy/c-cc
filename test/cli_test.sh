@@ -354,6 +354,15 @@ else
   failed 'print dependencies (-M)'
 fi
 
+# print dependencies as those of the target (-MT)
+echo "int x;" > "$TMP/include1.h"
+echo "#include \"include1.h\"" > "$TMP/out.c"
+if $CC -M -MT foo "$TMP/out.c" | grep -q -z foo:; then
+  passed 'print dependencies as those of the target (-MT)'
+else
+  failed 'print dependencies as those of the target (-MT)'
+fi
+
 # print header dependencies (-MP)
 echo "int x;" > "$TMP/include1.h"
 echo "int y;" > "$TMP/include2.h"

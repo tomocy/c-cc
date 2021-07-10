@@ -28,6 +28,7 @@ static bool in_asm;
 static bool in_c;
 bool common_symbols_enabled = true;
 static bool do_print_deps;
+static char* deps_target;
 static bool do_print_header_deps;
 char* deps_output_filename;
 
@@ -240,6 +241,12 @@ static Str* parse_args(int argc, char** argv) {
     if (equal_to_str(argv[i], "-M")) {
       in_c = true;
       do_print_deps = true;
+      continue;
+    }
+
+    // -MT target
+    if (equal_to_str(argv[i], "-MT")) {
+      deps_target = take_arg(&cur, argv[++i]);
       continue;
     }
 
@@ -461,7 +468,7 @@ static int exec(void) {
   if (do_print_deps) {
     char* output = deps_output_filename ?: output_filename;
 
-    print_deps(output);
+    print_deps(output, deps_target ?: replace_file_ext(input_filename, ".o"));
 
     if (do_print_header_deps) {
       print_header_deps(output);
