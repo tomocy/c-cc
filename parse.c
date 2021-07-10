@@ -1,20 +1,13 @@
 #include "cc.h"
 
-typedef struct ScopedObj ScopedObj;
 typedef struct Scope Scope;
 typedef struct Initer Initer;
 typedef struct DesignatedIniter DesignatedIniter;
 
-struct ScopedObj {
-  ScopedObj* next;
-  char* key;
-  Obj* obj;
-};
-
 struct Scope {
   Scope* next;
-  ScopedObj* first_class_objs;
-  ScopedObj* second_class_objs;
+  Map first_class_objs;
+  Map second_class_objs;
 };
 
 typedef struct VarAttr {
@@ -97,13 +90,6 @@ static void add_code(Obj* code) {
   codes = top_level;
 }
 
-static ScopedObj* new_scoped_obj(char* key, Obj* obj) {
-  ScopedObj* scoped = calloc(1, sizeof(ScopedObj));
-  scoped->key = key;
-  scoped->obj = obj;
-  return scoped;
-}
-
 static void enter_scope(void) {
   Scope* next = calloc(1, sizeof(Scope));
   next->next = current_scope;
@@ -114,6 +100,7 @@ static void leave_scope(void) {
   if (!current_scope) {
     UNREACHABLE("no scipe to leave");
   }
+
   current_scope = current_scope->next;
 }
 
@@ -123,12 +110,9 @@ static void add_first_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
     case OJ_GVAR:
     case OJ_LVAR:
     case OJ_ENUM:
-    case OJ_DEF_TYPE: {
-      ScopedObj* scoped = new_scoped_obj(key, obj);
-      scoped->next = scope->first_class_objs;
-      scope->first_class_objs = scoped;
+    case OJ_DEF_TYPE:
+      put_to_map(&scope->first_class_objs, key, obj);
       break;
-    }
     default:
       UNREACHABLE("expected a first class object but got %d", obj->kind);
   }
@@ -139,9 +123,7 @@ static void add_second_class_obj_to_scope(Scope* scope, char* key, Obj* obj) {
     UNREACHABLE("expected a second class object but got %d", obj->kind);
   }
 
-  ScopedObj* scoped = new_scoped_obj(key, obj);
-  scoped->next = scope->second_class_objs;
-  scope->second_class_objs = scoped;
+  put_to_map(&scope->second_class_objs, key, obj);
 }
 
 static void add_func_obj_to_scope(Scope* scope, char* key, Obj* func) {
@@ -374,65 +356,59 @@ static Obj* create_tag_obj(Type* type, char* name) {
   return tag;
 }
 
-static Obj* find_datum_obj_from(Scope* scope, char* name, int len) {
+static Obj* find_datum_obj_from(Scope* scope, char* name) {
   for (Scope* s = scope; s; s = s->next) {
-    for (ScopedObj* var = s->first_class_objs; var; var = var->next) {
-      if (!equal_to_n_chars(var->key, name, len)) {
-        continue;
-      }
-
-      switch (var->obj->kind) {
-        case OJ_FUNC:
-        case OJ_GVAR:
-        case OJ_LVAR:
-        case OJ_ENUM:
-          return var->obj;
-        default:
-          return NULL;
-      }
-    }
-  }
-  return NULL;
-}
-
-static Obj* find_datum_obj_from_current_scope(char* name, int len) {
-  return find_datum_obj_from(current_scope, name, len);
-}
-
-static Obj* find_def_type_obj(char* name, int len) {
-  for (Scope* s = current_scope; s; s = s->next) {
-    for (ScopedObj* def_type = s->first_class_objs; def_type; def_type = def_type->next) {
-      if (!equal_to_n_chars(def_type->key, name, len)) {
-        continue;
-      }
-
-      return def_type->obj->kind == OJ_DEF_TYPE ? def_type->obj : NULL;
-    }
-  }
-  return NULL;
-}
-
-static Obj* find_tag_obj_in_current_scope(char* name, int len) {
-  for (ScopedObj* tag = current_scope->second_class_objs; tag; tag = tag->next) {
-    if (!equal_to_n_chars(tag->key, name, len)) {
+    Obj* var = get_from_map(&s->first_class_objs, name);
+    if (!var) {
       continue;
     }
 
-    return tag->obj->kind == OJ_TAG ? tag->obj : NULL;
+    switch (var->kind) {
+      case OJ_FUNC:
+      case OJ_GVAR:
+      case OJ_LVAR:
+      case OJ_ENUM:
+        return var;
+      default:
+        return NULL;
+    }
   }
+
   return NULL;
 }
 
-static Obj* find_tag_obj(char* name, int len) {
-  for (Scope* s = current_scope; s; s = s->next) {
-    for (ScopedObj* tag = s->second_class_objs; tag; tag = tag->next) {
-      if (!equal_to_n_chars(tag->key, name, len)) {
-        continue;
-      }
+static Obj* find_datum_obj_from_current_scope(char* name) {
+  return find_datum_obj_from(current_scope, name);
+}
 
-      return tag->obj->kind == OJ_TAG ? tag->obj : NULL;
+static Obj* find_def_type_obj(char* name) {
+  for (Scope* s = current_scope; s; s = s->next) {
+    Obj* def_type = get_from_map(&s->first_class_objs, name);
+    if (!def_type) {
+      continue;
     }
+
+    return def_type->kind == OJ_DEF_TYPE ? def_type : NULL;
   }
+
+  return NULL;
+}
+
+static Obj* find_tag_obj_in_current_scope(char* name) {
+  Obj* obj = get_from_map(&current_scope->second_class_objs, name);
+  return obj && obj->kind == OJ_TAG ? obj : NULL;
+}
+
+static Obj* find_tag_obj(char* name) {
+  for (Scope* s = current_scope; s; s = s->next) {
+    Obj* obj = get_from_map(&s->second_class_objs, name);
+    if (!obj) {
+      continue;
+    }
+
+    return obj->kind == OJ_TAG ? obj : NULL;
+  }
+
   return NULL;
 }
 
@@ -476,7 +452,7 @@ static bool equal_to_decl_specifier(Token* token) {
     }
   }
 
-  return find_def_type_obj(token->loc, token->len) != NULL;
+  return find_def_type_obj(strndup(token->loc, token->len)) != NULL;
 }
 
 static bool equal_to_abstract_decl_start(Token* token) {
@@ -1118,7 +1094,7 @@ static void mark_referred_func(Obj* func) {
   func->is_referred = true;
 
   for (Str* name = func->refering_funcs; name; name = name->next) {
-    Obj* ref = find_datum_obj_from(gscope, name->data, strlen(name->data));
+    Obj* ref = find_datum_obj_from(gscope, name->data);
     if (!ref) {
       UNREACHABLE("expected %s to be found", name->data);
     }
@@ -2467,7 +2443,7 @@ static Node* compound_literal(Token** tokens) {
 
 static Node* datum(Token** tokens) {
   Token* ident = expect_ident_token(tokens);
-  Obj* datum = find_datum_obj_from_current_scope(ident->loc, ident->len);
+  Obj* datum = find_datum_obj_from_current_scope(strndup(ident->loc, ident->len));
   if (!datum) {
     if (equal_to_token(*tokens, "(")) {
       error_token(ident, "implicit declaration of a function");
@@ -3371,13 +3347,14 @@ static Type* struct_decl(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found = find_tag_obj(tag->loc, tag->len);
+    char* name = strndup(tag->loc, tag->len);
+    Obj* found = find_tag_obj(name);
     if (found) {
       return found->type;
     }
 
     Type* struc = new_struct_type(-1, 1, NULL);
-    create_tag_obj(struc, strndup(tag->loc, tag->len));
+    create_tag_obj(struc, name);
     return struc;
   }
 
@@ -3428,7 +3405,7 @@ static Type* struct_decl(Token** tokens) {
     return struc;
   }
 
-  Obj* found = find_tag_obj_in_current_scope(tag->loc, tag->len);
+  Obj* found = find_tag_obj_in_current_scope(strndup(tag->loc, tag->len));
   if (found) {
     *found->type = *struc;
     return found->type;
@@ -3447,13 +3424,14 @@ static Type* union_decl(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found = find_tag_obj(tag->loc, tag->len);
+    char* name = strndup(tag->loc, tag->len);
+    Obj* found = find_tag_obj(name);
     if (found) {
       return found->type;
     }
 
     Type* uni = new_union_type(-1, 1, NULL);
-    create_tag_obj(uni, strndup(tag->loc, tag->len));
+    create_tag_obj(uni, name);
     return uni;
   }
 
@@ -3486,7 +3464,7 @@ static Type* union_decl(Token** tokens) {
     return uni;
   }
 
-  Obj* found = find_tag_obj_in_current_scope(tag->loc, tag->len);
+  Obj* found = find_tag_obj_in_current_scope(strndup(tag->loc, tag->len));
   if (found) {
     *found->type = *uni;
     return found->type;
@@ -3505,7 +3483,7 @@ static Type* enum_specifier(Token** tokens) {
   }
 
   if (tag && !equal_to_token(*tokens, "{")) {
-    Obj* found = find_tag_obj(tag->loc, tag->len);
+    Obj* found = find_tag_obj(strndup(tag->loc, tag->len));
     if (!found) {
       error_token(tag, "undefined tag");
     }
@@ -3629,7 +3607,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       continue;
     }
 
-    Obj* def_type = find_def_type_obj((*tokens)->loc, (*tokens)->len);
+    Obj* def_type = find_def_type_obj(strndup((*tokens)->loc, (*tokens)->len));
     if (def_type) {
       if (spec > 0) {
         break;
