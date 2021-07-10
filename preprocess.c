@@ -6,7 +6,6 @@ typedef struct FunclikeMacroArg FunclikeMacroArg;
 typedef struct IfDir IfDir;
 
 struct Macro {
-  Macro* next;
   char* name;
   Token* body;
   MacroBodyGenerator* gen;
@@ -28,7 +27,7 @@ struct IfDir {
   IfDir* elifs;
 };
 
-static Macro* macros;
+static Map macros;
 static IfDir* if_dirs;
 
 static Token* process(Token* tokens);
@@ -38,15 +37,7 @@ static bool is_funclike_macro_define_parens(Token* token) {
 }
 
 static Macro* find_macro(char* c, int len) {
-  for (Macro* macro = macros; macro; macro = macro->next) {
-    if (!equal_to_n_chars(macro->name, c, len)) {
-      continue;
-    }
-
-    return macro;
-  }
-
-  return NULL;
+  return get_from_map(&macros, strndup(c, len));
 }
 
 static Macro* find_macro_by_token(Token* token) {
@@ -58,22 +49,11 @@ static Macro* find_macro_by_token(Token* token) {
 }
 
 void undefine_macro(char* name) {
-  Macro head = {};
-  Macro* cur = &head;
-  for (Macro* macro = macros; macro; macro = macro->next) {
-    if (equal_to_str(macro->name, name)) {
-      continue;
-    }
-    cur = cur->next = macro;
-  }
-
-  macros = head.next;
+  delete_from_map(&macros, name);
 }
 
 static void add_macro(Macro* macro) {
-  undefine_macro(macro->name);
-  macro->next = macros;
-  macros = macro;
+  put_to_map(&macros, macro->name, macro);
 }
 
 static Macro* create_macro(char* name, Token* body, bool is_like_func) {
