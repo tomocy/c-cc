@@ -28,6 +28,7 @@ static bool in_asm;
 static bool in_c;
 bool common_symbols_enabled = true;
 static bool do_print_deps;
+static bool do_print_header_deps;
 char* deps_output_filename;
 
 static char* lib_path = "/usr/lib/x86_64-linux-gnu";
@@ -242,6 +243,11 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    if (equal_to_str(argv[i], "-MP")) {
+      do_print_header_deps = true;
+      continue;
+    }
+
     // -MF output_filename
     if (equal_to_str(argv[i], "-MF")) {
       deps_output_filename = take_arg(&cur, argv[++i]);
@@ -453,7 +459,14 @@ static int exec(void) {
 
   tokens = preprocess(tokens);
   if (do_print_deps) {
-    print_deps(deps_output_filename ?: output_filename);
+    char* output = deps_output_filename ?: output_filename;
+
+    print_deps(output);
+
+    if (do_print_header_deps) {
+      print_header_deps(output);
+    }
+
     return 0;
   }
   if (in_c) {

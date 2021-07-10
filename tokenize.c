@@ -394,6 +394,25 @@ void print_deps(char* output_filename) {
   fprintf(dst, "\n\n");
 }
 
+static void print_header_dep(FILE* dst, File* file) {
+  if (!file) {
+    return;
+  }
+
+  print_header_dep(dst, file->next);
+  if (!end_with(file->name, ".h")) {
+    return;
+  }
+
+  fprintf(dst, "%s:\n\n", file->name);
+}
+
+void print_header_deps(char* output_filename) {
+  FILE* dst = open_output_file(output_filename);
+
+  print_header_dep(dst, files);
+}
+
 void print_tokens(char* output_filename, Token* tokens) {
   FILE* file = open_output_file(output_filename);
 

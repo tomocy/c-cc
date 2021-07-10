@@ -354,6 +354,20 @@ else
   failed 'print dependencies (-M)'
 fi
 
+# print header dependencies (-MP)
+echo "int x;" > "$TMP/include1.h"
+echo "int y;" > "$TMP/include2.h"
+echo "#include \"include1.h\"" > "$TMP/out.c"
+echo "#include \"include2.h\"" >> "$TMP/out.c"
+if
+  $CC -M -MP "$TMP/out.c" | grep -q '.*\include1\.h:'
+  $CC -M -MP "$TMP/out.c" | grep -q '.*\include2\.h:'
+then
+  passed 'print header dependencies (-MP)'
+else
+  failed 'print header dependencies (-MP)'
+fi
+
 # print dependencies to the file (-MF)
 echo "int x;" > "$TMP/include1.h"
 echo "int y;" > "$TMP/include2.h"

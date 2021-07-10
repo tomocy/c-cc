@@ -342,6 +342,7 @@ Token* append_tokens(Token* former, Token* latter);
 Token* read_str_literal_in(File* file, CharKind kind, char* start, char* opening, char* closing);
 bool can_be_keyword(char* c, int len);
 void print_deps(char* output_filename);
+void print_header_deps(char* output_filename);
 void print_tokens(char* output_filename, Token* tokens);
 
 // parse.c
