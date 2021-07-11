@@ -1032,16 +1032,29 @@ static Token* undef_dir(Token* token) {
 }
 
 static char* compensate_include_filename(char* fname) {
+  static Map cache;
+
+  char* cached = get_from_map(&cache, fname);
+  if (cached) {
+    return cached;
+  }
+
   if (start_with(fname, "/")) {
+    put_to_map(&cache, fname, fname);
     return fname;
   }
 
   for (Str* path = include_paths; path; path = path->next) {
     char* compensated = format("%s/%s", path->data, fname);
-    if (have_file(compensated)) {
-      return compensated;
+    if (!have_file(compensated)) {
+      continue;
     }
+
+    put_to_map(&cache, fname, compensated);
+    return compensated;
   }
+
+  put_to_map(&cache, fname, fname);
   return fname;
 }
 
