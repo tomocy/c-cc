@@ -371,6 +371,17 @@ else
   failed 'pass a search dir to linker (-L)'
 fi
 
+# pass options to linker (-WL,)
+echo "void foo() {}" | $CC -c -o "$TMP/out1.o" -xc -
+echo "void foo() {}" | $CC -c -o "$TMP/out2.o" -xc -
+echo "int main() {}" | $CC -c -o "$TMP/out3.o" -xc -
+$CC -Wl,-z,muldefs,--gc-sections -o "$TMP/out" "$TMP/out1.o" "$TMP/out2.o" "$TMP/out3.o"
+if "$TMP/out"; then
+  passed 'pass options to linker (-WL,)'
+else
+  failed 'pass options to linker (-WL,)'
+fi
+
 # strip all symbols on link (-s)
 echo "int main() { return 0; }" > "$TMP/out.c"
 if $CC -o "$TMP/out" -s "$TMP/out.c"; then

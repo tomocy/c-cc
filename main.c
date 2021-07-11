@@ -22,7 +22,8 @@ Str* std_include_paths;
 static Str* include_later_paths;
 static bool as_static;
 static bool as_shared;
-static Str* link_args;
+static Str head_link_args = {};
+static Str* cur_link_args = &head_link_args;
 static bool do_log_args;
 static bool do_exec;
 static FileType input_file_type = FILE_NONE;
@@ -265,13 +266,13 @@ static Str* parse_args(int argc, char** argv) {
 
     if (start_with(argv[i], "-static")) {
       as_static = true;
-      add_str(&link_args, new_str(take_arg(&cur, argv[i])));
+      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[i]));
       continue;
     }
 
     if (start_with(argv[i], "-shared")) {
       as_shared = true;
-      add_str(&link_args, new_str(take_arg(&cur, argv[i])));
+      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[i]));
       continue;
     }
 
@@ -282,20 +283,31 @@ static Str* parse_args(int argc, char** argv) {
     }
 
     if (equal_to_str(argv[i], "-L")) {
-      add_str(&link_args, new_str(take_arg(&cur, argv[++i])));
-      add_str(&link_args, new_str("-L"));
+      cur_link_args = cur_link_args->next = new_str("-L");
+      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[++i]));
       continue;
     }
 
     // -Ldir
     if (start_with(argv[i], "-L")) {
-      add_str(&link_args, new_str(argv[i] + 2));
-      add_str(&link_args, new_str("-L"));
+      cur_link_args = cur_link_args->next = new_str("-L");
+      cur_link_args = cur_link_args->next = new_str(argv[i] + 2);
+      continue;
+    }
+
+    // -Wl,a,b,c
+    if (start_with(argv[i], "-Wl,")) {
+      char* opts = strdup(argv[i] + 4);
+      char* opt = strtok(opts, ",");
+      while (opt) {
+        cur_link_args = cur_link_args->next = new_str(opt);
+        opt = strtok(NULL, ",");
+      }
       continue;
     }
 
     if (equal_to_str(argv[i], "-s")) {
-      add_str(&link_args, new_str(take_arg(&cur, argv[i])));
+      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[i]));
       continue;
     }
 
@@ -494,7 +506,7 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
     ld_args = ld_args->next = new_str("/lib64/ld-linux-x86-64.so.2");
   }
 
-  for (Str* arg = link_args; arg; arg = arg->next) {
+  for (Str* arg = head_link_args.next; arg; arg = arg->next) {
     ld_args = ld_args->next = arg;
   }
   for (Str* input = head_link_inputs.next; input; input = input->next) {
