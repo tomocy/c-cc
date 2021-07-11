@@ -29,6 +29,7 @@ struct IfDir {
 
 static Map macros;
 static IfDir* if_dirs;
+static Map include_guards;
 
 static Token* process(Token* tokens);
 
@@ -36,8 +37,8 @@ static bool is_funclike_macro_define_parens(Token* token) {
   return !token->has_leading_space && equal_to_token(token, "(");
 }
 
-static Macro* find_macro(char* c, int len) {
-  return get_from_map(&macros, strndup(c, len));
+static Macro* find_macro(char* s) {
+  return get_from_map(&macros, s);
 }
 
 static Macro* find_macro_by_token(Token* token) {
@@ -45,7 +46,7 @@ static Macro* find_macro_by_token(Token* token) {
     return NULL;
   }
 
-  return find_macro(token->loc, token->len);
+  return find_macro(strndup(token->loc, token->len));
 }
 
 void undefine_macro(char* name) {
@@ -1117,12 +1118,6 @@ static char* include_filename(Token** tokens) {
   return NULL;
 }
 
-static Token* include_dir(Token* token) {
-  expect_dir(&token, "include");
-  char* fname = include_filename(&token);
-  return append_tokens(tokenize(fname), token);
-}
-
 static Token* skip_to_endif_dir(Token* token) {
   while (!is_dir(token, "endif")) {
     if (is_dir(token, "if") || is_dir(token, "ifdef") || is_dir(token, "ifndef")) {
@@ -1134,6 +1129,51 @@ static Token* skip_to_endif_dir(Token* token) {
     token = token->next;
   }
   return token;
+}
+
+static char* include_guard(Token* token) {
+  if (!is_dir(token, "ifndef")) {
+    return NULL;
+  }
+  expect_dir(&token, "ifndef");
+
+  Token* cond = expect_macro_ident_token(&token);
+  char* macro = strndup(cond->loc, cond->len);
+
+  if (!is_dir(token, "define")) {
+    return NULL;
+  }
+  expect_dir(&token, "define");
+
+  Token* defined = expect_macro_ident_token(&token);
+  if (!equal_to_n_chars(macro, defined->loc, defined->len)) {
+    return NULL;
+  }
+
+  token = skip_to_endif_dir(token);
+  expect_dir(&token, "endif");
+
+  return token->kind == TK_EOF ? macro : NULL;
+}
+
+static Token* include_dir(Token* token) {
+  expect_dir(&token, "include");
+  char* fname = include_filename(&token);
+
+  // If the file has been tokenized once and the file has the include guard,
+  // it it not necessary to re-tokenize it.
+  char* guard = get_from_map(&include_guards, fname);
+  if (guard && find_macro(guard)) {
+    return token;
+  }
+
+  Token* included = tokenize(fname);
+  guard = include_guard(included);
+  if (guard) {
+    put_to_map(&include_guards, fname, guard);
+  }
+
+  return append_tokens(included, token);
 }
 
 static Token* skip_if_block(Token* token) {
@@ -1170,7 +1210,7 @@ static Token* if_dir_defined_cond(Token** tokens) {
   bool with_parens = consume_token(tokens, "(");
 
   Token* ident = expect_macro_ident_token(tokens);
-  Macro* macro = find_macro(ident->loc, ident->len);
+  Macro* macro = find_macro_by_token(ident);
 
   if (with_parens) {
     expect_token(tokens, ")");
@@ -1215,7 +1255,7 @@ static Token* ifdef_dir(Token* token) {
   Token* start = token;
   expect_dir(&token, "ifdef");
 
-  Macro* macro = find_macro(token->loc, token->len);
+  Macro* macro = find_macro_by_token(token);
   token = token->next;
   IfDir* dir = create_if_dir(start, macro != NULL);
   if (!dir->cond) {
@@ -1229,7 +1269,7 @@ static Token* ifndef_dir(Token* token) {
   Token* start = token;
   expect_dir(&token, "ifndef");
 
-  Macro* macro = find_macro(token->loc, token->len);
+  Macro* macro = find_macro_by_token(token);
   token = token->next;
   IfDir* dir = create_if_dir(start, macro == NULL);
   if (!dir->cond) {
