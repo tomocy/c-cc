@@ -360,6 +360,17 @@ else
   failed 'pass a library to linker (-l)'
 fi
 
+# pass a search dir to linker (-L)
+echo "extern int bar; int foo() { return bar; }" > "$TMP/foo.c"
+$CC -shared -fPIC -o "$TMP/libfoobar.so" "$TMP/foo.c"
+echo "int foo(); int bar = 0; int main() { return foo(); }" > "$TMP/bar.c"
+$CC -o "$TMP/out" -L "$TMP" -l"$TMP/libfoobar.so" "$TMP/bar.c"
+if "$TMP/out"; then
+  passed 'pass a search dir to linker (-L)'
+else
+  failed 'pass a search dir to linker (-L)'
+fi
+
 # strip all symbols on link (-s)
 echo "int main() { return 0; }" > "$TMP/out.c"
 if $CC -o "$TMP/out" -s "$TMP/out.c"; then

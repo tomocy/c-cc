@@ -281,6 +281,19 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    if (equal_to_str(argv[i], "-L")) {
+      add_str(&link_args, new_str(take_arg(&cur, argv[++i])));
+      add_str(&link_args, new_str("-L"));
+      continue;
+    }
+
+    // -Ldir
+    if (start_with(argv[i], "-L")) {
+      add_str(&link_args, new_str(argv[i] + 2));
+      add_str(&link_args, new_str("-L"));
+      continue;
+    }
+
     if (equal_to_str(argv[i], "-s")) {
       add_str(&link_args, new_str(take_arg(&cur, argv[i])));
       continue;
@@ -468,8 +481,6 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
   }
 
   ld_args = ld_args->next = new_str(format("-L%s", gcc_lib_path));
-  // ld_args = ld_args->next = new_str(format("-L%s", lib_path));
-  // ld_args = ld_args->next = new_str(format("-L%s/..", lib_path));
   ld_args = ld_args->next = new_str("-L/usr/lib64");
   ld_args = ld_args->next = new_str("-L/lib64");
   ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-linux-gnu");
