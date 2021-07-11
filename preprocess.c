@@ -30,6 +30,7 @@ struct IfDir {
 static Map macros;
 static IfDir* if_dirs;
 static Map include_guards;
+static Map pragma_once;
 
 static Token* process(Token* tokens);
 
@@ -1160,6 +1161,11 @@ static Token* include_dir(Token* token) {
   expect_dir(&token, "include");
   char* fname = include_filename(&token);
 
+  // [GNU] A file which contains pragma once is not re-tokenized.
+  if (get_from_map(&pragma_once, fname)) {
+    return token;
+  }
+
   // If the file has been tokenized once and the file has the include guard,
   // it it not necessary to re-tokenize it.
   char* guard = get_from_map(&include_guards, fname);
@@ -1427,15 +1433,19 @@ static Token* process(Token* tokens) {
       error_token(token->next, "error");
     }
 
-    // null directive
-    if (token->next->is_bol) {
+    if (is_dir(token, "pragma") && equal_to_token(token->next->next, "once")) {
+      put_to_map(&pragma_once, token->file->name, (void*)true);
+      inline_tokens(&token->next);
       continue;
     }
 
     if (is_dir(token, "pragma")) {
-      do {
-        token = token->next;
-      } while (token->next && !token->next->is_bol);
+      inline_tokens(&token->next);
+      continue;
+    }
+
+    // null directive
+    if (token->next->is_bol) {
       continue;
     }
 
