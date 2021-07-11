@@ -111,6 +111,32 @@ static int get_type_id(Type* type) {
   }
 }
 
+static char* reg_ax(int size) {
+  switch (size) {
+    case 1:
+      return "al";
+    case 2:
+      return "ax";
+    case 4:
+      return "eax";
+    default:
+      return "rax";
+  }
+}
+
+static char* reg_dx(int size) {
+  switch (size) {
+    case 1:
+      return "dl";
+    case 2:
+      return "dx";
+    case 4:
+      return "edx";
+    default:
+      return "rdx";
+  }
+}
+
 static void gen_expr(Node* node);
 static void gen_stmt(Node* node);
 
@@ -354,20 +380,7 @@ static void store(Node* node) {
       genln("  fstpt [rdi]");
       return;
     default:
-      switch (node->type->size) {
-        case 1:
-          genln("  mov [rdi], al");
-          return;
-        case 2:
-          genln("  mov [rdi], ax");
-          return;
-        case 4:
-          genln("  mov [rdi], eax");
-          return;
-        default:
-          genln("  mov [rdi], rax");
-          return;
-      }
+      genln("  mov [rdi], %s", reg_ax(node->type->size));
   }
 }
 
@@ -784,6 +797,33 @@ static void gen_funccall(Node* node) {
   }
 }
 
+static void gen_cas(Node* node) {
+  gen_expr(node->cas_addr);
+  push("rax");
+
+  gen_expr(node->cas_new_val);
+  push("rax");
+
+  gen_expr(node->cas_old_val);
+  // The rax may be overridden by the cmpxhg below, so keep it somewhere.
+  genln("  mov r8, rax");
+  load(node->cas_old_val);
+
+  pop("rdx");
+  pop("rdi");
+
+  int size = node->cas_addr->type->base->size;
+  // This cmpxchg compares the value of the node->cas_addr and the node->cas_new,
+  // and store the node->cas_new to the node->cas_addr if those are equal.
+  // Otherwise, the value of the node->cas_addr is stored in rax.
+  genln("  lock cmpxchg [rdi], %s", reg_dx(size));
+  genln("  sete cl");
+  genln("  je 1f");
+  genln("  mov [r8], %s", reg_ax(size));
+  genln("1:");
+  genln("  movzx eax, cl");
+}
+
 static void gen_num(Node* node) {
   switch (node->type->kind) {
     case TY_FLOAT: {
@@ -1158,6 +1198,9 @@ static void gen_expr(Node* node) {
       return;
     case ND_FUNCCALL:
       gen_funccall(node);
+      return;
+    case ND_CAS:
+      gen_cas(node);
       return;
     case ND_NUM:
       gen_num(node);

@@ -52,6 +52,7 @@ unary = ("+" | "-" | "&" | "*" | "!" | "~") cast |
     generic_select |
     "__builtin_reg_class" "(" abstract_declarator ")" |
     "__builtin_types_compatible_p" "(" abstract_decl "," abstract_decl ")" |
+    "__builtin_compare_and_swap" "(" assign "," assign "," assign ")" |
     postifx
 postfix = primary (
     func_args |

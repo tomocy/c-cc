@@ -588,6 +588,23 @@ static Node* new_funccall_node(Token* token, Node* lhs, Node* args) {
   return node;
 }
 
+static Node* new_cas_node(Token* token, Node* addr, Node* old_val, Node* new_val) {
+  if (addr->type->kind != TY_PTR) {
+    error_token(addr->token, "pointer expected");
+  }
+  if (old_val->type->kind != TY_PTR) {
+    error_token(old_val->token, "pointer expected");
+  }
+
+  Node* node = new_node(ND_CAS);
+  node->type = new_bool_type();
+  node->token = token;
+  node->cas_addr = addr;
+  node->cas_old_val = old_val;
+  node->cas_new_val = new_val;
+  return node;
+}
+
 static Node* new_int_node(Token* token, int64_t val) {
   Node* node = new_node(ND_NUM);
   node->type = new_int_type();
@@ -2319,6 +2336,17 @@ static Node* unary(Token** tokens) {
     Type* right = abstract_decl(tokens, NULL);
     expect_token(tokens, ")");
     return new_int_node(start, is_type_compatible_with(left, right));
+  }
+
+  if (consume_token(tokens, "__builtin_compare_and_swap")) {
+    expect_token(tokens, "(");
+    Node* addr = assign(tokens);
+    expect_token(tokens, ",");
+    Node* old_val = assign(tokens);
+    expect_token(tokens, ",");
+    Node* new_val = assign(tokens);
+    expect_token(tokens, ")");
+    return new_cas_node(start, addr, old_val, new_val);
   }
 
   return postfix(tokens);

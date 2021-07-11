@@ -193,6 +193,7 @@ typedef enum {
   ND_LVAR,
   ND_MEMBER,
   ND_FUNCCALL,
+  ND_CAS,
   ND_NUM,
   ND_NULL,
   ND_MEMZERO,
@@ -233,6 +234,10 @@ struct Node {
   long double float_val;
 
   char* asm_str;
+
+  Node* cas_addr;
+  Node* cas_old_val;
+  Node* cas_new_val;
 
   Node* labels;
   Node* label_unresolved_nodes;
