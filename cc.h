@@ -320,7 +320,7 @@ Token* preprocess(Token* tokens);
 void define_builtin_macros();
 void define_builtin_macro(char* name, char* raw_body);
 void undefine_macro(char* name);
-Str* compensate_include_filenames(Str* fnames);
+char* compensate_include_filename(char* fname, char* path);
 
 // tokenize.c
 void error_token(Token* token, char* fmt, ...) __attribute__((format(printf, 2, 3)));

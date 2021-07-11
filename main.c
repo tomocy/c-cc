@@ -504,9 +504,9 @@ static Str* concat_input_filenames() {
   Str head = {};
   Str* cur = &head;
 
-  included_paths = compensate_include_filenames(included_paths);
   for (Str* path = included_paths; path; path = path->next) {
-    cur = cur->next = copy_str(path);
+    char* compensated = compensate_include_filename(path->data, NULL);
+    cur = cur->next = new_str(compensated);
   }
 
   cur = cur->next = new_str(input_filename);

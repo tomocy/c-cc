@@ -555,4 +555,19 @@ else
   failed 'inline function (static) (referred by each other) (not referred by other)'
 fi
 
+# include next
+rm -rf "$TMP/next1" "$TMP/next2" "$TMP/next3"
+mkdir "$TMP/next1" "$TMP/next2" "$TMP/next3"
+echo '#include "file.h"' > "$TMP/out.c"
+echo 'extern int x;' >> "$TMP/out.c"
+echo 'int main() { return x; }' >> "$TMP/out.c"
+echo '#include_next "file.h"' > "$TMP/next1/file.h"
+echo '#include_next "file2.h"' > "$TMP/next2/file.h"
+echo 'int x = 0;' > "$TMP/next3/file2.h"
+if $CC -S -I "$TMP/next1" -I "$TMP/next2" -I "$TMP/next3" "$TMP/out.c" -o - | grep -q 'x:'; then
+  passed 'include next'
+else
+  failed 'include next'
+fi
+
 echo 'OK'

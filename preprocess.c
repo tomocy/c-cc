@@ -27,6 +27,8 @@ struct IfDir {
   IfDir* elifs;
 };
 
+static char* last_included_path;
+
 static Map macros;
 static IfDir* if_dirs;
 static Map include_guards;
@@ -1033,7 +1035,7 @@ static Token* undef_dir(Token* token) {
   return token;
 }
 
-static char* compensate_include_filename(char* fname) {
+char* compensate_include_filename(char* fname, char* path) {
   static Map cache;
 
   char* cached = get_from_map(&cache, fname);
@@ -1046,6 +1048,15 @@ static char* compensate_include_filename(char* fname) {
     return fname;
   }
 
+  if (path) {
+    char* compensated = format("%s/%s", path, fname);
+    if (have_file(compensated)) {
+      put_to_map(&cache, fname, compensated);
+      last_included_path = path;
+      return compensated;
+    }
+  }
+
   for (Str* path = include_paths; path; path = path->next) {
     char* compensated = format("%s/%s", path->data, fname);
     if (!have_file(compensated)) {
@@ -1053,6 +1064,7 @@ static char* compensate_include_filename(char* fname) {
     }
 
     put_to_map(&cache, fname, compensated);
+    last_included_path = path->data;
     return compensated;
   }
 
@@ -1060,28 +1072,31 @@ static char* compensate_include_filename(char* fname) {
   return fname;
 }
 
-Str* compensate_include_filenames(Str* fnames) {
-  Str head = {};
-  Str* cur = &head;
-  for (Str* fname = fnames; fname; fname = fname->next) {
-    cur = cur->next = new_str(compensate_include_filename(fname->data));
+static char* compensate_include_next_filename(char* fname) {
+  for (Str* path = include_paths; path; path = path->next) {
+    char* compensated = format("%s/%s", path->data, fname);
+    if (!have_file(compensated)) {
+      continue;
+    }
+
+    // [GNU] The include_next directive does not include the file in the last included directry.
+    if (equal_to_str(path->data, last_included_path)) {
+      continue;
+    }
+
+    return compensated;
   }
 
-  return head.next;
+  return fname;
 }
 
-static char* include_filename(Token** tokens) {
+static char* include_filename(Token** tokens, bool* is_quoted) {
   // #include "..."
   if ((*tokens)->kind == TK_STR) {
+    *is_quoted = true;
+
     // str_val cannot be used as a filename as it is escaped
-    char* raw_fname = strndup((*tokens)->loc + 1, (*tokens)->len - 2);
-    char* fname = raw_fname;
-    if (!start_with(fname, "/")) {
-      fname = format("%s/%s", dir((*tokens)->file->name), fname);
-    }
-    if (!have_file(fname)) {
-      fname = compensate_include_filename(raw_fname);
-    }
+    char* fname = strndup((*tokens)->loc + 1, (*tokens)->len - 2);
     *tokens = (*tokens)->next;
 
     *tokens = skip_extra_tokens(*tokens);
@@ -1103,14 +1118,14 @@ static char* include_filename(Token** tokens) {
     }
     *tokens = skip_extra_tokens(*tokens);
 
-    return compensate_include_filename(restore_contents(head.next));
+    return restore_contents(head.next);
   }
 
   // #include MACRO
   if ((*tokens)->kind == TK_IDENT) {
     Token* next = (*tokens)->next;
     Token* processed = append_tokens(process(copy_token(*tokens)), next);
-    char* fname = include_filename(&processed);
+    char* fname = include_filename(&processed, is_quoted);
     *tokens = processed;
     return fname;
   }
@@ -1159,7 +1174,10 @@ static char* include_guard(Token* token) {
 
 static Token* include_dir(Token* token) {
   expect_dir(&token, "include");
-  char* fname = include_filename(&token);
+
+  bool is_quoted = false;
+  char* fname = include_filename(&token, &is_quoted);
+  fname = compensate_include_filename(fname, is_quoted ? dir(token->file->name) : NULL);
 
   // [GNU] A file which contains pragma once is not re-tokenized.
   if (get_from_map(&pragma_once, fname)) {
@@ -1180,6 +1198,16 @@ static Token* include_dir(Token* token) {
   }
 
   return append_tokens(included, token);
+}
+
+static Token* include_next_dir(Token* token) {
+  expect_dir(&token, "include_next");
+
+  bool ignored = false;
+  char* fname = include_filename(&token, &ignored);
+  fname = compensate_include_next_filename(fname);
+
+  return append_tokens(tokenize(fname), token);
 }
 
 static Token* skip_if_block(Token* token) {
@@ -1398,6 +1426,12 @@ static Token* process(Token* tokens) {
       continue;
     }
 
+    // [GNU] include_next
+    if (is_dir(token, "include_next")) {
+      token->next = include_next_dir(token);
+      continue;
+    }
+
     if (is_dir(token, "ifdef")) {
       token->next = ifdef_dir(token);
       continue;
@@ -1433,6 +1467,7 @@ static Token* process(Token* tokens) {
       error_token(token->next, "error");
     }
 
+    // [GNU] pragma once
     if (is_dir(token, "pragma") && equal_to_token(token->next->next, "once")) {
       put_to_map(&pragma_once, token->file->name, (void*)true);
       inline_tokens(&token->next);
