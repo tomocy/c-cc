@@ -131,6 +131,11 @@ static void gen_addr(Node* node) {
       gen_expr(node->lhs);
       break;
     case ND_FUNC:
+      if (do_gen_as_pic) {
+        genln("  mov rax, %s@GOTPCREL[rip]", node->obj->name);
+        break;
+      }
+
       if (node->obj->is_definition) {
         genln("  lea rax, %s[rip]", node->obj->name);
       } else {
@@ -138,6 +143,19 @@ static void gen_addr(Node* node) {
       }
       break;
     case ND_GVAR:
+      if (do_gen_as_pic) {
+        if (node->obj->is_thread_local) {
+          genln("  data16 lea rdi, %s@TLSGD[rip]", node->obj->name);
+          genln("  .value 0x6666");
+          genln("  rex64");
+          genln("  call __tls_get_addr@PLT");
+          break;
+        }
+
+        genln("  mov rax, %s@GOTPCREL[rip]", node->obj->name);
+        break;
+      }
+
       if (node->obj->is_thread_local) {
         genln("  lea rax, %s@TPOFF", node->obj->name);
         genln("  add rax, fs:0");

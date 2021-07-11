@@ -313,6 +313,7 @@ extern Str* include_paths;
 extern Str* std_include_paths;
 extern char* input_filename;
 extern bool common_symbols_enabled;
+extern bool do_gen_as_pic;
 
 // preprocess.c
 Token* preprocess(Token* tokens);

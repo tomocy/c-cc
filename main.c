@@ -28,6 +28,7 @@ static bool in_obj;
 static bool in_asm;
 static bool in_c;
 bool common_symbols_enabled = true;
+bool do_gen_as_pic;
 static bool do_print_deps;
 static bool do_print_header_deps;
 static bool do_print_std_deps = true;
@@ -308,6 +309,11 @@ static Str* parse_args(int argc, char** argv) {
     // -MF output_filename
     if (equal_to_str(argv[i], "-MF")) {
       deps_output_filename = take_arg(&cur, argv[++i]);
+      continue;
+    }
+
+    if (equal_to_str(argv[i], "-fpic") || equal_to_str(argv[i], "-fPIC")) {
+      do_gen_as_pic = true;
       continue;
     }
 

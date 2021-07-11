@@ -425,6 +425,17 @@ else
   failed 'print dependencies to the file (-MF)'
 fi
 
+# emit as position independ code (-fpic, -fPIC)
+echo "extern int bar; int foo() { return bar; }" | $CC -c -o "$TMP/out.o" -fpic -xc -
+cc -shared -o "$TMP/out.so" "$TMP/out.o"
+echo "int foo(); int bar = 0; int main() { return foo(); }" > "$TMP/main.c"
+$CC -o "$TMP/out" "$TMP/out.so" "$TMP/main.c"
+if "$TMP/out"; then
+  passed 'emit as position independ code (-fpic, -fPIC)'
+else
+  failed 'emit as position independ code (-fpic, -fPIC)'
+fi
+
 # ignore options for now
 if echo 'int x;' | $CC -E -o /dev/null -x c - \
   -O -W -g -std=c11 -ffreestanding -fno-builtin \
