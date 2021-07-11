@@ -797,7 +797,7 @@ static void gen_funccall(Node* node) {
   }
 }
 
-static void gen_cas(Node* node) {
+static void gen_atomic_cas(Node* node) {
   gen_expr(node->cas_addr);
   push("rax");
 
@@ -1199,8 +1199,16 @@ static void gen_expr(Node* node) {
     case ND_FUNCCALL:
       gen_funccall(node);
       return;
-    case ND_CAS:
-      gen_cas(node);
+    case ND_ATOMIC_CAS:
+      gen_atomic_cas(node);
+      return;
+    case ND_ATOMIC_EXCH:
+      gen_expr(node->lhs);
+      push("rax");
+      gen_expr(node->rhs);
+      pop("rdi");
+
+      genln("  xchg [rdi], %s", reg_ax(node->lhs->type->size));
       return;
     case ND_NUM:
       gen_num(node);

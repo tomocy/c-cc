@@ -588,7 +588,7 @@ static Node* new_funccall_node(Token* token, Node* lhs, Node* args) {
   return node;
 }
 
-static Node* new_cas_node(Token* token, Node* addr, Node* old_val, Node* new_val) {
+static Node* new_atomic_cas_node(Token* token, Node* addr, Node* old_val, Node* new_val) {
   if (addr->type->kind != TY_PTR) {
     error_token(addr->token, "pointer expected");
   }
@@ -596,12 +596,23 @@ static Node* new_cas_node(Token* token, Node* addr, Node* old_val, Node* new_val
     error_token(old_val->token, "pointer expected");
   }
 
-  Node* node = new_node(ND_CAS);
+  Node* node = new_node(ND_ATOMIC_CAS);
   node->type = new_bool_type();
   node->token = token;
   node->cas_addr = addr;
   node->cas_old_val = old_val;
   node->cas_new_val = new_val;
+  return node;
+}
+
+static Node* new_atomic_exch_node(Token* token, Node* lhs, Node* rhs) {
+  if (lhs->type->kind != TY_PTR) {
+    error_token(lhs->token, "pointer expected");
+  }
+
+  Node* node = new_binary_node(ND_ATOMIC_EXCH, lhs, rhs);
+  node->type = lhs->type;
+  node->token = token;
   return node;
 }
 
@@ -2346,7 +2357,16 @@ static Node* unary(Token** tokens) {
     expect_token(tokens, ",");
     Node* new_val = assign(tokens);
     expect_token(tokens, ")");
-    return new_cas_node(start, addr, old_val, new_val);
+    return new_atomic_cas_node(start, addr, old_val, new_val);
+  }
+
+  if (consume_token(tokens, "__builtin_atomic_exchange")) {
+    expect_token(tokens, "(");
+    Node* lhs = assign(tokens);
+    expect_token(tokens, ",");
+    Node* rhs = assign(tokens);
+    expect_token(tokens, ")");
+    return new_atomic_exch_node(start, lhs, rhs);
   }
 
   return postfix(tokens);
