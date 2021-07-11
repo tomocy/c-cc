@@ -21,6 +21,7 @@ Str* include_paths;
 Str* std_include_paths;
 static Str* include_later_paths;
 static bool as_static;
+static bool as_shared;
 static Str* link_args;
 static bool do_log_args;
 static bool do_exec;
@@ -268,6 +269,12 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    if (start_with(argv[i], "-shared")) {
+      as_shared = true;
+      add_str(&link_args, new_str(take_arg(&cur, argv[i])));
+      continue;
+    }
+
     // -llibrary
     if (start_with(argv[i], "-l")) {
       add_str(&input_filenames, new_str(argv[i]));
@@ -450,9 +457,16 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
   ld_args = ld_args->next = new_str("elf_x86_64");
   ld_args = ld_args->next = new_str("-dynamic-linker");
   ld_args = ld_args->next = new_str("/lib64/ld-linux-x86-64.so.2");
-  ld_args = ld_args->next = new_str(format("%s/crt1.o", lib_path));
-  ld_args = ld_args->next = new_str(format("%s/crti.o", lib_path));
-  ld_args = ld_args->next = new_str(format("%s/crtbegin.o", gcc_lib_path));
+
+  if (as_shared) {
+    ld_args = ld_args->next = new_str(format("%s/crti.o", lib_path));
+    ld_args = ld_args->next = new_str(format("%s/crtbeginS.o", gcc_lib_path));
+  } else {
+    ld_args = ld_args->next = new_str(format("%s/crt1.o", lib_path));
+    ld_args = ld_args->next = new_str(format("%s/crti.o", lib_path));
+    ld_args = ld_args->next = new_str(format("%s/crtbegin.o", gcc_lib_path));
+  }
+
   ld_args = ld_args->next = new_str(format("-L%s", gcc_lib_path));
   // ld_args = ld_args->next = new_str(format("-L%s", lib_path));
   // ld_args = ld_args->next = new_str(format("-L%s/..", lib_path));
@@ -490,7 +504,12 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
     ld_args = ld_args->next = new_str("--no-as-needed");
   }
 
-  ld_args = ld_args->next = new_str(format("%s/crtend.o", gcc_lib_path));
+  if (as_shared) {
+    ld_args = ld_args->next = new_str(format("%s/crtendS.o", gcc_lib_path));
+  } else {
+    ld_args = ld_args->next = new_str(format("%s/crtend.o", gcc_lib_path));
+  }
+
   ld_args = ld_args->next = new_str(format("%s/crtn.o", lib_path));
 
   int argc = 0;

@@ -338,6 +338,18 @@ else
   failed 'link statically (-static)'
 fi
 
+# link to shared objects (-shared)
+echo "extern int bar; int foo() { return bar; }" > "$TMP/out1.c"
+echo "int foo(); int bar = 0; int main() { return foo(); }" > "$TMP/out2.c"
+if
+  $CC -shared -fPIC -o "$TMP/out.so" "$TMP/out1.c" "$TMP/out2.c"
+  file "$TMP/out.so" | grep -q 'shared object'
+then
+  passed 'link to shared objects (-shared)'
+else
+  failed 'link to shared objects (-shared)'
+fi
+
 # pass a library to linker (-l)
 echo "int x() { return 0; }" | $CC -c -o "$TMP/out1.o" -x c -
 echo "int x(); int main() { return x(); }" | $CC -c -o "$TMP/out2.o" -x c -
