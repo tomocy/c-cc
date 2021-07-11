@@ -147,6 +147,8 @@ struct Type {
 
   bool is_defined;
 
+  bool is_atomic;
+
   Type* next;
 };
 

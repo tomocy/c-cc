@@ -110,7 +110,8 @@ decl_specifier = (
     defined_type |
     "extern" | "static" | "inline" | "_Alignas" | "signed" |
     "const" | "volatile" | "auto" | "register" |
-    "restrict" | "__restrict" | "__restrict__" | "_Noreturn"
+    "restrict" | "__restrict" | "__restrict__" | "_Noreturn" |
+    "_Thread_local" | "__thread" | "_Atomic"
 )*
 pointers = ("*" ("const" | "volatile" | "restcit" | "__restrict" | "__restrict__")*)*
 declarator = pointers ("(" declarator ")" | ident?) type_suffix

@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include "cc.h"
 
 typedef struct Scope Scope;
@@ -446,6 +447,7 @@ static bool equal_to_decl_specifier(Token* token) {
       "_Noreturn",
       "_Thread_local",
       "__thread",
+      "_Atomic",
     };
     static int len = sizeof(specs) / sizeof(char*);
 
@@ -497,6 +499,13 @@ static void add_label_unresolved_node(Node* node) {
 static Node* new_node(NodeKind kind) {
   Node* node = calloc(1, sizeof(Node));
   node->kind = kind;
+  return node;
+}
+
+static Node* copy_node(Node* src) {
+  Node* node = calloc(1, sizeof(Node));
+  *node = *src;
+  node->next = NULL;
   return node;
 }
 
@@ -929,43 +938,36 @@ static Node* new_assign_node(Token* token, Node* lhs, Node* rhs) {
   return assign;
 }
 
-static Node* new_shorthand_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
-  Node* node = NULL;
+static Node* new_shorthand_assigner_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
   switch (op) {
     case ND_BITOR:
-      node = new_bitor_node(token, lhs, rhs);
-      break;
+      return new_bitor_node(token, lhs, rhs);
     case ND_BITXOR:
-      node = new_bitxor_node(token, lhs, rhs);
-      break;
+      return new_bitxor_node(token, lhs, rhs);
     case ND_BITAND:
-      node = new_bitand_node(token, lhs, rhs);
-      break;
+      return new_bitand_node(token, lhs, rhs);
     case ND_LSHIFT:
-      node = new_lshift_node(token, lhs, rhs);
-      break;
+      return new_lshift_node(token, lhs, rhs);
     case ND_RSHIFT:
-      node = new_rshift_node(token, lhs, rhs);
-      break;
+      return new_rshift_node(token, lhs, rhs);
     case ND_ADD:
-      node = new_add_node(token, lhs, rhs);
-      break;
+      return new_add_node(token, lhs, rhs);
     case ND_SUB:
-      node = new_sub_node(token, lhs, rhs);
-      break;
+      return new_sub_node(token, lhs, rhs);
     case ND_MUL:
-      node = new_mul_node(token, lhs, rhs);
-      break;
+      return new_mul_node(token, lhs, rhs);
     case ND_DIV:
-      node = new_div_node(token, lhs, rhs);
-      break;
+      return new_div_node(token, lhs, rhs);
     case ND_MOD:
-      node = new_mod_node(token, lhs, rhs);
-      break;
+      return new_mod_node(token, lhs, rhs);
     default:
       error_token(token, "invalid operation");
+      return NULL;
   }
+}
 
+static Node* new_shorthand_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
+  Node* node = new_shorthand_assigner_node(token, op, lhs, rhs);
   return new_assign_node(lhs->token, lhs, node);
 }
 
@@ -1690,11 +1692,10 @@ static Node* do_stmt(Token** tokens) {
 
   expect_tokens(tokens, ")", ";", NULL);
 
-  Node* first = calloc(1, sizeof(Node));
-  *first = *node->then;
-  first->next = node;
+  Node* head = copy_node(node->then);
+  head->next = node;
 
-  return new_block_node(start, first);
+  return new_block_node(start, head);
 }
 
 static Node* return_stmt(Token** tokens) {
@@ -1881,30 +1882,75 @@ static Node* expr(Token** tokens) {
   return node;
 }
 
-static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
-  Node* tmp_assign = NULL;
-  Node* assign = NULL;
+// Convert A op= B which is atomic to
+// ({
+//    TA* addr = &A; TB val = (B); TA old_val = *addr; TA new_val;
+//    do {
+//      new_val = old_val op val;
+//    } while (!atomic_compare_exchange_strong(addr, &old_val, new_val));
+//    new_val;
+// })
+static Node* convert_to_atomic_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
+  Node head = {};
+  Node* cur = &head;
 
+  Node* addr = new_var_node(token, create_anon_lvar_obj(new_ptr_type(lhs->type)));
+  cur = cur->next = new_assign_node(token, addr, new_addr_node(token, lhs));
+  Node* val = new_var_node(token, create_anon_lvar_obj(rhs->type));
+  cur = cur->next = new_assign_node(token, val, rhs);
+  Node* old_val = new_var_node(token, create_anon_lvar_obj(lhs->type));
+  cur = cur->next = new_assign_node(token, old_val, new_deref_node(token, addr));
+  Node* new_val = new_var_node(token, create_anon_lvar_obj(lhs->type));
+
+  Node* loop = new_node(ND_FOR);
+  loop->token = token;
+
+  char* prev_break_label_id = renew_break_label_id(&loop->break_label_id);
+  char* prev_continue_label_id = renew_continue_label_id(&loop->continue_label_id);
+
+  Node* assign = new_assign_node(token, new_val, new_shorthand_assigner_node(token, op, old_val, val));
+  loop->then = new_expr_stmt_node(assign);
+
+  current_break_label_id = prev_break_label_id;
+  current_continue_label_id = prev_continue_label_id;
+
+  Node* cas = new_atomic_cas_node(token, addr, new_addr_node(token, old_val), new_val);
+  loop->cond = new_not_node(token, cas);
+
+  cur = cur->next = copy_node(loop->then);
+  cur = cur->next = loop;
+
+  cur = cur->next = new_val;
+
+  return new_stmt_expr_node(token, head.next);
+}
+
+static Node* convert_to_assign_node(Token* token, NodeKind op, Node* lhs, Node* rhs) {
   // When the assignee is the member of a composite type,
   // convert A.x op= B to tmp = &A, (*tmp).x = (*tmp).x op B
   // as it is not possible to reference the member if it is bitfield.
   if (lhs->kind == ND_MEMBER) {
-    Obj* tmp_var = create_anon_lvar_obj(new_ptr_type(lhs->lhs->type));
-    tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs->lhs));
+    Node* tmp = new_var_node(token, create_anon_lvar_obj(new_ptr_type(lhs->lhs->type)));
+    Node* tmp_assign = new_assign_node(token, tmp, new_addr_node(token, lhs->lhs));
 
-    Node* tmp_member
-      = new_member_node(lhs->token, new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var)), lhs->mem);
+    Node* tmp_member = new_member_node(token, new_deref_node(token, tmp), lhs->mem);
 
-    assign = new_shorthand_assign_node(lhs->token, op, tmp_member, rhs);
-  } else {
-    // Otherwise, convert A op= B to tmp = &A, *tmp = *tmp op B.
-    Obj* tmp_var = create_anon_lvar_obj(new_ptr_type(lhs->type));
-    tmp_assign = new_assign_node(lhs->token, new_var_node(lhs->token, tmp_var), new_addr_node(lhs->token, lhs));
+    Node* assign = new_shorthand_assign_node(token, op, tmp_member, rhs);
 
-    Node* tmp_deref = new_deref_node(lhs->token, new_var_node(lhs->token, tmp_var));
-
-    assign = new_shorthand_assign_node(lhs->token, op, tmp_deref, rhs);
+    return new_comma_node(token, tmp_assign, assign);
   }
+
+  if (lhs->type->is_atomic) {
+    return convert_to_atomic_assign_node(token, op, lhs, rhs);
+  }
+
+  // Otherwise, convert A op= B to tmp = &A, *tmp = *tmp op B.
+  Node* tmp = new_var_node(token, create_anon_lvar_obj(new_ptr_type(lhs->type)));
+  Node* tmp_assign = new_assign_node(token, tmp, new_addr_node(token, lhs));
+
+  Node* tmp_deref = new_deref_node(token, tmp);
+
+  Node* assign = new_shorthand_assign_node(token, op, tmp_deref, rhs);
 
   return new_comma_node(token, tmp_assign, assign);
 }
@@ -3601,6 +3647,7 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
   };
 
   Type* type = new_int_type();
+  bool is_atomic = false;
   int spec = 0;
 
   while (equal_to_decl_specifier(*tokens)) {
@@ -3639,6 +3686,15 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
     if (consume_token(tokens, "const") || consume_token(tokens, "volatile") || consume_token(tokens, "auto")
         || consume_token(tokens, "register") || consume_token(tokens, "restrict") || consume_token(tokens, "__restrict")
         || consume_token(tokens, "__restrict__") || consume_token(tokens, "_Noreturn")) {
+      continue;
+    }
+
+    if (consume_token(tokens, "_Atomic")) {
+      if (consume_token(tokens, "(")) {
+        type = abstract_decl(tokens, NULL);
+        expect_token(tokens, ")");
+      }
+      is_atomic = true;
       continue;
     }
 
@@ -3813,6 +3869,8 @@ static Type* decl_specifier(Token** tokens, VarAttr* attr) {
       }
     }
   }
+
+  type->is_atomic = is_atomic;
 
   return type;
 }

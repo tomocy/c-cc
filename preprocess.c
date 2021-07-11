@@ -507,6 +507,7 @@ static bool is_keyword(char* c, int len) {
       "_Noreturn",
       "_Thread_local",
       "__thread",
+      "_Atomic",
     };
     static int klen = sizeof(keywords) / sizeof(char*);
 
