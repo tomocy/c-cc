@@ -20,6 +20,7 @@ static Str* included_paths;
 Str* include_paths;
 Str* std_include_paths;
 static Str* include_later_paths;
+static bool as_static;
 static Str* link_args;
 static bool do_log_args;
 static bool do_exec;
@@ -28,7 +29,7 @@ static bool in_obj;
 static bool in_asm;
 static bool in_c;
 bool common_symbols_enabled = true;
-bool do_gen_as_pic;
+bool as_pic;
 static bool do_print_deps;
 static bool do_print_header_deps;
 static bool do_print_std_deps = true;
@@ -261,6 +262,12 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    if (start_with(argv[i], "-static")) {
+      as_static = true;
+      add_str(&link_args, new_str(take_arg(&cur, argv[i])));
+      continue;
+    }
+
     // -llibrary
     if (start_with(argv[i], "-l")) {
       add_str(&input_filenames, new_str(argv[i]));
@@ -313,7 +320,7 @@ static Str* parse_args(int argc, char** argv) {
     }
 
     if (equal_to_str(argv[i], "-fpic") || equal_to_str(argv[i], "-fPIC")) {
-      do_gen_as_pic = true;
+      as_pic = true;
       continue;
     }
 
@@ -447,8 +454,8 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
   ld_args = ld_args->next = new_str(format("%s/crti.o", lib_path));
   ld_args = ld_args->next = new_str(format("%s/crtbegin.o", gcc_lib_path));
   ld_args = ld_args->next = new_str(format("-L%s", gcc_lib_path));
-  ld_args = ld_args->next = new_str(format("-L%s", lib_path));
-  ld_args = ld_args->next = new_str(format("-L%s/..", lib_path));
+  // ld_args = ld_args->next = new_str(format("-L%s", lib_path));
+  // ld_args = ld_args->next = new_str(format("-L%s/..", lib_path));
   ld_args = ld_args->next = new_str("-L/usr/lib64");
   ld_args = ld_args->next = new_str("-L/lib64");
   ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-linux-gnu");
@@ -456,17 +463,33 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
   ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-redhat-linux");
   ld_args = ld_args->next = new_str("-L/usr/lib");
   ld_args = ld_args->next = new_str("-L/lib");
+
+  if (!as_static) {
+    ld_args = ld_args->next = new_str("-dynamic-linker");
+    ld_args = ld_args->next = new_str("/lib64/ld-linux-x86-64.so.2");
+  }
+
   for (Str* arg = link_args; arg; arg = arg->next) {
     ld_args = ld_args->next = arg;
   }
   for (Str* input = head_link_inputs.next; input; input = input->next) {
     ld_args = ld_args->next = input;
   }
-  ld_args = ld_args->next = new_str("-lc");
-  ld_args = ld_args->next = new_str("-lgcc");
-  ld_args = ld_args->next = new_str("--as-needed");
-  ld_args = ld_args->next = new_str("-lgcc_s");
-  ld_args = ld_args->next = new_str("--no-as-needed");
+
+  if (as_static) {
+    ld_args = ld_args->next = new_str("--start-group");
+    ld_args = ld_args->next = new_str("-lc");
+    ld_args = ld_args->next = new_str("-lgcc");
+    ld_args = ld_args->next = new_str("-lgcc_eh");
+    ld_args = ld_args->next = new_str("--end-group");
+  } else {
+    ld_args = ld_args->next = new_str("-lc");
+    ld_args = ld_args->next = new_str("-lgcc");
+    ld_args = ld_args->next = new_str("--as-needed");
+    ld_args = ld_args->next = new_str("-lgcc_s");
+    ld_args = ld_args->next = new_str("--no-as-needed");
+  }
+
   ld_args = ld_args->next = new_str(format("%s/crtend.o", gcc_lib_path));
   ld_args = ld_args->next = new_str(format("%s/crtn.o", lib_path));
 

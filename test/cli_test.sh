@@ -325,6 +325,19 @@ else
   failed 'specify input language (-x) (implicitly specified to c with -E given)'
 fi
 
+# link statically (-static)
+echo "extern int bar; int foo() { return bar; }" > "$TMP/out1.c"
+echo "int foo(); int bar = 0; int main() { return foo(); }" > "$TMP/out2.c"
+$CC -static -o "$TMP/out" "$TMP/out1.c" "$TMP/out2.c"
+if
+  "$TMP/out"
+  file "$TMP/out" | grep -q 'statically linked'
+then
+  passed 'link statically (-static)'
+else
+  failed 'link statically (-static)'
+fi
+
 # pass a library to linker (-l)
 echo "int x() { return 0; }" | $CC -c -o "$TMP/out1.o" -x c -
 echo "int x(); int main() { return x(); }" | $CC -c -o "$TMP/out2.o" -x c -

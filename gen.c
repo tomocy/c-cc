@@ -131,7 +131,7 @@ static void gen_addr(Node* node) {
       gen_expr(node->lhs);
       break;
     case ND_FUNC:
-      if (do_gen_as_pic) {
+      if (as_pic) {
         genln("  mov rax, %s@GOTPCREL[rip]", node->obj->name);
         break;
       }
@@ -143,7 +143,7 @@ static void gen_addr(Node* node) {
       }
       break;
     case ND_GVAR:
-      if (do_gen_as_pic) {
+      if (as_pic) {
         if (node->obj->is_thread_local) {
           genln("  data16 lea rdi, %s@TLSGD[rip]", node->obj->name);
           genln("  .value 0x6666");
