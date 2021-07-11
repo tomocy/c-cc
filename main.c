@@ -306,6 +306,11 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    if (equal_to_str(argv[i], "-Xlinker")) {
+      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[++i]));
+      continue;
+    }
+
     if (equal_to_str(argv[i], "-s")) {
       cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[i]));
       continue;
