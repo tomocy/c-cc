@@ -149,6 +149,14 @@ __attribute__((format(printf, 1, 2))) static void genln(char* fmt, ...) {
 
 static void gen_addr(Node* node) {
   switch (node->kind) {
+    case ND_ASSIGN:
+    case ND_COND:
+      if (!is_composite_type(node->type)) {
+        break;
+      }
+
+      gen_expr(node);
+      break;
     case ND_COMMA:
       gen_expr(node->lhs);
       gen_addr(node->rhs);
