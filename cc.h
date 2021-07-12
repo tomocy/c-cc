@@ -337,8 +337,8 @@ bool equal_to_token(Token* token, char* s);
 bool equal_to_any_token(Token* token, ...);
 bool equal_to_tokens(Token* token, ...);
 bool equal_to_ident_token(Token* token, char* s);
-bool consume_token(Token** token, char* s);
-Token* expect_token(Token** token, char* s);
+bool consume_token(Token** tokens, char* s);
+Token* expect_token(Token** tokens, char* s);
 Token* expect_tokens(Token** tokens, ...);
 Token* expect_ident_token(Token** tokens);
 Token* tokenize_all(Str* fnames);
@@ -356,7 +356,7 @@ void print_header_deps(char* output_filename, bool with_std);
 void print_tokens(char* output_filename, Token* tokens);
 
 // parse.c
-TopLevelObj* parse(Token* tokens);
+TopLevelObj* parse(Token* token);
 int align_up(int n, int align);
 int64_t const_expr(Token** tokens);
 

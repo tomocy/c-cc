@@ -1271,16 +1271,34 @@ static void func(Token** tokens) {
     error_token(type->ident, "function name omitted");
   }
 
-  Obj* func = create_func_obj(type, type->name);
-  current_func = func;
+  Obj* func = find_datum_obj_from_current_scope(type->name);
+  if (func) {
+    if (func->kind != OJ_FUNC) {
+      error_token(type->ident, "redeclared as a different kind of symbol");
+    }
 
-  func->is_static = attr.is_static || (attr.is_inline && !attr.is_extern);
-  func->is_definition = !consume_token(tokens, ";");
+    bool is_definition = equal_to_token(*tokens, "{");
+    if (func->is_definition && is_definition) {
+      error_token(type->ident, "redefinition of %s", type->name);
+    }
+    if (!func->is_static && attr.is_static) {
+      error_token(type->ident, "static declaration follows non static declaration");
+    }
+
+    func->type = type;
+    func->is_definition = func->is_definition || is_definition;
+  } else {
+    func = create_func_obj(type, type->name);
+    func->is_static = attr.is_static || (attr.is_inline && !attr.is_extern);
+    func->is_definition = equal_to_token(*tokens, "{");
+  }
+
   if (!func->is_definition) {
-    current_lvars = NULL;
-    current_func = NULL;
+    current_func = current_lvars = NULL;
     return;
   }
+
+  current_func = func;
 
   enter_scope();
 

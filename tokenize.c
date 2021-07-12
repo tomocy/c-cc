@@ -282,12 +282,12 @@ bool equal_to_ident_token(Token* token, char* s) {
   return token->kind == TK_IDENT && equal_to_token(token, s);
 }
 
-bool consume_token(Token** token, char* s) {
-  if (!equal_to_token(*token, s)) {
+bool consume_token(Token** tokens, char* s) {
+  if (!equal_to_token(*tokens, s)) {
     return false;
   }
 
-  *token = (*token)->next;
+  *tokens = (*tokens)->next;
   return true;
 }
 
