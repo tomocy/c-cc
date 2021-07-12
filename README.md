@@ -95,8 +95,9 @@ array_initer = "{" initer ("," initer)* ","? "}"
 direct_array_initer = initer ("," initer)*
 lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer)?)*)?
 
-struct_decl = "struct" ident? "{" member* "}"
-union_decl = "union" ident? "{" member* "}"
+struct_decl = "struct" attribute ident? "{" member* "}" attribute
+union_decl = "union" attribute ident? "{" member* "}" attribute
+attribute = ("__attribute__" "(" "(" "packed" ")" ")")?
 member = decl_specifier (declarator ("," declarator)*)? ";"
 enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* ","? "}"
 typeof_specifier = "typeof" "(" (abstract_decl | expr) ")"

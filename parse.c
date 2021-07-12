@@ -21,6 +21,10 @@ typedef struct VarAttr {
   int alignment;
 } VarAttr;
 
+typedef struct TypeAttr {
+  bool is_packed;
+} TypeAttr;
+
 struct Initer {
   Initer* next;
   Type* type;
@@ -3435,8 +3439,20 @@ static Member* members(Token** tokens, bool* is_flexible) {
   return head.next;
 }
 
+static void attribute(Token** tokens, TypeAttr* attr) {
+  if (!consume_token(tokens, "__attribute__")) {
+    return;
+  }
+
+  expect_tokens(tokens, "(", "(", "packed", ")", ")", NULL);
+  attr->is_packed = true;
+}
+
 static Type* struct_decl(Token** tokens) {
   expect_token(tokens, "struct");
+
+  TypeAttr attr = {};
+  attribute(tokens, &attr);
 
   Token* tag = NULL;
   if ((*tokens)->kind == TK_IDENT) {
@@ -3459,6 +3475,8 @@ static Type* struct_decl(Token** tokens) {
 
   bool is_flexible = false;
   Member* mems = members(tokens, &is_flexible);
+  attribute(tokens, &attr);
+
   int bits = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
@@ -3484,12 +3502,14 @@ static Type* struct_decl(Token** tokens) {
         bits += mem->bit_width;
       }
     } else {
-      bits = align_up(bits, mem->alignment * 8);
+      if (!attr.is_packed) {
+        bits = align_up(bits, mem->alignment * 8);
+      }
       mem->offset = bits / 8;
       bits += mem->type->size * 8;
     }
 
-    if (alignment < mem->alignment) {
+    if (!attr.is_packed && alignment < mem->alignment) {
       alignment = mem->alignment;
     }
   }
@@ -3515,6 +3535,9 @@ static Type* struct_decl(Token** tokens) {
 static Type* union_decl(Token** tokens) {
   expect_token(tokens, "union");
 
+  TypeAttr attr = {};
+  attribute(tokens, &attr);
+
   Token* tag = NULL;
   if ((*tokens)->kind == TK_IDENT) {
     tag = expect_ident_token(tokens);
@@ -3536,6 +3559,8 @@ static Type* union_decl(Token** tokens) {
 
   bool is_flexible = false;
   Member* mems = members(tokens, &is_flexible);
+  attribute(tokens, &attr);
+
   int size = 0;
   int alignment = 1;
   for (Member* mem = mems; mem; mem = mem->next) {
