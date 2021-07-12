@@ -68,5 +68,94 @@ int main() {
     int b[2];
   }));
 
+  ASSERT(8, ({
+    struct __attribute__((aligned(8))) {
+      int a;
+    } x;
+    _Alignof(x);  // NOLINT
+  }));
+  ASSERT(8, ({
+    struct {
+      int a;
+    } __attribute__((aligned(8))) x;
+    _Alignof(x);  // NOLINT
+  }));
+
+  ASSERT(8, ({
+    struct __attribute__((aligned(8), packed)) {
+      char a;
+      int b;
+    } x;
+    _Alignof(x);  // NOLINT
+  }));
+  ASSERT(8, ({
+    struct {
+      char a;
+      int b;
+    } __attribute__((aligned(8), packed)) x;
+    _Alignof(x);  // NOLINT
+  }));
+  ASSERT(1, offsetof(
+              struct __attribute__((aligned(8), packed)) {
+                char a;
+                int b;
+              },
+              b));
+  ASSERT(1, offsetof(
+              struct {
+                char a;
+                int b;
+              } __attribute__((aligned(8), packed)),
+              b));
+
+  ASSERT(8, ({
+    struct __attribute__((aligned(8))) __attribute__((packed)) {
+      char a;
+      int b;
+    } x;
+    _Alignof(x);  // NOLINT
+  }));
+  ASSERT(8, ({
+    struct {
+      char a;
+      int b;
+    } __attribute__((aligned(8))) __attribute__((packed)) x;
+    _Alignof(x);  // NOLINT
+  }));
+  ASSERT(1, offsetof(
+              struct __attribute__((aligned(8))) __attribute__((packed)) {
+                char a;
+                int b;
+              },
+              b));
+  ASSERT(1, offsetof(
+              struct {
+                char a;
+                int b;
+              } __attribute__((aligned(8))) __attribute__((packed)),
+              b));
+
+  ASSERT(8, ({
+    struct __attribute__((aligned(8))) {
+      char a;
+      int b;
+    } __attribute__((packed)) x;
+    _Alignof(x);  // NOLINT
+  }));
+  ASSERT(1, offsetof(
+              struct __attribute__((aligned(8))) {
+                char a;
+                int b;
+              } __attribute__((packed)),
+              b));
+
+  ASSERT(16, ({
+    struct __attribute__((aligned(8 + 8))) {
+      char a;
+      int b;
+    } x;
+    _Alignof(x);  // NOLINT
+  }));
+
   ok();
 }

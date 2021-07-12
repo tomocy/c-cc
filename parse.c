@@ -23,6 +23,7 @@ typedef struct VarAttr {
 
 typedef struct TypeAttr {
   bool is_packed;
+  int alignment;
 } TypeAttr;
 
 struct Initer {
@@ -3440,12 +3441,31 @@ static Member* members(Token** tokens, bool* is_flexible) {
 }
 
 static void attribute(Token** tokens, TypeAttr* attr) {
-  if (!consume_token(tokens, "__attribute__")) {
-    return;
-  }
+  while (consume_token(tokens, "__attribute__")) {
+    expect_tokens(tokens, "(", "(", NULL);
 
-  expect_tokens(tokens, "(", "(", "packed", ")", ")", NULL);
-  attr->is_packed = true;
+    bool is_first = true;
+    while (!consume_token(tokens, ")")) {
+      if (!is_first) {
+        expect_token(tokens, ",");
+      }
+      is_first = false;
+
+      if (consume_token(tokens, "packed")) {
+        attr->is_packed = true;
+        continue;
+      }
+
+      if (consume_token(tokens, "aligned")) {
+        expect_token(tokens, "(");
+        attr->alignment = const_expr(tokens);
+        expect_token(tokens, ")");
+        continue;
+      }
+    }
+
+    expect_token(tokens, ")");
+  }
 }
 
 static Type* struct_decl(Token** tokens) {
@@ -3478,7 +3498,7 @@ static Type* struct_decl(Token** tokens) {
   attribute(tokens, &attr);
 
   int bits = 0;
-  int alignment = 1;
+  int alignment = attr.alignment != 0 ? attr.alignment : 1;
   for (Member* mem = mems; mem; mem = mem->next) {
     if (mem->type->kind == TY_VOID) {
       error_token(mem->token, "variable declared void");

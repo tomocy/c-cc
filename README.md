@@ -97,7 +97,8 @@ lvar_decl = decl_specifier (declarator ("=" assign)? ("," declarator ("=" initer
 
 struct_decl = "struct" attribute ident? "{" member* "}" attribute
 union_decl = "union" attribute ident? "{" member* "}" attribute
-attribute = ("__attribute__" "(" "(" "packed" ")" ")")?
+attribute_list = ("__attribute__" "(" "(" attribute ("," attribute)* ")" ")")*
+attribute = "packed" | "alinged" "(" const_expr ")"
 member = decl_specifier (declarator ("," declarator)*)? ";"
 enum_specifier = "enum" ident? "{" ident ("=" const_expr)? ("," ident ("=" const_expr)?)* ","? "}"
 typeof_specifier = "typeof" "(" (abstract_decl | expr) ")"
