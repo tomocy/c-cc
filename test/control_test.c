@@ -685,5 +685,52 @@ int main() {
     i;
   }));
 
+  ASSERT(10, ({
+    int x = 0;
+
+    switch (0) {
+      case 0:
+      begin12345:
+        if (x < 10) {
+          if (x % 3 == 0) {
+            x += 4;
+          } else {
+            x += 3;
+          }
+          goto begin12345;
+        } else if (x % 10 == 0)
+          break;
+        else
+          goto begin12345;
+    }
+
+  end12345:
+
+    x;
+  }));
+  ASSERT(10, ({
+    int x = 0;
+
+    while (x < 100) {
+      if (x < 10) {
+        if (x % 3 == 0) {
+          x += 4;
+        } else {
+          x += 3;
+        }
+        continue;
+      } else if (x % 10 == 0)  // NOLINT
+        break;
+      else if (x % 5 == 0) {
+        x++;
+        continue;
+      }  // NOLINT
+      else
+        continue;
+    }
+
+    x;
+  }));
+
   ok();
 }

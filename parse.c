@@ -1011,12 +1011,13 @@ static Node* new_expr_stmt_node(Node* lhs) {
 }
 
 static Node* create_label_node(Token* token, char* label, Node* lhs) {
-  Node* l = new_unary_node(ND_LABEL, lhs);
-  l->token = token;
-  l->label = label;
-  l->label_id = new_id();
-  add_label(l);
-  return l;
+  Node* node = new_unary_node(ND_LABEL, lhs);
+  node->token = token;
+  node->type = lhs->type;
+  node->label = label;
+  node->label_id = new_id();
+  add_label(node);
+  return node;
 }
 
 static Node* create_goto_node(Token* token, char* label) {
@@ -1726,6 +1727,7 @@ static Node* return_stmt(Token** tokens) {
   if (!is_composite_type(lhs->type)) {
     lhs = new_cast_node(current_func->type->return_type, *tokens, lhs);
   }
+
   expect_token(tokens, ";");
 
   Node* node = new_unary_node(ND_RETURN, lhs);
@@ -1771,6 +1773,8 @@ static Node* break_stmt(Token** tokens) {
     error_token(start, "stray break");
   }
 
+  expect_token(tokens, ";");
+
   return new_contextual_goto_node(start, current_break_label_id);
 }
 
@@ -1782,6 +1786,8 @@ static Node* continue_stmt(Token** tokens) {
   if (!current_continue_label_id) {
     error_token(start, "stray continue");
   }
+
+  expect_token(tokens, ";");
 
   return new_contextual_goto_node(start, current_continue_label_id);
 }
@@ -1802,7 +1808,7 @@ static Node* asm_stmt(Token** tokens) {
 
   *tokens = (*tokens)->next;
 
-  expect_token(tokens, ")");
+  expect_tokens(tokens, ")", ";", NULL);
 
   return node;
 }
@@ -2610,7 +2616,7 @@ static Node* primary(Token** tokens) {
     return node;
   }
 
-  error_token(*tokens, "expected a primary");
+  error_token(start, "expected a primary but got %d", start->kind);
   return NULL;
 }
 
