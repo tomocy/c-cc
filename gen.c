@@ -1337,6 +1337,22 @@ static void gen_for(Node* node) {
   genln("%s:", node->break_label_id);
 }
 
+static void gen_do(Node* node) {
+  int label = count_label();
+
+  genln(".Lbegin%d:", label);
+
+  gen_stmt(node->then);
+
+  genln("%s:", node->continue_label_id);
+
+  gen_expr(node->cond);
+  cmp_zero(node->cond->type);
+  genln("  jne .Lbegin%d", label);
+
+  genln("%s:", node->break_label_id);
+}
+
 static void return_val_via_regs(Node* node) {
   int int_cnt = 0;
   int float_cnt = 0;
@@ -1421,6 +1437,9 @@ static void gen_stmt(Node* node) {
       return;
     case ND_FOR:
       gen_for(node);
+      return;
+    case ND_DO:
+      gen_do(node);
       return;
     case ND_RETURN:
       gen_return(node);

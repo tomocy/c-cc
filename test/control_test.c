@@ -675,5 +675,15 @@ int main() {
     i;
   }));
 
+  ASSERT(20, ({
+    int i = 0;
+    do {
+      for (int j = 0; j < 10; j++) {
+        i++;
+      }
+    } while (i < 15);
+    i;
+  }));
+
   ok();
 }

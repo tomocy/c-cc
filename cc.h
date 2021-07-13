@@ -158,6 +158,7 @@ typedef enum {
   ND_SWITCH,
   ND_CASE,
   ND_FOR,
+  ND_DO,
   ND_RETURN,
   ND_LABEL,
   ND_GOTO,

@@ -507,13 +507,6 @@ static Node* new_node(NodeKind kind) {
   return node;
 }
 
-static Node* copy_node(Node* src) {
-  Node* node = calloc(1, sizeof(Node));
-  *node = *src;
-  node->next = NULL;
-  return node;
-}
-
 static Node* new_unary_node(NodeKind kind, Node* lhs) {
   Node* node = new_node(kind);
   node->token = lhs->token;
@@ -1698,7 +1691,7 @@ static Node* do_stmt(Token** tokens) {
 
   expect_token(tokens, "do");
 
-  Node* node = new_node(ND_FOR);
+  Node* node = new_node(ND_DO);
   node->token = start;
 
   char* prev_break_label_id = renew_break_label_id(&node->break_label_id);
@@ -1715,10 +1708,7 @@ static Node* do_stmt(Token** tokens) {
 
   expect_tokens(tokens, ")", ";", NULL);
 
-  Node* head = copy_node(node->then);
-  head->next = node;
-
-  return new_block_node(start, head);
+  return node;
 }
 
 static Node* return_stmt(Token** tokens) {
@@ -1925,23 +1915,20 @@ static Node* convert_to_atomic_assign_node(Token* token, NodeKind op, Node* lhs,
   cur = cur->next = new_assign_node(token, old_val, new_deref_node(token, addr));
   Node* new_val = new_var_node(token, create_anon_lvar_obj(lhs->type));
 
-  Node* loop = new_node(ND_FOR);
-  loop->token = token;
+  cur = cur->next = new_node(ND_DO);
+  cur->token = token;
 
-  char* prev_break_label_id = renew_break_label_id(&loop->break_label_id);
-  char* prev_continue_label_id = renew_continue_label_id(&loop->continue_label_id);
+  char* prev_break_label_id = renew_break_label_id(&cur->break_label_id);
+  char* prev_continue_label_id = renew_continue_label_id(&cur->continue_label_id);
 
   Node* assign = new_assign_node(token, new_val, new_shorthand_assigner_node(token, op, old_val, val));
-  loop->then = new_expr_stmt_node(assign);
+  cur->then = new_expr_stmt_node(assign);
 
   current_break_label_id = prev_break_label_id;
   current_continue_label_id = prev_continue_label_id;
 
   Node* cas = new_atomic_cas_node(token, addr, new_addr_node(token, old_val), new_val);
-  loop->cond = new_not_node(token, cas);
-
-  cur = cur->next = copy_node(loop->then);
-  cur = cur->next = loop;
+  cur->cond = new_not_node(token, cas);
 
   cur = cur->next = new_val;
 
