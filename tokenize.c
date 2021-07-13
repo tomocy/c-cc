@@ -148,16 +148,31 @@ static void canonicalize_newlines(char* contents) {
 static void remove_backslach_newlines(char* contents) {
   int peeked = 0;
   int i = 0;
+  int removed = 0;
 
   while (contents[peeked]) {
     if (contents[peeked] == '\\' && contents[peeked + 1] == '\n') {
       peeked += 2;
+      removed++;
+      continue;
+    }
+
+    if (contents[peeked] == '\n') {
+      contents[i++] = contents[peeked++];
+      // Append new lines the number of the removed ones times so that the logical number of lines
+      // finally matches the phisical ones at the end.
+      for (; removed > 0; removed--) {
+        contents[i++] = '\n';
+      }
       continue;
     }
 
     contents[i++] = contents[peeked++];
   }
 
+  for (; removed > 0; removed--) {
+    contents[i++] = '\n';
+  }
   contents[i] = '\0';
 }
 
