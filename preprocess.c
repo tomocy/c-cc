@@ -913,7 +913,7 @@ static Token* replace_funclike_macro_body(Macro* macro, FunclikeMacroArg* args) 
 
     FunclikeMacroArg* arg = find_funclike_macro_arg_from(args, token->loc, token->len);
     if (arg) {
-      Token* processed = process(arg->token);
+      Token* processed = process(copy_tokens(arg->token));
       if (processed) {
         processed = inherit_token_space(processed, token);
         hand_over_tokens(&cur, processed);

@@ -629,5 +629,10 @@ of(char));
 #define M14(x, args...) x
   ASSERT(5, M14(5));
 
+#define M15M15(arg) (M15(arg), M15(arg))
+#define M15(arg) arg
+#define one 1
+  ASSERT(1, M15M15(one));
+
   ok();
 }
