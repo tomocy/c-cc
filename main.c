@@ -663,7 +663,7 @@ static int run(Str* original) {
   Str* cur_link_inputs = &head_link_inputs;
   for (Str* input = input_filenames; input; input = input->next) {
     if (start_with(input->data, "-l")) {
-      cur_link_inputs = cur_link_inputs->next = new_str(input->data + 2);
+      cur_link_inputs = cur_link_inputs->next = new_str(input->data);
       continue;
     }
 

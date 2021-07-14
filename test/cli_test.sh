@@ -351,9 +351,8 @@ else
 fi
 
 # pass a library to linker (-l)
-echo "int x() { return 0; }" | $CC -c -o "$TMP/out1.o" -x c -
-echo "int x(); int main() { return x(); }" | $CC -c -o "$TMP/out2.o" -x c -
-$CC -o "$TMP/out" -l"$TMP/out1.o" "$TMP/out2.o"
+echo "int main() { return 0; }" | $CC -c -o "$TMP/out.o" -x c -
+$CC -o "$TMP/out" -lpthread "$TMP/out.o"
 if "$TMP/out"; then
   passed 'pass a library to linker (-l)'
 else
@@ -364,8 +363,8 @@ fi
 echo "extern int bar; int foo() { return bar; }" > "$TMP/foo.c"
 $CC -shared -fPIC -o "$TMP/libfoobar.so" "$TMP/foo.c"
 echo "int foo(); int bar = 0; int main() { return foo(); }" > "$TMP/bar.c"
-$CC -o "$TMP/out" -L "$TMP" -l"$TMP/libfoobar.so" "$TMP/bar.c"
-if "$TMP/out"; then
+$CC -o "$TMP/out" "$TMP/bar.c" -L"$TMP" -lfoobar
+if LD_LIBRARY_PATH=$TMP "$TMP/out"; then
   passed 'pass a search dir to linker (-L)'
 else
   failed 'pass a search dir to linker (-L)'
