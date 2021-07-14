@@ -2,17 +2,17 @@
 
 char* asm_fn1(void) {
   asm(
-    "mov rax, 50\n\t"
-    "mov rsp, rbp\n\t"
-    "pop rbp\n\t"
+    "mov %rax, 50\n\t"
+    "mov %rsp, %rbp\n\t"
+    "pop %rbp\n\t"
     "ret");
 }  // NOLINT
 
 char* asm_fn2(void) {
   asm inline volatile(
-    "mov rax, 55\n\t"
-    "mov rsp, rbp\n\t"
-    "pop rbp\n\t"
+    "mov %rax, 55\n\t"
+    "mov %rsp, %rbp\n\t"
+    "pop %rbp\n\t"
     "ret");
 }  // NOLINT
 
