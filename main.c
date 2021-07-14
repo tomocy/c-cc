@@ -15,7 +15,8 @@ static char* location;
 char* input_filename;
 static char* output_filename;
 static Str* tmp_filenames;
-static Str* input_filenames;
+static Str head_input_filenames;
+static Str* cur_input_filename = &head_input_filenames;
 static Str* included_paths;
 Str* include_paths;
 Str* std_include_paths;
@@ -23,7 +24,7 @@ static Str* include_later_paths;
 static bool as_static;
 static bool as_shared;
 static Str head_link_args = {};
-static Str* cur_link_args = &head_link_args;
+static Str* cur_link_arg = &head_link_args;
 static bool do_log_args;
 static bool do_exec;
 static FileType input_file_type = FILE_NONE;
@@ -266,32 +267,32 @@ static Str* parse_args(int argc, char** argv) {
 
     if (start_with(argv[i], "-static")) {
       as_static = true;
-      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[i]));
+      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[i]));
       continue;
     }
 
     if (start_with(argv[i], "-shared")) {
       as_shared = true;
-      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[i]));
+      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[i]));
       continue;
     }
 
     // -llibrary
     if (start_with(argv[i], "-l")) {
-      add_str(&input_filenames, new_str(argv[i]));
+      cur_input_filename = cur_input_filename->next = new_str(argv[i]);
       continue;
     }
 
     if (equal_to_str(argv[i], "-L")) {
-      cur_link_args = cur_link_args->next = new_str("-L");
-      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[++i]));
+      cur_link_arg = cur_link_arg->next = new_str("-L");
+      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[++i]));
       continue;
     }
 
     // -Ldir
     if (start_with(argv[i], "-L")) {
-      cur_link_args = cur_link_args->next = new_str("-L");
-      cur_link_args = cur_link_args->next = new_str(argv[i] + 2);
+      cur_link_arg = cur_link_arg->next = new_str("-L");
+      cur_link_arg = cur_link_arg->next = new_str(argv[i] + 2);
       continue;
     }
 
@@ -300,19 +301,19 @@ static Str* parse_args(int argc, char** argv) {
       char* opts = strdup(argv[i] + 4);
       char* opt = strtok(opts, ",");
       while (opt) {
-        cur_link_args = cur_link_args->next = new_str(opt);
+        cur_link_arg = cur_link_arg->next = new_str(opt);
         opt = strtok(NULL, ",");
       }
       continue;
     }
 
     if (equal_to_str(argv[i], "-Xlinker")) {
-      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[++i]));
+      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[++i]));
       continue;
     }
 
     if (equal_to_str(argv[i], "-s")) {
-      cur_link_args = cur_link_args->next = new_str(take_arg(&cur, argv[i]));
+      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[i]));
       continue;
     }
 
@@ -377,7 +378,7 @@ static Str* parse_args(int argc, char** argv) {
       error("unknown argument: %s", argv[i]);
     }
 
-    add_str(&input_filenames, new_str(argv[i]));
+    cur_input_filename = cur_input_filename->next = new_str(argv[i]);
   }
 
   return head.next;
@@ -650,10 +651,10 @@ static FileType get_file_type(char* fname) {
 }
 
 static int run(Str* original) {
-  if (!input_filenames) {
+  if (!head_input_filenames.next) {
     error("no input files");
   }
-  if (input_filenames->next && output_filename && (in_obj || in_asm || in_c)) {
+  if (head_input_filenames.next->next && output_filename && (in_obj || in_asm || in_c)) {
     error("cannot specify '-o' with '-c', '-S' or '-E' with multiple files");
   }
 
@@ -661,7 +662,7 @@ static int run(Str* original) {
 
   Str head_link_inputs = {};
   Str* cur_link_inputs = &head_link_inputs;
-  for (Str* input = input_filenames; input; input = input->next) {
+  for (Str* input = head_input_filenames.next; input; input = input->next) {
     if (start_with(input->data, "-l")) {
       cur_link_inputs = cur_link_inputs->next = new_str(input->data);
       continue;

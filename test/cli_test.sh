@@ -81,7 +81,7 @@ echo "void x() {}" | $CC -c -o "$TMP/out1.o" -xc -
 echo "void y() {}" | $CC -c -o "$TMP/out2.o" -xc -
 echo "void x(); void y(); int main() { x(); y(); return 0; }" > "$TMP/out3.c"
 ar rcs "$TMP/out12.a" "$TMP/out1.o" "$TMP/out2.o"
-$CC -o "$TMP/out" "$TMP/out12.a" "$TMP/out3.c"
+$CC -o "$TMP/out" "$TMP/out3.c" "$TMP/out12.a"
 if "$TMP/out"; then
   passed 'link (.a -> executable)'
 else
