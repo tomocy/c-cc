@@ -1238,17 +1238,17 @@ static Node* new_func_params(Type* params) {
   return head.next;
 }
 
-static void create_auto_lvars(Token* token, Obj* func) {
+static void create_auto_lvars(Token* token, Obj* func, Type* type) {
   // The return values whose types are struct or union and whose size are larger than 16 bytes
   // are returned by the callee's filling those values via the pointers to those values,
   // so assign the stack of the callee for the pointers.
-  if (is_composite_type(func->type->return_type) && func->type->return_type->size > 16) {
-    func->ptr_to_return_val = new_var_node(token, create_anon_lvar_obj(new_ptr_type(func->type->return_type)));
+  if (is_composite_type(type->return_type) && type->return_type->size > 16) {
+    func->ptr_to_return_val = new_var_node(token, create_anon_lvar_obj(new_ptr_type(type->return_type)));
   }
 
-  func->params = new_func_params(func->type->params);
+  func->params = new_func_params(type->params);
 
-  if (func->type->is_variadic) {
+  if (type->is_variadic) {
     func->va_area = create_lvar_obj(new_chars_type(136), "__va_area__");
   }
 
@@ -1271,7 +1271,7 @@ static void func(Token** tokens) {
       error_token(type->ident, "redeclared as a different kind of symbol");
     }
 
-    bool is_definition = equal_to_token(*tokens, "{");
+    bool is_definition = !consume_token(tokens, ";");
     if (func->is_definition && is_definition) {
       error_token(type->ident, "redefinition of %s", type->name);
     }
@@ -1279,12 +1279,11 @@ static void func(Token** tokens) {
       error_token(type->ident, "static declaration follows non static declaration");
     }
 
-    func->type = type;
     func->is_definition = func->is_definition || is_definition;
   } else {
     func = create_func_obj(type, type->name);
     func->is_static = attr.is_static || (attr.is_inline && !attr.is_extern);
-    func->is_definition = equal_to_token(*tokens, "{");
+    func->is_definition = !consume_token(tokens, ";");
   }
 
   if (!func->is_definition) {
@@ -1296,7 +1295,9 @@ static void func(Token** tokens) {
 
   enter_scope();
 
-  create_auto_lvars(*tokens, func);
+  // As the type may differ from the one declared before (func->type),
+  // pass the type parsed this time as well.
+  create_auto_lvars(*tokens, func, type);
 
   func->body = block_stmt(tokens);
 
@@ -1502,6 +1503,7 @@ static Node* block_stmt(Token** tokens) {
         continue;
       }
 
+      // [GCC] nested functions
       if (is_func_declarator(peeked, spec)) {
         func(tokens);
         continue;
