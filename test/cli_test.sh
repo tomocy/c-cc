@@ -49,6 +49,13 @@ else
 fi
 
 # link
+# .c (stdin) -> executable
+echo 'int main() { return 0; }' | $CC -o "$TMP/out" -xc -
+if "$TMP/out"; then
+  passed 'link (.c (stdin) -> executable)'
+else
+  failed 'link (.c (stdin) -> executable)'
+fi
 # .c -> executable
 echo 'int bar(); int main() { return bar(); }' > "$TMP/out1.c"
 echo 'int bar() { return 0; }' > "$TMP/out2.c"

@@ -465,7 +465,7 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
   Str head_link_inputs = {};
   Str* link_inputs = &head_link_inputs;
   for (Str* input = inputs; input; input = input->next) {
-    if (!end_with(input->data, ".c")) {
+    if (!equal_to_str(input->data, "-") && !end_with(input->data, ".c")) {
       link_inputs = link_inputs->next = copy_str(input);
       continue;
     }
