@@ -1314,10 +1314,8 @@ static void gen_for(Node* node) {
 
   genln(".Lbegin%d:", label);
   if (node->cond) {
-    push("%rax");
     gen_expr(node->cond);
     cmp_zero(node->cond->type);
-    pop("%rax");
 
     genln("  je %s", node->break_label_id);
   }
@@ -1327,9 +1325,7 @@ static void gen_for(Node* node) {
   genln("%s:", node->continue_label_id);
 
   if (node->inc) {
-    push("%rax");
     gen_expr(node->inc);
-    pop("%rax");
   }
 
   genln("  jmp .Lbegin%d", label);
