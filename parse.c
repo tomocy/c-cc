@@ -1505,7 +1505,13 @@ static Node* block_stmt(Token** tokens) {
 
       // [GCC] nested functions
       if (is_func_declarator(peeked, spec)) {
+        Obj* prev_func = current_func;
+        Obj* prev_lvars = current_lvars;
+
         func(tokens);
+
+        current_func = prev_func;
+        current_lvars = prev_lvars;
         continue;
       }
 
