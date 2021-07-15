@@ -1128,7 +1128,7 @@ static void mark_referred_func(Obj* func) {
   for (Str* name = func->refering_funcs; name; name = name->next) {
     Obj* ref = find_datum_obj_from(gscope, name->data);
     if (!ref) {
-      UNREACHABLE("expected %s to be found", name->data);
+      continue;
     }
 
     mark_referred_func(ref);
