@@ -393,7 +393,7 @@ Token* append_tokens(Token* former, Token* latter) {
 }
 
 static bool is_std_include_file(char* fname) {
-  for (Str* path = std_include_paths; path; path = path->next) {
+  for (Str* path = std_include_paths.head.next; path; path = path->next) {
     if (start_with(fname, path->data)) {
       return true;
     }

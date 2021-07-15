@@ -235,8 +235,8 @@ mkdir "$TMP/include2"
 echo 'int x = 0;' > "$TMP/include1/include.c"
 echo 'int y = 0;' > "$TMP/include2/include.c"
 if
-  echo "#include \"include.c\"" | $CC -S -o - -I "$TMP/include1" -I "$TMP/include2" -x c - | grep -q y:
-  echo "#include \"include.c\"" | $CC -S -o - -idirafter "$TMP/include1" -I "$TMP/include2" -x c - | grep -q x:
+  echo "#include \"include.c\"" | $CC -S -o - -I "$TMP/include1" -I "$TMP/include2" -x c - | grep -q x:
+  echo "#include \"include.c\"" | $CC -S -o - -idirafter "$TMP/include1" -I "$TMP/include2" -x c - | grep -q y:
 then
   passed 'include path (-idirafter)'
 else

@@ -8,6 +8,19 @@ void add_str(Str** strs, Str* str) {
   *strs = str;
 }
 
+void push_str(StrQueue* queue, Str* str) {
+  if (!queue->cur) {
+    queue->cur = &queue->head;
+  }
+  queue->cur = queue->cur->next = str;
+}
+
+void push_strs(StrQueue* queue, Str* strs) {
+  for (Str* str = strs; str; str = str->next) {
+    push_str(queue, str);
+  }
+}
+
 Str* new_str(char* data) {
   Str* str = calloc(1, sizeof(Str));
   str->data = data;

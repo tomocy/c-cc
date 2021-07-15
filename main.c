@@ -9,22 +9,19 @@ typedef enum {
   FILE_DSO,
 } FileType;
 
-// the location where this program lives is kept
-// so that the include path relative to the location can be resolved
+// The location where this program lives is kept
+// so that the include path relative to the location can be resolved.
 static char* location;
 char* input_filename;
 static char* output_filename;
 static Str* tmp_filenames;
-static Str head_input_filenames;
-static Str* cur_input_filename = &head_input_filenames;
-static Str* included_paths;
-Str* include_paths;
-Str* std_include_paths;
-static Str* include_later_paths;
+static StrQueue input_filenames;
+static StrQueue included_paths;
+StrQueue include_paths;
+StrQueue std_include_paths;
 static bool as_static;
 static bool as_shared;
-static Str head_link_args = {};
-static Str* cur_link_arg = &head_link_args;
+static StrQueue link_args;
 static bool do_log_args;
 static bool do_exec;
 static FileType input_file_type = FILE_NONE;
@@ -53,7 +50,7 @@ static void unlink_tmp_files() {
   unlink_files(tmp_filenames);
 }
 
-static char** new_args(int* argc, Str* strs) {
+static char** new_args_from_strs(int* argc, Str* strs) {
   int len = 0;
   for (Str* arg = strs; arg; arg = arg->next) {
     len++;
@@ -75,12 +72,12 @@ static void usage(int status) {
   exit(status);
 }
 
-static char* take_arg(Str** args, char* arg) {
+static char* take_arg(StrQueue* args, char* arg) {
   if (!arg) {
     usage(1);
   }
 
-  *args = (*args)->next = new_str(arg);
+  push_str(args, new_str(arg));
   return arg;
 }
 
@@ -139,14 +136,15 @@ static char* escape_makefile_target(char* target) {
 }
 
 static Str* parse_args(int argc, char** argv) {
-  Str head = {};
-  Str* cur = &head;
+  StrQueue args = {};
 
-  cur = cur->next = new_str(argv[0]);
+  StrQueue include_later_paths = {};
+
+  push_str(&args, new_str(argv[0]));
   location = dir(argv[0]);
 
   for (int i = 1; i < argc; i++) {
-    cur = cur->next = new_str(argv[i]);
+    push_str(&args, new_str(argv[i]));
 
     if (equal_to_str(argv[i], "--help")) {
       usage(0);
@@ -188,59 +186,49 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
-    // -o output_filename
     if (equal_to_str(argv[i], "-o")) {
-      output_filename = take_arg(&cur, argv[++i]);
+      output_filename = take_arg(&args, argv[++i]);
       continue;
     }
-    // -ooutput_filename etc
     if (start_with(argv[i], "-o")) {
       output_filename = argv[i] + 2;
       continue;
     }
 
-    // -include file
     if (equal_to_str(argv[i], "-include")) {
-      add_str(&included_paths, new_str(take_arg(&cur, argv[++i])));
+      push_str(&included_paths, new_str(take_arg(&args, argv[++i])));
       continue;
     }
 
-    // -I include_path
     if (equal_to_str(argv[i], "-I")) {
-      add_str(&include_paths, new_str(take_arg(&cur, argv[++i])));
+      push_str(&include_paths, new_str(take_arg(&args, argv[++i])));
       continue;
     }
-    // -Iinclude_path etc
     if (start_with(argv[i], "-I")) {
-      add_str(&include_paths, new_str(argv[i] + 2));
+      push_str(&include_paths, new_str(argv[i] + 2));
       continue;
     }
 
-    // -idirafter include_path
     if (equal_to_str(argv[i], "-idirafter")) {
-      add_str(&include_later_paths, new_str(take_arg(&cur, argv[++i])));
+      push_str(&include_later_paths, new_str(take_arg(&args, argv[++i])));
       continue;
     }
 
-    // -D name=body
     if (equal_to_str(argv[i], "-D")) {
-      define_arg_macro(take_arg(&cur, argv[++i]));
+      define_arg_macro(take_arg(&args, argv[++i]));
       continue;
     }
-    // -Dname=body
     if (start_with(argv[i], "-D")) {
-      define_arg_macro(take_arg(&cur, argv[i] + 2));
+      define_arg_macro(take_arg(&args, argv[i] + 2));
       continue;
     }
 
-    // -U name=body
     if (equal_to_str(argv[i], "-U")) {
-      undefine_macro(take_arg(&cur, argv[++i]));
+      undefine_macro(take_arg(&args, argv[++i]));
       continue;
     }
-    // -Uname=body
     if (start_with(argv[i], "-U")) {
-      undefine_macro(take_arg(&cur, argv[i] + 2));
+      undefine_macro(take_arg(&args, argv[i] + 2));
       continue;
     }
 
@@ -254,45 +242,40 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
-    // -x input_language
     if (equal_to_str(argv[i], "-x")) {
-      input_file_type = parse_file_type(take_arg(&cur, argv[++i]));
+      input_file_type = parse_file_type(take_arg(&args, argv[++i]));
       continue;
     }
-    // -xinput_language
     if (start_with(argv[i], "-x")) {
-      input_file_type = parse_file_type(take_arg(&cur, argv[i] + 2));
+      input_file_type = parse_file_type(take_arg(&args, argv[i] + 2));
       continue;
     }
 
     if (start_with(argv[i], "-static")) {
       as_static = true;
-      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[i]));
+      push_str(&link_args, new_str(take_arg(&args, argv[i])));
       continue;
     }
 
     if (start_with(argv[i], "-shared")) {
       as_shared = true;
-      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[i]));
+      push_str(&link_args, new_str(take_arg(&args, argv[i])));
       continue;
     }
 
-    // -llibrary
     if (start_with(argv[i], "-l")) {
-      cur_input_filename = cur_input_filename->next = new_str(argv[i]);
+      push_str(&input_filenames, new_str(argv[i]));
       continue;
     }
 
     if (equal_to_str(argv[i], "-L")) {
-      cur_link_arg = cur_link_arg->next = new_str("-L");
-      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[++i]));
+      push_str(&link_args, new_str("-L"));
+      push_str(&link_args, new_str(take_arg(&args, argv[++i])));
       continue;
     }
-
-    // -Ldir
     if (start_with(argv[i], "-L")) {
-      cur_link_arg = cur_link_arg->next = new_str("-L");
-      cur_link_arg = cur_link_arg->next = new_str(argv[i] + 2);
+      push_str(&link_args, new_str("-L"));
+      push_str(&link_args, new_str(argv[i] + 2));
       continue;
     }
 
@@ -301,19 +284,19 @@ static Str* parse_args(int argc, char** argv) {
       char* opts = strdup(argv[i] + 4);
       char* opt = strtok(opts, ",");
       while (opt) {
-        cur_link_arg = cur_link_arg->next = new_str(opt);
+        push_str(&link_args, new_str(opt));
         opt = strtok(NULL, ",");
       }
       continue;
     }
 
     if (equal_to_str(argv[i], "-Xlinker")) {
-      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[++i]));
+      push_str(&link_args, new_str(take_arg(&args, argv[++i])));
       continue;
     }
 
     if (equal_to_str(argv[i], "-s")) {
-      cur_link_arg = cur_link_arg->next = new_str(take_arg(&cur, argv[i]));
+      push_str(&link_args, new_str(take_arg(&args, argv[i])));
       continue;
     }
 
@@ -331,9 +314,8 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
-    // -MT target, -MQ target
     if (equal_to_str(argv[i], "-MT") || equal_to_str(argv[i], "-MQ")) {
-      char* target = take_arg(&cur, argv[++i]);
+      char* target = take_arg(&args, argv[++i]);
       if (equal_to_str(argv[i - 1], "-MQ")) {
         target = escape_makefile_target(target);
       }
@@ -351,9 +333,8 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
-    // -MF output_filename
     if (equal_to_str(argv[i], "-MF")) {
-      deps_output_filename = take_arg(&cur, argv[++i]);
+      deps_output_filename = take_arg(&args, argv[++i]);
       continue;
     }
 
@@ -378,20 +359,28 @@ static Str* parse_args(int argc, char** argv) {
       error("unknown argument: %s", argv[i]);
     }
 
-    cur_input_filename = cur_input_filename->next = new_str(argv[i]);
+    push_str(&input_filenames, new_str(argv[i]));
   }
 
-  return head.next;
+  push_strs(&include_paths, include_later_paths.head.next);
+
+  return args.head.next;
+}
+
+static void log_args(int argc, char** argv) {
+  if (!do_log_args) {
+    return;
+  }
+
+  fprintf(stderr, "%s", argv[0]);
+  for (int i = 1; i < argc; i++) {
+    fprintf(stderr, " %s", argv[i]);
+  }
+  fprintf(stderr, "\n");
 }
 
 static int run_subprocess(int argc, char** argv) {
-  if (do_log_args) {
-    fprintf(stderr, "%s", argv[0]);
-    for (int i = 1; i < argc; i++) {
-      fprintf(stderr, " %s", argv[i]);
-    }
-    fprintf(stderr, "\n");
-  }
+  log_args(argc, argv);
 
   int pid = fork();
   if (pid == -1) {
@@ -410,40 +399,39 @@ static int run_subprocess(int argc, char** argv) {
 }
 
 static int preprocesss(Str* original, char* input, char* output) {
-  Str head = {};
-  Str* cur = &head;
-  for (Str* arg = original; arg; arg = arg->next) {
-    cur = cur->next = arg;
-  }
-  cur = cur->next = new_str("-E");
-  cur = cur->next = new_str("-exec");
-  cur = cur->next = new_str("-exec/input");
-  cur = cur->next = new_str(input);
+  StrQueue args = {};
+
+  push_strs(&args, original);
+
+  push_str(&args, new_str("-E"));
+  push_str(&args, new_str("-exec"));
+  push_str(&args, new_str("-exec/input"));
+  push_str(&args, new_str(input));
+
   if (output) {
-    cur = cur->next = new_str("-exec/output");
-    cur = cur->next = new_str(output);
+    push_str(&args, new_str("-exec/output"));
+    push_str(&args, new_str(output));
   }
 
   int argc = 0;
-  char** args = new_args(&argc, head.next);
-  return run_subprocess(argc, args);
+  char** argv = new_args_from_strs(&argc, args.head.next);
+  return run_subprocess(argc, argv);
 }
 
 static int drive_to_compile(Str* original, char* input, char* output) {
-  Str head = {};
-  Str* cur = &head;
-  for (Str* arg = original; arg; arg = arg->next) {
-    cur = cur->next = arg;
-  }
-  cur = cur->next = new_str("-exec");
-  cur = cur->next = new_str("-exec/input");
-  cur = cur->next = new_str(input);
-  cur = cur->next = new_str("-exec/output");
-  cur = cur->next = new_str(output);
+  StrQueue args = {};
+
+  push_strs(&args, original);
+
+  push_str(&args, new_str("-exec"));
+  push_str(&args, new_str("-exec/input"));
+  push_str(&args, new_str(input));
+  push_str(&args, new_str("-exec/output"));
+  push_str(&args, new_str(output));
 
   int argc = 0;
-  char** args = new_args(&argc, head.next);
-  return run_subprocess(argc, args);
+  char** argv = new_args_from_strs(&argc, args.head.next);
+  return run_subprocess(argc, argv);
 }
 
 static int run_assembler(char* input, char* output) {
@@ -462,11 +450,10 @@ static int drive_to_assemble(Str* original, char* input, char* output) {
 }
 
 static int drive_to_link(Str* original, Str* inputs, char* output) {
-  Str head_link_inputs = {};
-  Str* link_inputs = &head_link_inputs;
+  StrQueue link_inputs = {};
   for (Str* input = inputs; input; input = input->next) {
     if (!equal_to_str(input->data, "-") && !end_with(input->data, ".c")) {
-      link_inputs = link_inputs->next = copy_str(input);
+      push_str(&link_inputs, input);
       continue;
     }
 
@@ -476,113 +463,94 @@ static int drive_to_link(Str* original, Str* inputs, char* output) {
       return status;
     }
 
-    link_inputs = link_inputs->next = new_str(tmp_fname);
+    push_str(&link_inputs, new_str(tmp_fname));
   }
 
-  Str head_ld_args = {};
-  Str* ld_args = &head_ld_args;
-  ld_args = ld_args->next = new_str("ld");
-  ld_args = ld_args->next = new_str("-o");
-  ld_args = ld_args->next = new_str(output);
-  ld_args = ld_args->next = new_str("-m");
-  ld_args = ld_args->next = new_str("elf_x86_64");
-  ld_args = ld_args->next = new_str("-dynamic-linker");
-  ld_args = ld_args->next = new_str("/lib64/ld-linux-x86-64.so.2");
+  StrQueue ld_args = {};
+  push_str(&ld_args, new_str("ld"));
+  push_str(&ld_args, new_str("-o"));
+  push_str(&ld_args, new_str(output));
+  push_str(&ld_args, new_str("-m"));
+  push_str(&ld_args, new_str("elf_x86_64"));
+  push_str(&ld_args, new_str("-dynamic-linker"));
+  push_str(&ld_args, new_str("/lib64/ld-linux-x86-64.so.2"));
 
   if (as_shared) {
-    ld_args = ld_args->next = new_str(format("%s/crti.o", lib_path));
-    ld_args = ld_args->next = new_str(format("%s/crtbeginS.o", gcc_lib_path));
+    push_str(&ld_args, new_str(format("%s/crti.o", lib_path)));
+    push_str(&ld_args, new_str(format("%s/crtbeginS.o", gcc_lib_path)));
   } else {
-    ld_args = ld_args->next = new_str(format("%s/crt1.o", lib_path));
-    ld_args = ld_args->next = new_str(format("%s/crti.o", lib_path));
-    ld_args = ld_args->next = new_str(format("%s/crtbegin.o", gcc_lib_path));
+    push_str(&ld_args, new_str(format("%s/crt1.o", lib_path)));
+    push_str(&ld_args, new_str(format("%s/crti.o", lib_path)));
+    push_str(&ld_args, new_str(format("%s/crtbegin.o", gcc_lib_path)));
   }
 
-  ld_args = ld_args->next = new_str(format("-L%s", gcc_lib_path));
-  ld_args = ld_args->next = new_str("-L/usr/lib64");
-  ld_args = ld_args->next = new_str("-L/lib64");
-  ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-linux-gnu");
-  ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-pc-linux-gnu");
-  ld_args = ld_args->next = new_str("-L/usr/lib/x86_64-redhat-linux");
-  ld_args = ld_args->next = new_str("-L/usr/lib");
-  ld_args = ld_args->next = new_str("-L/lib");
+  push_str(&ld_args, new_str(format("-L%s", gcc_lib_path)));
+  push_str(&ld_args, new_str("-L/usr/lib64"));
+  push_str(&ld_args, new_str("-L/lib64"));
+  push_str(&ld_args, new_str("-L/usr/lib/x86_64-linux-gnu"));
+  push_str(&ld_args, new_str("-L/usr/lib/x86_64-pc-linux-gnu"));
+  push_str(&ld_args, new_str("-L/usr/lib/x86_64-redhat-linux"));
+  push_str(&ld_args, new_str("-L/usr/lib"));
+  push_str(&ld_args, new_str("-L/lib"));
 
   if (!as_static) {
-    ld_args = ld_args->next = new_str("-dynamic-linker");
-    ld_args = ld_args->next = new_str("/lib64/ld-linux-x86-64.so.2");
+    push_str(&ld_args, new_str("-dynamic-linker"));
+    push_str(&ld_args, new_str("/lib64/ld-linux-x86-64.so.2"));
   }
 
-  for (Str* arg = head_link_args.next; arg; arg = arg->next) {
-    ld_args = ld_args->next = arg;
-  }
-  for (Str* input = head_link_inputs.next; input; input = input->next) {
-    ld_args = ld_args->next = input;
-  }
+  push_strs(&ld_args, link_args.head.next);
+  push_strs(&ld_args, link_inputs.head.next);
 
   if (as_static) {
-    ld_args = ld_args->next = new_str("--start-group");
-    ld_args = ld_args->next = new_str("-lc");
-    ld_args = ld_args->next = new_str("-lgcc");
-    ld_args = ld_args->next = new_str("-lgcc_eh");
-    ld_args = ld_args->next = new_str("--end-group");
+    push_str(&ld_args, new_str("--start-group"));
+    push_str(&ld_args, new_str("-lc"));
+    push_str(&ld_args, new_str("-lgcc"));
+    push_str(&ld_args, new_str("-lgcc_eh"));
+    push_str(&ld_args, new_str("--end-group"));
   } else {
-    ld_args = ld_args->next = new_str("-lc");
-    ld_args = ld_args->next = new_str("-lgcc");
-    ld_args = ld_args->next = new_str("--as-needed");
-    ld_args = ld_args->next = new_str("-lgcc_s");
-    ld_args = ld_args->next = new_str("--no-as-needed");
+    push_str(&ld_args, new_str("-lc"));
+    push_str(&ld_args, new_str("-lgcc"));
+    push_str(&ld_args, new_str("--as-needed"));
+    push_str(&ld_args, new_str("-lgcc_s"));
+    push_str(&ld_args, new_str("--no-as-needed"));
   }
 
   if (as_shared) {
-    ld_args = ld_args->next = new_str(format("%s/crtendS.o", gcc_lib_path));
+    push_str(&ld_args, new_str(format("%s/crtendS.o", gcc_lib_path)));
   } else {
-    ld_args = ld_args->next = new_str(format("%s/crtend.o", gcc_lib_path));
+    push_str(&ld_args, new_str(format("%s/crtend.o", gcc_lib_path)));
   }
 
-  ld_args = ld_args->next = new_str(format("%s/crtn.o", lib_path));
+  push_str(&ld_args, new_str(format("%s/crtn.o", lib_path)));
 
   int argc = 0;
-  char** args = new_args(&argc, head_ld_args.next);
+  char** args = new_args_from_strs(&argc, ld_args.head.next);
 
   return run_subprocess(argc, args);
 }
 
 static void add_default_include_paths() {
-  // In order to give priority to user specified files over default ones,
-  // add the user specified files after the default ones
-  Str* paths = include_paths;
-  include_paths = NULL;
+  push_str(&include_paths, new_str(format("%s/include", location)));
+  push_str(&include_paths, new_str("/usr/local/include"));
+  push_str(&include_paths, new_str("/usr/include/x86_64-linux-gnu"));
+  push_str(&include_paths, new_str("/usr/include"));
 
-  add_str(&include_paths, new_str("/usr/include"));
-  add_str(&include_paths, new_str("/usr/include/x86_64-linux-gnu"));
-  add_str(&include_paths, new_str("/usr/local/include"));
-  add_str(&include_paths, new_str(format("%s/include", location)));
-
-  for (Str* path = include_paths; path; path = path->next) {
-    add_str(&std_include_paths, copy_str(path));
-  }
-
-  for (Str* path = paths; path; path = path->next) {
-    add_str(&include_paths, copy_str(path));
-  }
-
-  for (Str* path = include_later_paths; path; path = path->next) {
-    add_str(&include_paths, copy_str(path));
+  for (Str* path = include_paths.head.next; path; path = path->next) {
+    push_str(&std_include_paths, copy_str(path));
   }
 }
 
 static Str* concat_input_filenames() {
-  Str head = {};
-  Str* cur = &head;
+  StrQueue fnames = {};
 
-  for (Str* path = included_paths; path; path = path->next) {
+  for (Str* path = included_paths.head.next; path; path = path->next) {
     char* compensated = compensate_include_filename(path->data, NULL);
-    cur = cur->next = new_str(compensated);
+    push_str(&fnames, new_str(compensated));
   }
 
-  cur = cur->next = new_str(input_filename);
+  push_str(&fnames, new_str(input_filename));
 
-  return head.next;
+  return fnames.head.next;
 }
 
 static int exec(void) {
@@ -651,20 +619,19 @@ static FileType get_file_type(char* fname) {
 }
 
 static int run(Str* original) {
-  if (!head_input_filenames.next) {
+  if (!input_filenames.head.next) {
     error("no input files");
   }
-  if (head_input_filenames.next->next && output_filename && (in_obj || in_asm || in_c)) {
+  if (input_filenames.head.next->next && output_filename && (in_obj || in_asm || in_c)) {
     error("cannot specify '-o' with '-c', '-S' or '-E' with multiple files");
   }
 
   atexit(unlink_tmp_files);
 
-  Str head_link_inputs = {};
-  Str* cur_link_inputs = &head_link_inputs;
-  for (Str* input = head_input_filenames.next; input; input = input->next) {
+  StrQueue link_inputs = {};
+  for (Str* input = input_filenames.head.next; input; input = input->next) {
     if (start_with(input->data, "-l")) {
-      cur_link_inputs = cur_link_inputs->next = new_str(input->data);
+      push_str(&link_inputs, new_str(input->data));
       continue;
     }
 
@@ -678,7 +645,7 @@ static int run(Str* original) {
 
     // .o, .a, .so -> executable
     if (input_ftype == FILE_OBJ || input_ftype == FILE_AR || input_ftype == FILE_DSO) {
-      cur_link_inputs = cur_link_inputs->next = new_str(input->data);
+      push_str(&link_inputs, new_str(input->data));
       continue;
     }
 
@@ -702,7 +669,7 @@ static int run(Str* original) {
       if (status != 0) {
         return status;
       }
-      cur_link_inputs = cur_link_inputs->next = new_str(tmp_fname);
+      push_str(&link_inputs, new_str(tmp_fname));
       continue;
     }
 
@@ -735,11 +702,11 @@ static int run(Str* original) {
 
     // Keep the input filename to compile, assemble and link later
     // .c -> executable
-    cur_link_inputs = cur_link_inputs->next = new_str(input->data);
+    push_str(&link_inputs, new_str(input->data));
   }
 
-  return head_link_inputs.next
-           ? drive_to_link(original, head_link_inputs.next, output_filename ? output_filename : "a.out")
+  return link_inputs.head.next
+           ? drive_to_link(original, link_inputs.head.next, output_filename ? output_filename : "a.out")
            : 0;
 }
 

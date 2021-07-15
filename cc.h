@@ -38,6 +38,11 @@ struct Str {
   char* data;
 };
 
+typedef struct {
+  Str head;
+  Str* cur;
+} StrQueue;
+
 struct File {
   File* next;
   int index;
@@ -318,8 +323,8 @@ typedef struct {
 } Map;
 
 // main.c
-extern Str* include_paths;
-extern Str* std_include_paths;
+extern StrQueue include_paths;
+extern StrQueue std_include_paths;
 extern char* input_filename;
 extern bool common_symbols_enabled;
 extern bool as_pic;
@@ -394,6 +399,8 @@ void test_map(void);
 
 // string.c
 void add_str(Str** strs, Str* str);
+void push_str(StrQueue* queue, Str* str);
+void push_strs(StrQueue* queue, Str* strs);
 Str* new_str(char* data);
 Str* copy_str(Str* src);
 Str* append_strs(Str* former, Str* latter);

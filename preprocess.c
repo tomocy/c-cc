@@ -1057,7 +1057,7 @@ char* compensate_include_filename(char* fname, char* path) {
     }
   }
 
-  for (Str* path = include_paths; path; path = path->next) {
+  for (Str* path = include_paths.head.next; path; path = path->next) {
     char* compensated = format("%s/%s", path->data, fname);
     if (!have_file(compensated)) {
       continue;
@@ -1073,7 +1073,7 @@ char* compensate_include_filename(char* fname, char* path) {
 }
 
 static char* compensate_include_next_filename(char* fname) {
-  for (Str* path = include_paths; path; path = path->next) {
+  for (Str* path = include_paths.head.next; path; path = path->next) {
     char* compensated = format("%s/%s", path->data, fname);
     if (!have_file(compensated)) {
       continue;
