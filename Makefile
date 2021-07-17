@@ -27,9 +27,9 @@ s2/cc: $(S2_OBJS)
 s2/%.o: cc %.c
 	./cc -c -o s2/$*.o $*.c
 
-s2/test/%: s2/cc test/adapter.c test/%.c
+s2/test/%: cc s2/cc test/adapter.c test/%.c
 	./s2/cc -c -I include -I test -o s2/test/$*.o test/$*.c
-	$(CC) -pthread -o $@ test/adapter.c s2/test/$*.o
+	./cc -pthread -o $@ test/adapter.c s2/test/$*.o
 	rm -rf s2/test/$*.o
 
 # stage1 and stage2 test
