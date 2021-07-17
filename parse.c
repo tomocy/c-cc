@@ -2389,7 +2389,7 @@ static Node* unary(Token** tokens) {
 
   if (consume_token(tokens, "_Alignof")) {
     Node* node = unary(tokens);
-    return new_ulong_node(start, node->type->size);
+    return new_ulong_node(start, node->type->alignment);
   }
 
   if (equal_to_token(*tokens, "_Generic")) {

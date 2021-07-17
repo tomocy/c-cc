@@ -425,8 +425,8 @@ static void gen_assign(Node* node) {
   }
 
   // When the assignee (node->lhs) is the member of a compsite type and bitfield,
-  // c%%alculate the value which should be the result of this assignment in the node->rhs
-  // so that this assign expression can do the assignment of a value of the composite type as norm%%ally.
+  // calculate the value which should be the result of this assignment in the node->rhs
+  // so that this assign expression can do the assignment of a value of the composite type as normally.
   Member* mem = node->lhs->mem;
   genln("  mov %%r8, %%rax");  // Keep the node->rhs value as the last expression
 

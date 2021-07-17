@@ -108,5 +108,10 @@ int main() {
     (unsigned long)&x % 16;
   }));
 
+  ASSERT(4, ({
+    int x[10];
+    _Alignof(x);  // NOLINT
+  }));
+
   ok();
 }
