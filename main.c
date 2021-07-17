@@ -263,6 +263,11 @@ static Str* parse_args(int argc, char** argv) {
       continue;
     }
 
+    if (equal_to_str(argv[i], "-pthread")) {
+      push_str(&input_filenames, new_str("-lpthread"));
+      continue;
+    }
+
     if (start_with(argv[i], "-l")) {
       push_str(&input_filenames, new_str(argv[i]));
       continue;

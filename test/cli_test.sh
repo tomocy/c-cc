@@ -357,6 +357,15 @@ else
   failed 'link to shared objects (-shared)'
 fi
 
+# pass pthread library to linker (-pthread)
+echo "int main() { return 0; }" | $CC -c -o "$TMP/out.o" -x c -
+$CC -o "$TMP/out" -pthread "$TMP/out.o"
+if "$TMP/out"; then
+  passed 'pass pthread library to linker (-pthread)'
+else
+  failed 'pass pthread library to linker (-pthread)'
+fi
+
 # pass a library to linker (-l)
 echo "int main() { return 0; }" | $CC -c -o "$TMP/out.o" -x c -
 $CC -o "$TMP/out" -lpthread "$TMP/out.o"
