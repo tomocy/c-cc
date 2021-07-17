@@ -1351,7 +1351,16 @@ static void gen_do(Node* node) {
   genln("%s:", node->break_label_id);
 }
 
-static void return_val_via_regs(Node* node) {
+static void return_composite_val_via_ptr(Obj* func) {
+  genln("  mov %%rdi, [%%rbp-%d]", func->ptr_to_return_val->obj->offset);
+
+  for (int i = 0; i < func->type->size; i++) {
+    genln("  mov %%dl, [%%rax+%d]", i);
+    genln("  mov [%%rdi+%d], %%dl", i);
+  }
+}
+
+static void return_composite_val_via_regs(Node* node) {
   int general_cnt = 0;
   int float_cnt = 0;
 
@@ -1369,6 +1378,7 @@ static void return_val_via_regs(Node* node) {
     }
     float_cnt++;
   } else {
+    genln("  mov %%rax, 0");
     for (int i = size - 1; i >= 0; i--) {
       genln("  shl %%rax, 8");
       genln("  mov %%al, %d[%%rdi]", i);
@@ -1388,11 +1398,12 @@ static void return_val_via_regs(Node* node) {
           break;
       }
     } else {
-      char* reg1 = general_cnt == 0 ? "%al" : "%dl";
-      char* reg2 = general_cnt == 0 ? "%rax" : "%rdx";
+      char* reg8 = general_cnt == 0 ? "%al" : "%dl";
+      char* reg64 = general_cnt == 0 ? "%rax" : "%rdx";
+      genln("  mov %s, 0", reg64);
       for (int i = size - 1; i >= 0; i--) {
-        genln("  shl %s, 8", reg2);
-        genln("  mov %s, %d[%%rdi]", reg1, 8 + i);
+        genln("  shl %s, 8", reg64);
+        genln("  mov %s, %d[%%rdi]", reg8, 8 + i);
       }
     }
   }
@@ -1404,9 +1415,9 @@ static void gen_return(Node* node) {
 
     if (is_composite_type(node->lhs->type)) {
       if (node->lhs->type->size > 16) {
-        genln("  mov [%%rbp-%d], %%rax", current_func->ptr_to_return_val->obj->offset);
+        return_composite_val_via_ptr(current_func);
       } else {
-        return_val_via_regs(node->lhs);
+        return_composite_val_via_regs(node->lhs);
       }
     }
   }
