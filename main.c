@@ -567,15 +567,10 @@ static int exec(void) {
   if (do_print_deps) {
     char* output = deps_output_filename ?: output_filename;
     if (!deps_output_filename && deps_output_file_ext) {
-      output = replace_file_ext(output_filename ?: input_filename, deps_output_file_ext);
+      output = replace_file_ext(input_filename, deps_output_file_ext);
     }
 
-    print_deps(output, deps_target ?: replace_file_ext(input_filename, ".o"), do_print_std_deps);
-
-    if (do_print_header_deps) {
-      print_header_deps(output, do_print_std_deps);
-    }
-
+    print_deps(output, deps_target ?: replace_file_ext(input_filename, ".o"), do_print_header_deps, do_print_std_deps);
     return 0;
   }
   if (in_c) {

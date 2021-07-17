@@ -416,14 +416,6 @@ static void print_dep(FILE* dst, File* file, bool with_std) {
   fprintf(dst, " \\\n  %s", file->name);
 }
 
-void print_deps(char* output_filename, char* target, bool with_std) {
-  FILE* dst = open_output_file(output_filename);
-
-  fprintf(dst, "%s:", target);
-  print_dep(dst, files, with_std);
-  fprintf(dst, "\n\n");
-}
-
 static void print_header_dep(FILE* dst, File* file, bool with_std) {
   if (!file) {
     return;
@@ -441,10 +433,18 @@ static void print_header_dep(FILE* dst, File* file, bool with_std) {
   fprintf(dst, "%s:\n\n", file->name);
 }
 
-void print_header_deps(char* output_filename, bool with_std) {
+void print_deps(char* output_filename, char* target, bool with_header_deps, bool with_std) {
   FILE* dst = open_output_file(output_filename);
 
-  print_header_dep(dst, files, with_std);
+  fprintf(dst, "%s:", target);
+  print_dep(dst, files, with_std);
+  fprintf(dst, "\n\n");
+
+  if (with_header_deps) {
+    print_header_dep(dst, files, with_std);
+  }
+
+  fclose(dst);
 }
 
 void print_tokens(char* output_filename, Token* tokens) {
