@@ -9,7 +9,7 @@ static Obj* current_func;
 static int func_cnt = 0;
 
 #define MAX_FLOAT_REG_ARGS 8
-#define MAX_INT_REG_ARGS 6
+#define MAX_GENERAL_REG_ARGS 6
 
 static char* arg_regs8[] = {"%dil", "%sil", "%dl", "%cl", "%r8b", "%r9b"};
 static char* arg_regs16[] = {"%di", "%si", "%dx", "%cx", "%r8w", "%r9w"};
@@ -328,6 +328,7 @@ static void cmp_zero(Type* type) {
         genln("  cmp %%eax, 0");
         return;
       }
+
       genln("  cmp %%rax, 0");
   }
 }
@@ -491,51 +492,6 @@ static void gen_neg(Node* node) {
   }
 }
 
-static void store_returned_by_reg_val(Node* node) {
-  int int_cnt = 0;
-  int float_cnt = 0;
-
-  int size = MIN(node->type->size, 8);
-  if (have_float_data(node->type, 0, 8)) {
-    switch (size) {
-      case 4:
-        genln("  movss [%%rbp-%d], %%xmm0", node->obj->offset);
-        break;
-      case 8:
-        genln("  movsd [%%rbp-%d], %%xmm0", node->obj->offset);
-        break;
-    }
-    float_cnt++;
-  } else {
-    for (int i = 0; i < size; i++) {
-      genln("  mov [%%rbp-%d], %%al", node->obj->offset - i);
-      genln("  shr %%rax, 8");
-    }
-    int_cnt++;
-  }
-
-  if (node->type->size > 8) {
-    size = node->type->size - 8;
-    if (have_float_data(node->type, 8, 16)) {
-      switch (size) {
-        case 4:
-          genln("  movss [%%rbp-%d], %%xmm%d", node->obj->offset - 8, float_cnt);
-          return;
-        case 8:
-          genln("  movsd [%%rbp-%d], %%xmm%d", node->obj->offset - 8, float_cnt);
-          return;
-      }
-    } else {
-      char* reg1 = int_cnt == 0 ? "%al" : "%dl";
-      char* reg2 = int_cnt == 0 ? "%rax" : "%rdx";
-      for (int i = 0; i < size; i++) {
-        genln("  mov [%%rbp-%d], %s", node->obj->offset - 8 - i, reg1);
-        genln("  shr %s, 8", reg2);
-      }
-    }
-  }
-}
-
 static void push_arg(Node* arg) {
   gen_expr(arg);
   switch (arg->type->kind) {
@@ -588,14 +544,14 @@ static void push_passed_by_reg_args(Node* args) {
 
 static int push_args(Node* node) {
   int stacked = 0;
-  int int_cnt = 0;
+  int general_cnt = 0;
   int float_cnt = 0;
 
   // When the return v%%alues of function c%%alls are struct or union and their size are larger than
   // 16 bytes, the pointers to the v%%alues are passed as if they are the first arguments
   // for the c%%allee to fill the return v%%alues to the pointers.
   if (node->return_val && node->type->size > 16) {
-    int_cnt++;
+    general_cnt++;
   }
 
   for (Node* arg = node->args; arg; arg = arg->next) {
@@ -615,14 +571,14 @@ static int push_args(Node* node) {
 
         bool former_float = have_float_data(arg->type, 0, 8);
         bool latter_float = have_float_data(arg->type, 8, 16);
-        if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+        if (general_cnt + !former_float + !latter_float > MAX_GENERAL_REG_ARGS
             || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
           arg->is_passed_by_stack = true;
           stacked += align_up(arg->type->size, 8) / 8;
           continue;
         }
 
-        int_cnt += !former_float + !latter_float;
+        general_cnt += !former_float + !latter_float;
         float_cnt += former_float + latter_float;
         continue;
       case TY_FLOAT:
@@ -637,7 +593,7 @@ static int push_args(Node* node) {
         stacked += 2;
         continue;
       default:
-        if (++int_cnt > MAX_INT_REG_ARGS) {
+        if (++general_cnt > MAX_GENERAL_REG_ARGS) {
           arg->is_passed_by_stack = true;
           stacked++;
         }
@@ -658,6 +614,7 @@ static int push_args(Node* node) {
   // in order not to pop passed-by-stack args
   push_passed_by_stack_args(node->args);
   push_passed_by_reg_args(node->args);
+
   if (node->return_val && node->type->size > 16) {
     gen_addr(node->return_val);
     push("%rax");
@@ -702,6 +659,51 @@ static void gen_alloca(Node* node) {
   genln("  mov [%%rbp-%d], %%rax", current_func->alloca_bottom->offset);
 }
 
+static void store_returned_by_reg_val(Node* node) {
+  int general_cnt = 0;
+  int float_cnt = 0;
+
+  int size = MIN(node->type->size, 8);
+  if (have_float_data(node->type, 0, 8)) {
+    switch (size) {
+      case 4:
+        genln("  movss [%%rbp-%d], %%xmm0", node->obj->offset);
+        break;
+      case 8:
+        genln("  movsd [%%rbp-%d], %%xmm0", node->obj->offset);
+        break;
+    }
+    float_cnt++;
+  } else {
+    for (int i = 0; i < size; i++) {
+      genln("  mov [%%rbp-%d], %%al", node->obj->offset - i);
+      genln("  shr %%rax, 8");
+    }
+    general_cnt++;
+  }
+
+  if (node->type->size > 8) {
+    size = node->type->size - 8;
+    if (have_float_data(node->type, 8, 16)) {
+      switch (size) {
+        case 4:
+          genln("  movss [%%rbp-%d], %%xmm%d", node->obj->offset - 8, float_cnt);
+          return;
+        case 8:
+          genln("  movsd [%%rbp-%d], %%xmm%d", node->obj->offset - 8, float_cnt);
+          return;
+      }
+    } else {
+      char* reg1 = general_cnt == 0 ? "%al" : "%dl";
+      char* reg2 = general_cnt == 0 ? "%rax" : "%rdx";
+      for (int i = 0; i < size; i++) {
+        genln("  mov [%%rbp-%d], %s", node->obj->offset - 8 - i, reg1);
+        genln("  shr %s, 8", reg2);
+      }
+    }
+  }
+}
+
 static void gen_funccall(Node* node) {
   if (equal_to_func(node->lhs, "alloca")) {
     gen_alloca(node);
@@ -723,11 +725,11 @@ static void gen_funccall(Node* node) {
   // will be overridden.
   gen_expr(node->lhs);
 
-  int int_cnt = 0;
+  int general_cnt = 0;
   int float_cnt = 0;
 
   if (node->return_val && node->type->size > 16) {
-    pop(arg_regs64[int_cnt++]);
+    pop(arg_regs64[general_cnt++]);
   }
 
   for (Node* arg = node->args; arg; arg = arg->next) {
@@ -740,7 +742,7 @@ static void gen_funccall(Node* node) {
 
         bool former_float = have_float_data(arg->type, 0, 8);
         bool latter_float = have_float_data(arg->type, 8, 16);
-        if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+        if (general_cnt + !former_float + !latter_float > MAX_GENERAL_REG_ARGS
             || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
           continue;
         }
@@ -748,13 +750,13 @@ static void gen_funccall(Node* node) {
         if (former_float) {
           popfn(float_cnt++);
         } else {
-          pop(arg_regs64[int_cnt++]);
+          pop(arg_regs64[general_cnt++]);
         }
         if (arg->type->size > 8) {
           if (latter_float) {
             popfn(float_cnt++);
           } else {
-            pop(arg_regs64[int_cnt++]);
+            pop(arg_regs64[general_cnt++]);
           }
         }
         continue;
@@ -767,8 +769,8 @@ static void gen_funccall(Node* node) {
       case TY_LDOUBLE:
         continue;
       default:
-        if (int_cnt < MAX_INT_REG_ARGS) {
-          pop(arg_regs64[int_cnt++]);
+        if (general_cnt < MAX_GENERAL_REG_ARGS) {
+          pop(arg_regs64[general_cnt++]);
         }
         continue;
     }
@@ -1350,7 +1352,7 @@ static void gen_do(Node* node) {
 }
 
 static void return_val_via_regs(Node* node) {
-  int int_cnt = 0;
+  int general_cnt = 0;
   int float_cnt = 0;
 
   genln("  mov %%rdi, %%rax");
@@ -1371,7 +1373,7 @@ static void return_val_via_regs(Node* node) {
       genln("  shl %%rax, 8");
       genln("  mov %%al, %d[%%rdi]", i);
     }
-    int_cnt++;
+    general_cnt++;
   }
 
   if (node->type->size > 8) {
@@ -1386,8 +1388,8 @@ static void return_val_via_regs(Node* node) {
           break;
       }
     } else {
-      char* reg1 = int_cnt == 0 ? "%al" : "%dl";
-      char* reg2 = int_cnt == 0 ? "%rax" : "%rdx";
+      char* reg1 = general_cnt == 0 ? "%al" : "%dl";
+      char* reg2 = general_cnt == 0 ? "%rax" : "%rdx";
       for (int i = size - 1; i >= 0; i--) {
         genln("  shl %s, 8", reg2);
         genln("  mov %s, %d[%%rdi]", reg1, 8 + i);
@@ -1523,13 +1525,13 @@ static void gen_data(TopLevelObj* codes) {
 }
 
 static void store_va_args(Obj* func) {
-  int int_cnt = 0;
+  int general_cnt = 0;
   int float_cnt = 0;
   for (Node* param = func->params; param; param = param->next) {
     if (is_float_type(param->type)) {
       float_cnt++;
     } else {
-      int_cnt++;
+      general_cnt++;
     }
   }
 
@@ -1538,7 +1540,7 @@ static void store_va_args(Obj* func) {
   // to assign __va_area__ to __va_elem
   // set __va_area__ as __va_elem manu%%ally in memory
   // __va_elem.gp_offset (unsigned int)
-  genln("  mov DWORD PTR [%%rbp-%d], %d", offset, int_cnt * 8);
+  genln("  mov DWORD PTR [%%rbp-%d], %d", offset, general_cnt * 8);
   // __va_elem.fp_offset (unsigned int)
   genln("  mov DWORD PTR [%%rbp-%d], %d", offset - 4, float_cnt * 8 + 48);
   // __va_elem.overflow_arg_area (void*)
@@ -1564,7 +1566,7 @@ static void store_va_args(Obj* func) {
 }
 
 static void assign_passed_by_stack_arg_offsets(Obj* func) {
-  int int_cnt = 0;
+  int general_cnt = 0;
   int float_cnt = 0;
   int offset = 16;
   for (Node* param = func->params; param; param = param->next) {
@@ -1577,12 +1579,12 @@ static void assign_passed_by_stack_arg_offsets(Obj* func) {
 
         bool former_float = have_float_data(param->type, 0, 8);
         bool latter_float = have_float_data(param->type, 8, 16);
-        if (int_cnt + !former_float + !latter_float > MAX_INT_REG_ARGS
+        if (general_cnt + !former_float + !latter_float > MAX_GENERAL_REG_ARGS
             || float_cnt + former_float + latter_float > MAX_FLOAT_REG_ARGS) {
           break;
         }
 
-        int_cnt += !former_float + !latter_float;
+        general_cnt += !former_float + !latter_float;
         float_cnt += former_float + latter_float;
         continue;
       }
@@ -1595,7 +1597,7 @@ static void assign_passed_by_stack_arg_offsets(Obj* func) {
       case TY_LDOUBLE:
         break;
       default:
-        if (++int_cnt <= MAX_INT_REG_ARGS) {
+        if (++general_cnt <= MAX_GENERAL_REG_ARGS) {
           continue;
         }
         break;
@@ -1607,7 +1609,7 @@ static void assign_passed_by_stack_arg_offsets(Obj* func) {
   }
 }
 
-static void store_int_arg(int size, int offset, int n) {
+static void store_general_arg(int size, int offset, int n) {
   switch (size) {
     case 1:
       genln("  mov [%%rax+%d], %s", offset, arg_regs8[n]);
@@ -1618,9 +1620,14 @@ static void store_int_arg(int size, int offset, int n) {
     case 4:
       genln("  mov [%%rax+%d], %s", offset, arg_regs32[n]);
       break;
-    default:
+    case 8:
       genln("  mov [%%rax+%d], %s", offset, arg_regs64[n]);
       break;
+    default:
+      for (int i = 0; i < size; i++) {
+        genln("  mov [%%rax+%d], %s", offset + i, arg_regs8[n]);
+        genln("  shr %s, 8", arg_regs64[n]);
+      }
   }
 }
 
@@ -1636,12 +1643,12 @@ static void store_float_arg(int size, int offset, int n) {
 }
 
 static void store_args(Obj* func) {
-  int int_cnt = 0;
+  int general_cnt = 0;
   int float_cnt = 0;
 
   if (func->ptr_to_return_val) {
     gen_addr(func->ptr_to_return_val);
-    store_int_arg(func->ptr_to_return_val->type->size, 0, int_cnt++);
+    store_general_arg(func->ptr_to_return_val->type->size, 0, general_cnt++);
   }
 
   for (Node* param = func->params; param; param = param->next) {
@@ -1658,14 +1665,14 @@ static void store_args(Obj* func) {
         if (have_float_data(param->type, 0, 8)) {
           store_float_arg(size, 0, float_cnt++);
         } else {
-          store_int_arg(size, 0, int_cnt++);
+          store_general_arg(size, 0, general_cnt++);
         }
         if (param->type->size > 8) {
           int size = param->type->size - 8;
           if (have_float_data(param->type, 8, 16)) {
             store_float_arg(size, 8, float_cnt++);
           } else {
-            store_int_arg(size, 8, int_cnt++);
+            store_general_arg(size, 8, general_cnt++);
           }
         }
         break;
@@ -1675,7 +1682,7 @@ static void store_args(Obj* func) {
         store_float_arg(param->type->size, 0, float_cnt++);
         break;
       default:
-        store_int_arg(param->type->size, 0, int_cnt++);
+        store_general_arg(param->type->size, 0, general_cnt++);
         break;
     }
   }
