@@ -257,7 +257,6 @@ static Obj* prepare_gvar_obj(Type* type, char* name) {
   var->type = type;
   var->name = name;
   var->is_definition = true;
-  var->alignment = type->alignment;
   return var;
 }
 
@@ -307,7 +306,6 @@ static Obj* create_lvar_obj(Type* type, char* name) {
   Obj* var = new_obj(OJ_LVAR);
   var->type = type;
   var->name = name;
-  var->alignment = type->alignment;
   add_lvar_obj(var);
   return var;
 }

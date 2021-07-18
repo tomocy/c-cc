@@ -6,6 +6,7 @@ char g3;
 int g4;
 long g5;
 char g6;
+int g7[30];
 
 int main() {
   ASSERT(1, _Alignof(char));
@@ -92,25 +93,40 @@ int main() {
   }));
 
   ASSERT(0, ({
-    char x[16];
+    int x[10];
     (unsigned long)&x % 16;
   }));
+  ASSERT(4, ({
+    int x[10];
+    _Alignof(x);  // NOLINT
+  }));
   ASSERT(0, ({
-    char x[17];
+    int x[11];
     (unsigned long)&x % 16;
+  }));
+  ASSERT(4, ({
+    int x[11];
+    _Alignof(x);  // NOLINT
   }));
   ASSERT(0, ({
     char x[100];
     (unsigned long)&x % 16;
   }));
+  ASSERT(1, ({
+    char x[100];
+    _Alignof(x);  // NOLINT
+  }));
   ASSERT(0, ({
     char x[101];
     (unsigned long)&x % 16;
   }));
-
-  ASSERT(4, ({
-    int x[10];
+  ASSERT(1, ({
+    char x[101];
     _Alignof(x);  // NOLINT
+  }));
+  ASSERT(0, ({ (unsigned long)&g7 % 16; }));
+  ASSERT(4, ({
+    _Alignof(g7);  // NOLINT
   }));
 
   ok();

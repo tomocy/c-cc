@@ -1477,6 +1477,13 @@ static void gen_stmt(Node* node) {
   }
 }
 
+static void adjust_var_alignment(Obj* var) {
+  // AMD64 System V ABI requires an array whose size is at least 16 bytes to have at least 16 bytes alignment.
+  if (var->type->kind == TY_ARRAY && var->type->size >= 16) {
+    var->type->alignment = MAX(var->type->alignment, 16);
+  }
+}
+
 static void gen_data(TopLevelObj* codes) {
   for (TopLevelObj* var = codes; var; var = var->next) {
     if (var->obj->kind != OJ_GVAR) {
@@ -1485,6 +1492,8 @@ static void gen_data(TopLevelObj* codes) {
     if (!var->obj->is_definition) {
       continue;
     }
+
+    adjust_var_alignment(var->obj);
 
     if (var->obj->is_static) {
       genln(".local %s", var->obj->name);
@@ -1505,7 +1514,7 @@ static void gen_data(TopLevelObj* codes) {
       }
       genln(".type %s, @object", var->obj->name);
       genln(".size %s, %d", var->obj->name, var->obj->type->size);
-      genln(".align %d", var->obj->alignment);
+      genln(".align %d", var->obj->type->alignment);
       genln("%s:", var->obj->name);
 
       Relocation* reloc = var->obj->relocs;
@@ -1529,7 +1538,7 @@ static void gen_data(TopLevelObj* codes) {
     } else {
       genln(".bss");
     }
-    genln(".align %d", var->obj->alignment);
+    genln(".align %d", var->obj->type->alignment);
     genln("%s:", var->obj->name);
     genln("  .zero %d", var->obj->type->size);
   }
@@ -1632,6 +1641,8 @@ static int assign_lvar_offset(Obj* var) {
 
   int last_offset = assign_lvar_offset(var->next);
 
+  adjust_var_alignment(var);
+
   // Local variables which store passed-by-stack arguments do not live
   // in the stack of this function but that of the caller function.
   //
@@ -1641,8 +1652,7 @@ static int assign_lvar_offset(Obj* var) {
     return last_offset;
   }
 
-  int size = var->type->size >= 0 ? var->type->size : 0;
-  var->offset = align_up(last_offset + size, var->alignment);
+  var->offset = align_up(last_offset + var->type->size, var->type->alignment);
 
   return var->offset;
 }

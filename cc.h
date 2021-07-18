@@ -296,7 +296,6 @@ struct Obj {
   int stack_size;
 
   int offset;
-  int alignment;
 
   Relocation* relocs;
 

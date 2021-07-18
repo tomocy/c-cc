@@ -85,7 +85,7 @@ Type* new_func_type(Type* return_type, Type* params, bool is_variadic) {
 }
 
 Type* new_array_type(Type* base, int len) {
-  Type* arr = new_type(TY_ARRAY, base->size * len, len >= 16 ? MAX(base->alignment, 16) : base->alignment);
+  Type* arr = new_type(TY_ARRAY, base->size * len, base->alignment);
   arr->base = base;
   arr->len = len;
   return arr;
