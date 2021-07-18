@@ -200,12 +200,6 @@ static void add_var_obj_to_current_local_scope(char* key, Obj* var) {
     UNREACHABLE("expected a local scope");
   }
 
-  int current_offset = current_lvars ? current_lvars->offset : 0;
-  if (var->offset < current_offset) {
-    UNREACHABLE(
-      "expected the variable offset to be adjusted: var->offset: %d, current_offset: %d", var->offset, current_offset);
-  }
-
   var->next = current_lvars;
   current_lvars = var;
   add_var_obj_to_scope(current_scope, key, var);
@@ -295,23 +289,9 @@ static Obj* create_str_obj(Type* type, char* val) {
   return str;
 }
 
-static void adjust_lvar_obj_offset(Obj* vars, Obj* var, Type* type) {
-  if (var->kind != OJ_LVAR) {
-    UNREACHABLE("expected a local variable but got %d", var->kind);
-  }
-
-  var->type = type;
-  // If the type has not been determined yet (type->size < 0),
-  // treat its size as 0
-  int size = var->type->size >= 0 ? var->type->size : 0;
-  var->offset = align_up(vars ? vars->offset + size : size, var->alignment);
-}
-
 static Obj* create_static_lvar_obj(Type* type, char* name) {
   Obj* var = create_anon_gvar_obj(type);
   var->is_static = true;
-  // Inherit the current offset so that other lvars can extend their offset on it
-  var->offset = current_lvars ? current_lvars->offset : 0;
   add_var_obj_to_current_local_scope(name, var);
   return var;
 }
@@ -328,7 +308,6 @@ static Obj* create_lvar_obj(Type* type, char* name) {
   var->type = type;
   var->name = name;
   var->alignment = type->alignment;
-  adjust_lvar_obj_offset(current_lvars, var, type);
   add_lvar_obj(var);
   return var;
 }
@@ -1304,7 +1283,6 @@ static void func(Token** tokens) {
   leave_scope();
 
   func->lvars = current_lvars;
-  func->stack_size = align_up(func->lvars ? func->lvars->offset : 0, 16);
 
   current_lvars = NULL;
   resolve_labels();
@@ -3323,10 +3301,7 @@ static Node* lvar_init(Token* token, Initer* init, DesignatedIniter* designated)
 static Node* lvar_initer(Token** tokens, Obj* var) {
   Token* start = *tokens;
 
-  Type* type = var->type;
-  Initer* init = initer(tokens, &type);
-  // Adjust the offset of the var from the previous one (var->next)
-  adjust_lvar_obj_offset(var->next, var, type);
+  Initer* init = initer(tokens, &var->type);
 
   DesignatedIniter designated = {NULL, 0, var};
   return new_comma_node(start, new_memzero_node(start, var), lvar_init(start, init, &designated));

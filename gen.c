@@ -1576,10 +1576,15 @@ static void store_va_args(Obj* func) {
   genln("  movsd [%%rbp-%d], %%xmm7", offset - 128);
 }
 
-static void assign_passed_by_stack_arg_offsets(Obj* func) {
+static void assign_param_offsets_for_passed_by_stack_args(Obj* func) {
   int general_cnt = 0;
   int float_cnt = 0;
+
+  // The passed-by-stack arguments lives in the stack of the caller function,
+  // and there are 16 bytes offset to the location from the stack of this function
+  // because of the return address and the base pointer.
   int offset = 16;
+
   for (Node* param = func->params; param; param = param->next) {
     switch (param->type->kind) {
       case TY_STRUCT:
@@ -1618,6 +1623,36 @@ static void assign_passed_by_stack_arg_offsets(Obj* func) {
     param->obj->offset = -offset;
     offset += param->type->size;
   }
+}
+
+static int assign_lvar_offset(Obj* var) {
+  if (!var) {
+    return 0;
+  }
+
+  int last_offset = assign_lvar_offset(var->next);
+
+  // Local variables which store passed-by-stack arguments do not live
+  // in the stack of this function but that of the caller function.
+  //
+  // Static local variables do not live in the stack of this function
+  // as they are in the place where global variables lives in fact.
+  if (var->offset < 0 || var->is_static) {
+    return last_offset;
+  }
+
+  int size = var->type->size >= 0 ? var->type->size : 0;
+  var->offset = align_up(last_offset + size, var->alignment);
+
+  return var->offset;
+}
+
+static void assign_lvar_offsets(Obj* func) {
+  assign_param_offsets_for_passed_by_stack_args(func);
+
+  int last_offset = assign_lvar_offset(func->lvars);
+
+  func->stack_size = align_up(last_offset, 16);
 }
 
 static void store_general_arg(int size, int offset, int n) {
@@ -1711,6 +1746,8 @@ static void gen_text(TopLevelObj* codes) {
 
     current_func = func->obj;
 
+    assign_lvar_offsets(func->obj);
+
     if (func->obj->is_static) {
       genln(".local %s", func->obj->name);
     } else {
@@ -1730,8 +1767,6 @@ static void gen_text(TopLevelObj* codes) {
     if (func->obj->va_area) {
       store_va_args(func->obj);
     }
-
-    assign_passed_by_stack_arg_offsets(func->obj);
 
     store_args(func->obj);
 
