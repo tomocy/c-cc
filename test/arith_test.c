@@ -356,5 +356,10 @@ int main() {
   ASSERT(1, (long double)1 >= 1);
   ASSERT(0, (long double)1 >= 2);
 
+  ASSERT(0, ({
+    unsigned long long n = 0;
+    n >= 0x8000000000000000ULL;
+  }));
+
   ok();
 }

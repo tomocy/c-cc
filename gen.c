@@ -1083,7 +1083,11 @@ static void gen_bin_expr(Node* node) {
       return;
     case ND_LE:
       genln("  cmp %s, %s", ax, di);
-      genln("  setle %%al");
+      if (node->lhs->type->is_unsigned) {
+        genln("  setbe %%al");
+      } else {
+        genln("  setle %%al");
+      }
       genln("  movzb %%rax, %%al");
       return;
     case ND_LSHIFT:
