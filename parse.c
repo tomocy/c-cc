@@ -3359,11 +3359,12 @@ static Node* lvar_decl(Token** tokens) {
     }
 
     Obj* var = create_lvar_obj(type, type->name);
-    Node* node = new_var_node(type->ident, var);
 
-    if (consume_token(tokens, "=")) {
-      node = lvar_initer(tokens, var);
+    if (!consume_token(tokens, "=")) {
+      continue;
     }
+
+    Node* node = lvar_initer(tokens, var);
     if (var->type->size < 0) {
       error_token(type->ident, "variable has imcomplete type");
     }
