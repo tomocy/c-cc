@@ -1010,13 +1010,13 @@ static void gen_float_bin_expr(Node* node) {
           genln("  faddp");
           return;
         case ND_SUB:
-          genln("  fsubrp");
+          genln("  fsubp");
           return;
         case ND_MUL:
           genln("  fmulp");
           return;
         case ND_DIV:
-          genln("  fdivrp");
+          genln("  fdivp");
           return;
         default:
           error_token(node->token, "invalid expression");

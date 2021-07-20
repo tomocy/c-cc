@@ -88,5 +88,46 @@ int main() {
   ASSERT(5, 0.0 ? 3 : 5);
   ASSERT(3, 1.2 ? 3 : 5);  // NOLINT
 
+  ASSERT(0, ({
+    long double a = 10;
+    long double b = 5;
+    a == b;
+  }));
+  ASSERT(1, ({
+    long double a = 10;
+    long double b = 5;
+    a != b;
+  }));
+  ASSERT(0, ({
+    long double a = 10;
+    long double b = 5;
+    a < b;
+  }));
+  ASSERT(0, ({
+    long double a = 10;
+    long double b = 5;
+    a <= b;
+  }));
+  ASSERT(15, ({
+    long double a = 10;
+    long double b = 5;
+    a + b;
+  }));
+  ASSERT(5, ({
+    long double a = 10;
+    long double b = 5;
+    a - b;
+  }));
+  ASSERT(50, ({
+    long double a = 10;
+    long double b = 5;
+    (a) * b;
+  }));
+  ASSERT(2, ({
+    long double a = 10;
+    long double b = 5;
+    a / b;
+  }));
+
   ok();
 }
