@@ -285,7 +285,8 @@ struct Obj {
   bool is_thread_local;
 
   Str* refering_funcs;
-  int is_referred;
+  bool may_be_referred;
+  bool is_referred;
 
   Node* ptr_to_return_val;
   Node* params;

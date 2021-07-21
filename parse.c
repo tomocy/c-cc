@@ -1117,7 +1117,7 @@ static void mark_referred_funcs() {
     if (func->obj->kind != OJ_FUNC) {
       continue;
     }
-    if (func->obj->is_static) {
+    if (!func->obj->may_be_referred) {
       continue;
     }
 
@@ -1262,6 +1262,8 @@ static void func(Token** tokens) {
     func->is_static = attr.is_static || (attr.is_inline && !attr.is_extern);
     func->is_definition = !equal_to_token(*tokens, ";");
   }
+
+  func->may_be_referred = !(attr.is_static && attr.is_inline);
 
   if (consume_token(tokens, ";")) {
     current_func = current_lvars = NULL;
@@ -2553,6 +2555,10 @@ static Node* datum(Token** tokens) {
     case OJ_FUNC:
       if (current_func) {
         add_str(&current_func->refering_funcs, new_str(datum->name));
+      } else {
+        // A function referred in global scope such as a function
+        // in the initializer of a global array of functions may be referred as well.
+        datum->may_be_referred = true;
       }
       return new_func_node(ident, datum);
     case OJ_GVAR:

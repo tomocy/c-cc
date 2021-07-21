@@ -627,6 +627,14 @@ then
 else
   failed 'inline function (static) (referred by each other) (not referred by other)'
 fi
+# static, referred in global scope
+if
+  echo 'static inline int f1(int x) { return x; } static int (*funcs[])(int) = {f1};' | $CC -S -o - -x c - | grep -q f1:
+then
+  passed 'inline function (static) (referred in global scope)'
+else
+  failed 'inline function (static) (referred in global scope)'
+fi
 
 # include next
 rm -rf "$TMP/next1" "$TMP/next2" "$TMP/next3"
