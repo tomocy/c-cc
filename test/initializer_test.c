@@ -82,6 +82,13 @@ int g70_size() {
   return sizeof(g70);
 }
 
+int return_x(int x) {
+  return x;
+}
+
+int (*gvar_return_x1)(int x) = return_x;
+int (*gvar_return_x2)(int x) = &return_x;
+
 int main() {
   ASSERT(1, ({
     int x[3] = {1, 2, 3};
@@ -912,6 +919,9 @@ int main() {
     char x[] = {[2 ... 10] = 'a', [7] = 'b', [15 ... 15] = 'c', [3 ... 5] = 'd'};  // NOLINT
     memcmp(x, "\0\0adddabaaa\0\0\0\0c", 16);
   }));
+
+  ASSERT(5, gvar_return_x1(5));
+  ASSERT(5, gvar_return_x2(5));
 
   ok();
 }

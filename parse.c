@@ -2606,18 +2606,19 @@ static Node* primary(Token** tokens) {
 
 static int64_t relocate(Node* node, char*** label) {
   switch (node->kind) {
-    case ND_LVAR:
-      error_token(node->token, "not a compile-time constant");
-      return 0;
+    case ND_FUNC:
     case ND_GVAR:
       *label = &node->obj->name;
+      return 0;
+    case ND_LVAR:
+      error_token(node->token, "not a compile-time constant");
       return 0;
     case ND_DEREF:
       return eval_reloc(node->lhs, label);
     case ND_MEMBER:
       return relocate(node->lhs, label) + node->mem->offset;
     default:
-      error_token(node->token, "invalid initializer");
+      error_token(node->token, "invalid initializer: expected a relocatable but got %d", node->kind);
       return 0;
   }
 }
@@ -2740,13 +2741,14 @@ static int64_t eval_reloc(Node* node, char*** label) {
       return !eval(node->lhs);
     case ND_BITNOT:
       return ~eval(node->lhs);
-    case ND_LVAR:
+    case ND_FUNC:
     case ND_GVAR:
+    case ND_LVAR:
       if (!label) {
         error_token(node->token, "not a compile-time constant");
       }
-      if (node->type->kind != TY_ARRAY) {
-        error_token(node->token, "invalid initializer");
+      if (node->type->kind != TY_FUNC && node->type->kind != TY_ARRAY) {
+        error_token(node->token, "invalid initializer: expected a function or an array but got : %d", node->type->kind);
       }
 
       *label = &node->obj->name;
@@ -2756,7 +2758,7 @@ static int64_t eval_reloc(Node* node, char*** label) {
         error_token(node->token, "not a compile-time constant");
       }
       if (node->type->kind != TY_ARRAY) {
-        error_token(node->token, "invalid initializer");
+        error_token(node->token, "invalid initializer: expected an array but got : %d", node->type->kind);
       }
 
       return relocate(node->lhs, label) + node->mem->offset;
