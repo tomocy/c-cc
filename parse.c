@@ -1248,7 +1248,7 @@ static void func(Token** tokens) {
       error_token(type->ident, "redeclared as a different kind of symbol");
     }
 
-    bool is_definition = !consume_token(tokens, ";");
+    bool is_definition = !equal_to_token(*tokens, ";");
     if (func->is_definition && is_definition) {
       error_token(type->ident, "redefinition of %s", type->name);
     }
@@ -1260,10 +1260,10 @@ static void func(Token** tokens) {
   } else {
     func = create_func_obj(type, type->name);
     func->is_static = attr.is_static || (attr.is_inline && !attr.is_extern);
-    func->is_definition = !consume_token(tokens, ";");
+    func->is_definition = !equal_to_token(*tokens, ";");
   }
 
-  if (!func->is_definition) {
+  if (consume_token(tokens, ";")) {
     current_func = current_lvars = NULL;
     return;
   }

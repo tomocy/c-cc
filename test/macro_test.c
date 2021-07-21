@@ -111,6 +111,10 @@ int fn() {
   return 42;
 }
 
+void increment(int* x) {
+  (*x)++;
+}
+
 int main() {
   ASSERT(5, include1);
   ASSERT(7, include2);
@@ -633,6 +637,21 @@ of(char));
 #define M15(arg) arg
 #define one 1
   ASSERT(1, M15M15(one));
+
+#define M16(X)                     \
+  if ((X) == 0) {                  \
+    extern void increment(int* x); \
+    increment(&x);                 \
+  }
+
+  ASSERT(1, ({
+    int x = 0;
+    M16(x)
+    M16(x)
+    M16(x)
+    M16(x)
+    x;
+  }));
 
   ok();
 }
