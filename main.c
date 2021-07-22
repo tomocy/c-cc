@@ -15,7 +15,7 @@ static char* location;
 char* input_filename;
 static char* output_filename;
 static Str* tmp_filenames;
-static StrQueue input_filenames;
+static StrQueue inputs;
 static StrQueue included_paths;
 StrQueue include_paths;
 StrQueue std_include_paths;
@@ -265,12 +265,12 @@ static Str* parse_args(int argc, char** argv) {
     }
 
     if (equal_to_str(argv[i], "-pthread")) {
-      push_str(&input_filenames, new_str("-lpthread"));
+      push_str(&inputs, new_str("-lpthread"));
       continue;
     }
 
     if (start_with(argv[i], "-l")) {
-      push_str(&input_filenames, new_str(argv[i]));
+      push_str(&inputs, new_str(argv[i]));
       continue;
     }
 
@@ -287,12 +287,7 @@ static Str* parse_args(int argc, char** argv) {
 
     // -Wl,a,b,c
     if (start_with(argv[i], "-Wl,")) {
-      char* opts = strdup(argv[i] + 4);
-      char* opt = strtok(opts, ",");
-      while (opt) {
-        push_str(&link_args, new_str(opt));
-        opt = strtok(NULL, ",");
-      }
+      push_str(&inputs, new_str(argv[i]));
       continue;
     }
 
@@ -364,7 +359,7 @@ static Str* parse_args(int argc, char** argv) {
       error("unknown argument: %s", argv[i]);
     }
 
-    push_str(&input_filenames, new_str(argv[i]));
+    push_str(&inputs, new_str(argv[i]));
   }
 
   push_strs(&include_paths, include_later_paths.head.next);
@@ -596,6 +591,19 @@ static int exec(void) {
   return 0;
 }
 
+static int count_input_filenames(Str* inputs) {
+  int n = 0;
+  for (Str* input = inputs; input; input = input->next) {
+    if (start_with_any(input->data, "-l", "-Wl,", NULL)) {
+      continue;
+    }
+
+    n++;
+  }
+
+  return n;
+}
+
 static FileType get_file_type(char* fname) {
   if (input_file_type != FILE_NONE) {
     return input_file_type;
@@ -625,19 +633,30 @@ static FileType get_file_type(char* fname) {
 }
 
 static int run(Str* original) {
-  if (!input_filenames.head.next) {
+  int input_filenames = count_input_filenames(inputs.head.next);
+
+  if (input_filenames <= 0) {
     error("no input files");
   }
-  if (input_filenames.head.next->next && output_filename && (in_obj || in_asm || in_c)) {
+  if (input_filenames >= 2 && output_filename && (in_obj || in_asm || in_c)) {
     error("cannot specify '-o' with '-c', '-S' or '-E' with multiple files");
   }
 
   atexit(unlink_tmp_files);
 
   StrQueue link_inputs = {};
-  for (Str* input = input_filenames.head.next; input; input = input->next) {
+  for (Str* input = inputs.head.next; input; input = input->next) {
     if (start_with(input->data, "-l")) {
       push_str(&link_inputs, new_str(input->data));
+      continue;
+    }
+    if (start_with(input->data, "-Wl,")) {
+      char* opts = strdup(input->data + 4);
+      char* opt = strtok(opts, ",");
+      while (opt) {
+        push_str(&link_args, new_str(opt));
+        opt = strtok(NULL, ",");
+      }
       continue;
     }
 

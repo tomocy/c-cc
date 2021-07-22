@@ -385,9 +385,9 @@ echo "void foo() {}" | $CC -c -o "$TMP/out2.o" -xc -
 echo "int main() {}" | $CC -c -o "$TMP/out3.o" -xc -
 $CC -Wl,-z,muldefs,--gc-sections -o "$TMP/out" "$TMP/out1.o" "$TMP/out2.o" "$TMP/out3.o"
 if "$TMP/out"; then
-  passed 'pass options to linker (-WL,)'
+  passed 'pass options to linker (-Wl,)'
 else
-  failed 'pass options to linker (-WL,)'
+  failed 'pass options to linker (-Wl,)'
 fi
 # -Xlinker
 echo "void foo() {}" | $CC -c -o "$TMP/out1.o" -xc -
