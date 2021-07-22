@@ -531,32 +531,6 @@ static bool consume_punct(Token** dst, char** c) {
     "<<",
     ">>",
     "##",
-    "+",
-    "-",
-    "*",
-    "/",
-    "%",
-    "(",
-    ")",
-    "<",
-    ">",
-    "=",
-    ":",
-    ";",
-    "{",
-    "}",
-    ",",
-    ".",
-    "&",
-    "|",
-    "^",
-    "[",
-    "]",
-    "!",
-    "~",
-    "?",
-    "#",
-    "`",
   };
   static int plen = sizeof(puncts) / sizeof(char*);
 
@@ -568,6 +542,12 @@ static bool consume_punct(Token** dst, char** c) {
     int len = strlen(puncts[i]);
     *dst = new_token(TK_RESERVED, *c, len);
     *c += len;
+    return true;
+  }
+
+  if (ispunct(**c)) {
+    *dst = new_token(TK_RESERVED, *c, 1);
+    (*c)++;
     return true;
   }
 
