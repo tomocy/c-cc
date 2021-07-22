@@ -99,7 +99,7 @@ echo "void x() {}" | $CC -c -o "$TMP/out1.o" -xc -
 echo "void y() {}" | $CC -c -o "$TMP/out2.o" -xc -
 echo "void x(); void y(); int main() { x(); y(); return 0; }" > "$TMP/out3.c"
 cc -shared -o "$TMP/out12.so" "$TMP/out1.o" "$TMP/out2.o"
-$CC -o "$TMP/out" "$TMP/out12.so" "$TMP/out3.c"
+$CC -o "$TMP/out" "$TMP/out3.c" "$TMP/out12.so"
 if "$TMP/out"; then
   passed 'link (.so -> executable)'
 else
@@ -206,7 +206,7 @@ else
   failed 'included path (-include) (user defined file)'
 fi
 # system file
-if echo "NULL" | $CC -E -o - -I include -include stdio.h -x c - | grep -q 0; then
+if echo "NULL" | $CC -E -o - -Iinclude -include stdio.h -x c - | grep -q 0; then
   passed 'included path (-include) (system file)'
 else
   failed 'included path (-include) (system file)'
@@ -272,13 +272,13 @@ fi
 
 # enable common symbols
 # default
-if echo 'int x;' | $CC -S -o - -x c - | grep -q '.comm x'; then
+if echo 'int x;' | $CC -S -o - -x c - | grep -q -e '\.comm\s*x'; then
   passed 'enable common symbols (default)'
 else
   failed 'enable common symbols (default)'
 fi
 # -fcommon
-if echo 'int x;' | $CC -S -o - -fcommon -x c - | grep -q '.comm x'; then
+if echo 'int x;' | $CC -S -o - -fcommon -x c - | grep -q -e '\.comm\s*x'; then
   passed 'enable common symbols (-fcommon)'
 else
   failed 'enable common symbols (-fcommon)'
@@ -316,14 +316,6 @@ if "$TMP/out"; then
   passed 'specify input language (-x) (assembler)'
 else
   failed 'specify input language (-x) (assembler)'
-fi
-# overridden when an input file is object file
-echo "int main() { return 0; }" | $CC -c -o "$TMP/out.o" -x c -
-$CC -o "$TMP/out" -x c "$TMP/out.o"
-if "$TMP/out"; then
-  passed 'specify input language (-x) (overridden when an input file is object file)'
-else
-  failed 'specify input language (-x) (overridden when an input file is object file)'
 fi
 # implicitly specified to c with -E given
 if echo "int x = 0;" | $CC -E -o - - | grep -q "int x = 0;"; then
@@ -511,7 +503,7 @@ fi
 echo "extern int bar; int foo() { return bar; }" | $CC -c -o "$TMP/out.o" -fpic -xc -
 cc -shared -o "$TMP/out.so" "$TMP/out.o"
 echo "int foo(); int bar = 0; int main() { return foo(); }" > "$TMP/main.c"
-$CC -o "$TMP/out" "$TMP/out.so" "$TMP/main.c"
+$CC -o "$TMP/out" "$TMP/main.c" "$TMP/out.so"
 if "$TMP/out"; then
   passed 'emit as position independ code (-fpic, -fPIC)'
 else
