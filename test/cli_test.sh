@@ -427,32 +427,41 @@ else
   failed 'print dependencies (-M)'
 fi
 
-# print dependencies to .d file (-MD)
-echo "int x;" > "$TMP/include1.h"
-echo "int y;" > "$TMP/include2.h"
+# print dependencies to .d file and continue (-MD)
+echo "int x = 0;" > "$TMP/include1.h"
+echo "int y = 0;" > "$TMP/include2.h"
 echo "#include \"include1.h\"" > "$TMP/out.c"
 echo "#include \"include2.h\"" >> "$TMP/out.c"
 (
   cd "$TMP"
-  "$OLDPWD/$CC" -MD "$TMP/out.c"
+  "$OLDPWD/$CC" -MD -S -o "$TMP/out.s" "$TMP/out.c"
 )
-if grep -q -z 'out.o: .*\out\.c .*\include1\.h .*include2\.h' "$TMP/out.d"; then
-  passed 'print dependencies to .d file (-MD)'
+if
+  grep -q -z 'out.o: .*\out\.c .*\include1\.h .*include2\.h' "$TMP/out.d"
+  grep -q x: "$TMP/out.s"
+  grep -q y: "$TMP/out.s"
+then
+  passed 'print dependencies to .d file and continue (-MD)'
 else
-  failed 'print dependencies to .d file (-MD)'
+  failed 'print dependencies to .d file and continue (-MD)'
 fi
-# print dependencies except system ones to .d file (-MMD)
-echo "int x;" > "$TMP/include1.h"
+
+# print dependencies except system ones to .d file and continue (-MMD)
+echo "int x = 0;" > "$TMP/include1.h"
 echo "#include <stdio.h>" > "$TMP/out.c"
 echo "#include \"include1.h\"" >> "$TMP/out.c"
 (
   cd "$TMP"
-  "$OLDPWD/$CC" -I "$OLDPWD/include" -MMD "$TMP/out.c"
+  "$OLDPWD/$CC" -I "$OLDPWD/include" -MMD -S -o "$TMP/out.s" "$TMP/out.c"
 )
-if ! grep -q stdio.h "$TMP/out.d"; then
-  passed 'print dependencies except system ones to .d file (-MMD)'
+if
+  grep -q -z 'out.o: .*\out\.c .*\include1\.h' "$TMP/out.d"
+  grep -q stdio.h "$TMP/out.d" && exit 1
+  grep -q x: "$TMP/out.s"
+then
+  passed 'print dependencies except system ones to .d file and continue (-MMD)'
 else
-  failed 'print dependencies except system ones to .d file (-MMD)'
+  failed 'print dependencies except system ones to .d file and continue (-MMD)'
 fi
 
 # print dependencies as those of the target (-MT)

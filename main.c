@@ -31,6 +31,7 @@ static bool in_c;
 bool common_symbols_enabled = true;
 bool as_pic;
 static bool do_print_deps;
+static bool do_print_deps_and_continue;
 static bool do_print_header_deps;
 static bool do_print_std_deps = true;
 static char* deps_target;
@@ -312,8 +313,7 @@ static Str* parse_args(int argc, char** argv) {
     }
 
     if (equal_to_str(argv[i], "-MD") || equal_to_str(argv[i], "-MMD")) {
-      in_c = true;
-      do_print_deps = true;
+      do_print_deps_and_continue = true;
       do_print_std_deps = !equal_to_str(argv[i], "-MMD");
       deps_output_file_ext = ".d";
       continue;
@@ -569,15 +569,20 @@ static int exec(void) {
   Token* tokens = tokenize_all(inputs);
 
   tokens = preprocess(tokens);
-  if (do_print_deps) {
+
+  if (do_print_deps || do_print_deps_and_continue) {
     char* output = deps_output_filename ?: output_filename;
     if (!deps_output_filename && deps_output_file_ext) {
       output = replace_file_ext(input_filename, deps_output_file_ext);
     }
 
     print_deps(output, deps_target ?: replace_file_ext(input_filename, ".o"), do_print_header_deps, do_print_std_deps);
-    return 0;
+
+    if (!do_print_deps_and_continue) {
+      return 0;
+    }
   }
+
   if (in_c) {
     print_tokens(output_filename, tokens);
     return 0;
