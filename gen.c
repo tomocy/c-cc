@@ -1562,7 +1562,7 @@ static void store_va_args(Obj* func) {
   int offset = func->va_area->offset;
 
   // to assign __va_area__ to __va_elem
-  // set __va_area__ as __va_elem manu%%ally in memory
+  // set __va_area__ as __va_elem manually in memory
   // __va_elem.gp_offset (unsigned int)
   genln("  mov DWORD PTR [%%rbp-%d], %d", offset, general_cnt * 8);
   // __va_elem.fp_offset (unsigned int)

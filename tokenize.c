@@ -669,7 +669,7 @@ static bool consume_char(Token** dst, char** c) {
 
   (*c)++;  // for the opening quote
   if (**c == '\n' || **c == '\0') {
-    error_at(current_file, start, "unclosed string literal");
+    error_at(current_file, start, "unclosed char literal");
   }
 
   int read;
@@ -680,10 +680,13 @@ static bool consume_char(Token** dst, char** c) {
     read = decode_from_utf8(c, *c);
   }
 
-  char* end = (*c)++;
-  if (*end != '\'') {
-    error_at(current_file, start, "unclosed string literal");
+  // Tokenize char literals relaxedly so that something such as a message
+  // quoted with single quotes can be used in the preprocess stage.
+  char* end = strchr(*c, '\'');
+  if (!end) {
+    error_at(current_file, start, "unclosed char literal");
   }
+  *c = end + 1;
 
   Token* token = new_token(TK_NUM, start, end - start + 1);
   token->char_kind = kind;
