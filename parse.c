@@ -4025,7 +4025,7 @@ static Type* func_params(Token** tokens, Type* type) {
   }
 
   if (cur == &head) {
-    type->is_variadic = true;
+    is_variadic = true;
   }
 
   return new_func_type(type, head.next, is_variadic);
