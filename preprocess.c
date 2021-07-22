@@ -615,7 +615,7 @@ static Token* convert_pp_float(Token* token) {
   char* c = token->loc;
   char* start = c;
 
-  double val = strtod(start, &c);
+  long double val = strtod(start, &c);
 
   Type* type = NULL;
   if (start_with_insensitive(c, "F")) {
