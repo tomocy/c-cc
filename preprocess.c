@@ -674,7 +674,7 @@ static Token* convert_tokens(Token* tokens) {
   return head.next;
 }
 
-static Token* concat_adjecent_strs(Token* tokens) {
+Token* concat_adjecent_strs(Token* tokens) {
   Token head = {};
   Token* cur = &head;
 
@@ -739,7 +739,6 @@ static Token* concat_adjecent_strs(Token* tokens) {
       c += size;  // not to proceed by the NULL termination
     }
 
-    token->len = not_str->loc - token->loc;
     token->type = new_array_type(token->type->base, len + 1);
     token->str_val = val;
 
@@ -1496,5 +1495,5 @@ Token* preprocess(Token* tokens) {
     error_token(if_dirs->token, "unterminated if directive");
   }
 
-  return concat_adjecent_strs(convert_tokens(tokens));
+  return convert_tokens(tokens);
 }

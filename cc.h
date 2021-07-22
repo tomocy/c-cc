@@ -335,6 +335,7 @@ void define_builtin_macros();
 void define_builtin_macro(char* name, char* raw_body);
 void undefine_macro(char* name);
 char* compensate_include_filename(char* fname, char* path);
+Token* concat_adjecent_strs(Token* tokens);
 
 // tokenize.c
 void error_token(Token* token, char* fmt, ...) __attribute__((format(printf, 2, 3)));

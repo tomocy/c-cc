@@ -582,6 +582,7 @@ static int exec(void) {
     print_tokens(output_filename, tokens);
     return 0;
   }
+  tokens = concat_adjecent_strs(tokens);
 
   TopLevelObj* codes = parse(tokens);
 
