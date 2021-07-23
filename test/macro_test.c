@@ -653,5 +653,8 @@ of(char));
     x;
   }));
 
+#define M18(...) fn(__VA_ARGS__)
+  ASSERT(42, M18((char)0, (char)5));
+
   ok();
 }

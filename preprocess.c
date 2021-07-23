@@ -799,7 +799,8 @@ static FunclikeMacroArg* funclike_macro_args(Macro* macro, Token** tokens) {
       if (cur_token != &token_head) {
         cur_token = cur_token->next = expect_token(tokens, ",");
       }
-      cur_token = cur_token->next = funclike_macro_arg(tokens);
+
+      hand_over_tokens(&cur_token, funclike_macro_arg(tokens));
     }
     cur = cur->next = new_funclike_macro_arg(macro->va_param, token_head.next);
   }
