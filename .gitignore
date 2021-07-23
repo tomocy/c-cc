@@ -3,7 +3,11 @@
 *.o
 tmp*
 cc
+
 test/*
 !test/*.c
 !test/*.h
 !test/*.sh
+
+3rd
+!test/3rd

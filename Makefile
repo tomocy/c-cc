@@ -65,6 +65,10 @@ s1/test@%: test/%_test
 	./test/$*_test
 	rm -f test/$*_test
 
+.PHONY: s1/test/3rd@%
+s1/test/3rd@%: cc test/3rd/%_test.sh
+	./test/3rd/$*_test.sh "$(CURDIR)/cc"
+
 # stage1 test debug
 .PHONY: s1/debug@%
 s1/debug@%: test/%_test
@@ -86,6 +90,10 @@ s2/test@%: s2/test/%_test
 	./s2/test/$*_test
 	rm -f s2/test/$*_test
 
+.PHONY: s2/test/3rd@%
+s2/test/3rd@%: s2/cc test/3rd/%_test.sh
+	./test/3rd/$*_test.sh "$(CURDIR)/s2/cc"
+
 # stage2 test debug
 .PHONY: s2/debug@%
 s2/debug@%: s2/test/%_test
@@ -94,5 +102,6 @@ s2/debug@%: s2/test/%_test
 .PHONY: clean
 clean:
 	rm -f \
+		*.o *.out \
 		cc $(TESTS) $(OBJS) $(wildcard test/*.o test/*.s) \
 		s2/cc $(S2_TESTS) $(S2_OBJS) $(wildcard s2/*.c) $(wildcard s2/test/*.o s2/test/*.s s2/test/*.c)

@@ -14,7 +14,13 @@ RUN apt update && \
     sudo \
     python3 \
     python3-pip \
-    shellcheck
+    shellcheck \
+    tclsh \
+    tcl-dev \
+    autoconf \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    gettext
 
 RUN adduser --disabled-password --gecos '' cc
 RUN echo 'cc ALL=(root) NOPASSWD:ALL' > /etc/sudoers.d/cc
