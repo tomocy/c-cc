@@ -16,63 +16,63 @@ static char* arg_regs16[] = {"%di", "%si", "%dx", "%cx", "%r8w", "%r9w"};
 static char* arg_regs32[] = {"%edi", "%esi", "%edx", "%ecx", "%r8d", "%r9d"};
 static char* arg_regs64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
 
-static char s8_32[] = "movsx %eax, %al";
-static char s16_32[] = "movsx %eax, %ax";
-static char s32_64[] = "movsxd %rax, %eax";
-static char i32_f32[] = "cvtsi2ss %xmm0, %eax";
-static char i32_f64[] = "cvtsi2sd %xmm0, %eax";
-static char i32_f80[] = "mov [%rsp-4], %eax; fild DWORD PTR [%rsp-4]";
-static char i64_f32[] = "cvtsi2ss %xmm0, %rax";
-static char i64_f64[] = "cvtsi2sd %xmm0, %rax";
-static char i64_f80[] = "movq [%rsp-8], %rax; fildll [%rsp-8]";
-static char z8_32[] = "movzx %eax, %al";
-static char z16_32[] = "movzx %eax, %ax";
+static char s8_32[] = "movsx %al, %eax";
+static char s16_32[] = "movsx %ax, %eax";
+static char s32_64[] = "movsx %eax, %rax";
+static char i32_f32[] = "cvtsi2ss %eax, %xmm0";
+static char i32_f64[] = "cvtsi2sd %eax, %xmm0";
+static char i32_f80[] = "mov %eax, -4(%rsp); fildl -4(%rsp)";
+static char i64_f32[] = "cvtsi2ss %rax, %xmm0";
+static char i64_f64[] = "cvtsi2sd %rax, %xmm0";
+static char i64_f80[] = "movq %rax, -8(%rsp); fildll -8(%rsp)";
+static char z8_32[] = "movzx %al, %eax";
+static char z16_32[] = "movzx %ax, %eax";
 static char z32_64[] = "mov %eax, %eax";
-static char u32_f32[] = "mov %eax, %eax; cvtsi2ss %xmm0, %rax";
-static char u32_f64[] = "mov %eax, %eax; cvtsi2sd %xmm0, %rax";
-static char u32_f80[] = "mov %eax, %eax; mov [%rsp-8], %rax; fildll [%rsp-8]";
-static char u64_f32[] = "cvtsi2ss %xmm0, %rax";
+static char u32_f32[] = "mov %eax, %eax; cvtsi2ss %rax, %xmm0";
+static char u32_f64[] = "mov %eax, %eax; cvtsi2sd %rax, %xmm0";
+static char u32_f80[] = "mov %eax, %eax; mov %rax, -8(%rsp); fildll -8(%rsp)";
+static char u64_f32[] = "cvtsi2ss %rax, %xmm0";
 static char u64_f64[]
-  = "test %rax, %rax; js 1f; pxor %xmm0, %xmm0; cvtsi2sd %xmm0, %rax; jmp 2f; "
-    "1: mov %rdi, %rax; and %eax, 1; pxor %xmm0, %xmm0; shr %rdi; "
-    "or %rdi, %rax; cvtsi2sd %xmm0, %rdi; addsd %xmm0, %xmm0; 2:";
+  = "test %rax, %rax; js 1f; pxor %xmm0, %xmm0; cvtsi2sd %rax, %xmm0; jmp 2f; "
+    "1: mov %rax, %rdi; and $1, %eax; pxor %xmm0, %xmm0; shr %rdi; "
+    "or %rax, %rdi; cvtsi2sd %rdi, %xmm0; addsd %xmm0, %xmm0; 2:";
 static char u64_f80[]
-  = "mov [%rsp-8], %rax; fildq [%rsp-8]; test %rax, %rax; jns 1f;"
-    "mov %eax, 1602224128; mov [%rsp-4], %eax; fadd DWORD PTR [%rsp-4]; 1:";
-static char f32_i8[] = "cvttss2si %eax, %xmm0; movsx %eax, %al";
-static char f32_i16[] = "cvttss2si %eax, %xmm0; movsx %eax, %ax";
-static char f32_i32[] = "cvttss2si %eax, %xmm0";
-static char f32_i64[] = "cvttss2si %rax, %xmm0";
-static char f32_u8[] = "cvttss2si %eax, %xmm0; movzx %eax, %al";
-static char f32_u16[] = "cvttss2si %eax, %xmm0; movzx %eax, %ax";
-static char f32_u32[] = "cvttss2si %rax, %xmm0";
-static char f32_u64[] = "cvttss2si %rax, %xmm0";
+  = "mov %rax, -8(%rsp); fildq -8(%rsp); test %rax, %rax; jns 1f;"
+    "mov $1602224128, %eax; mov %eax, -4(%rsp); fadds -4(%rsp); 1:";
+static char f32_i8[] = "cvttss2sil %xmm0, %eax; movsx %al, %eax";
+static char f32_i16[] = "cvttss2sil %xmm0, %eax; movsx %ax, %eax";
+static char f32_i32[] = "cvttss2sil %xmm0, %eax";
+static char f32_i64[] = "cvttss2siq %xmm0, %rax";
+static char f32_u8[] = "cvttss2sil %xmm0, %eax; movzx %al, %eax";
+static char f32_u16[] = "cvttss2sil %xmm0, %eax; movzx %ax, %eax";
+static char f32_u32[] = "cvttss2siq %xmm0, %rax";
+static char f32_u64[] = "cvttss2siq %xmm0, %rax";
 static char f32_f64[] = "cvtss2sd %xmm0, %xmm0";
-static char f32_f80[] = "movss [%rsp-4], %xmm0; fld DWORD PTR [%rsp-4]";
-static char f64_i8[] = "cvttsd2si %eax, %xmm0; movsx %eax, %al";
-static char f64_i16[] = "cvttsd2si %eax, %xmm0; movsx %eax, %ax";
-static char f64_i32[] = "cvttsd2si %eax, %xmm0";
-static char f64_i64[] = "cvttsd2si %rax, %xmm0";
-static char f64_u8[] = "cvttsd2si %eax, %xmm0; movzx %eax, %al";
-static char f64_u16[] = "cvttsd2si %eax, %xmm0; movzx %eax, %ax";
-static char f64_u32[] = "cvttsd2si %rax, %xmm0";
-static char f64_u64[] = "cvttsd2si %rax, %xmm0";
+static char f32_f80[] = "movss %xmm0, -4(%rsp); flds -4(%rsp)";
+static char f64_i8[] = "cvttsd2sil %xmm0, %eax; movsx %al, %eax";
+static char f64_i16[] = "cvttsd2sil %xmm0, %eax; movsx %ax, %eax";
+static char f64_i32[] = "cvttsd2sil %xmm0, %eax";
+static char f64_i64[] = "cvttsd2siq %xmm0, %rax";
+static char f64_u8[] = "cvttsd2sil %xmm0, %eax; movzx %al, %eax";
+static char f64_u16[] = "cvttsd2sil %xmm0, %eax; movzx %ax, %eax";
+static char f64_u32[] = "cvttsd2siq %xmm0, %rax";
+static char f64_u64[] = "cvttsd2siq %xmm0, %rax";
 static char f64_f32[] = "cvtsd2ss %xmm0, %xmm0";
-static char f64_f80[] = "movsd [%rsp-8], %xmm0; fld QWORD PTR [%rsp-8]";
+static char f64_f80[] = "movsd %xmm0, -8(%rsp); fldl -8(%rsp)";
 
-#define FROM_F80_1 "fnstcw [%rsp-10]; movzx %eax, WORD PTR [%rsp-10]; or %ah, 12; mov [%rsp-12], %ax; fldcw [%rsp-12];"
-#define FROM_F80_2 " [%rsp-24]; fldcw [%rsp-10]; "
+#define FROM_F80_1 "fnstcw -10(%rsp); movzwl -10(%rsp), %eax; or $12, %ah; mov %ax, -12(%rsp); fldcw -12(%rsp);"
+#define FROM_F80_2 " -24(%rsp); fldcw -10(%rsp); "
 
-static char f80_i8[] = FROM_F80_1 "fistp WORD PTR" FROM_F80_2 "movsx %eax, BYTE PTR [%rsp-24]";
-static char f80_i16[] = FROM_F80_1 "fistp WORD PTR" FROM_F80_2 "movzx %eax, BYTE PTR [%rsp-24]";
-static char f80_i32[] = FROM_F80_1 "fistp DWORD PTR" FROM_F80_2 "mov %eax, [%rsp-24]";
-static char f80_i64[] = FROM_F80_1 "fistp QWORD PTR" FROM_F80_2 "mov %rax, [%rsp-24]";
-static char f80_u8[] = FROM_F80_1 "fistp WORD PTR" FROM_F80_2 "movzx %eax, BYTE PTR [%rsp-24]";
-static char f80_u16[] = FROM_F80_1 "fistp DWORD PTR" FROM_F80_2 "movzx %eax, WORD PTR [%rsp-24]";
-static char f80_u32[] = FROM_F80_1 "fistp DWORD PTR" FROM_F80_2 "mov %eax, [%rsp-24]";
-static char f80_u64[] = FROM_F80_1 "fistp QWORD PTR" FROM_F80_2 "mov %rax, [%rsp-24]";
-static char f80_f32[] = "fstp DWORD PTR [%rsp-8]; movss %xmm0, [%rsp-8]";
-static char f80_f64[] = "fstp QWORD PTR [%rsp-8]; movsd %xmm0, [%rsp-8]";
+static char f80_i8[] = FROM_F80_1 "fistps" FROM_F80_2 "movsbl -24(%rsp), %eax";
+static char f80_i16[] = FROM_F80_1 "fistps" FROM_F80_2 "movzbl -24(%rsp), %eax";
+static char f80_i32[] = FROM_F80_1 "fistpl" FROM_F80_2 "mov -24(%rsp), %eax";
+static char f80_i64[] = FROM_F80_1 "fistpq" FROM_F80_2 "mov -24(%rsp), %rax";
+static char f80_u8[] = FROM_F80_1 "fistps" FROM_F80_2 "movzbl -24(%rsp), %eax";
+static char f80_u16[] = FROM_F80_1 "fistpl" FROM_F80_2 "movzwl -24(%rsp), %eax";
+static char f80_u32[] = FROM_F80_1 "fistpl" FROM_F80_2 "mov -24(%rsp), %eax";
+static char f80_u64[] = FROM_F80_1 "fistpq" FROM_F80_2 "mov -24(%rsp), %rax";
+static char f80_f32[] = "fstps -8(%rsp); movss -8(%rsp), %xmm0";
+static char f80_f64[] = "fstpl -8(%rsp); movsd -8(%rsp), %xmm0";
 static char* cast_table[][11] = {
   // to i8, i16, i32, i64, u8, u16, u32, u64, f32, f64, f80
   {NULL, NULL, NULL, s32_64, z8_32, z16_32, NULL, s32_64, i32_f32, i32_f64, i32_f80},              // from i8
@@ -166,48 +166,48 @@ static void gen_addr(Node* node) {
       break;
     case ND_FUNC:
       if (as_pic) {
-        genln("  mov %%rax, %s@GOTPCREL[%%rip]", node->obj->name);
+        genln("  mov %s@GOTPCREL(%%rip), %%rax", node->obj->name);
         break;
       }
 
       if (node->obj->is_definition) {
-        genln("  lea %%rax, %s[%%rip]", node->obj->name);
+        genln("  lea %s(%%rip), %%rax", node->obj->name);
       } else {
-        genln("  mov %%rax, %s@GOTPCREL[%%rip]", node->obj->name);
+        genln("  mov %s@GOTPCREL(%%rip), %%rax", node->obj->name);
       }
       break;
     case ND_GVAR:
       if (as_pic) {
         if (node->obj->is_thread_local) {
-          genln("  data16 lea %%rdi, %s@TLSGD[%%rip]", node->obj->name);
-          genln("  .value 0x6666");
+          genln("  data16 lea %s@TLSGD(%%rip), %%rdi", node->obj->name);
+          genln("  .value $0x6666");
           genln("  rex64");
           genln("  call __tls_get_addr@PLT");
           break;
         }
 
-        genln("  mov %%rax, %s@GOTPCREL[%%rip]", node->obj->name);
+        genln("  mov %s@GOTPCREL(%%rip), %%rax", node->obj->name);
         break;
       }
 
       if (node->obj->is_thread_local) {
-        genln("  lea %%rax, %s@TPOFF", node->obj->name);
-        genln("  add %%rax, %%fs:0");
+        genln("  lea %s@TPOFF, %%rax", node->obj->name);
+        genln("  add %%fs:0, %%rax");
         break;
       }
-      genln("  lea %%rax, %s[%%rip]", node->obj->name);
+      genln("  lea %s(%%rip), %%rax", node->obj->name);
       break;
     case ND_LVAR:
       // The address of VLA is stored in this variable unlike array, so load it.
       if (node->type->kind == TY_VL_ARRAY) {
-        genln("  mov %%rax, [%%rbp-%d]", node->obj->offset);
+        genln("  mov %d(%%rbp), %%rax", -1 * node->obj->offset);
       } else {
-        genln("  lea %%rax, [%%rbp-%d]", node->obj->offset);
+        genln("  lea %d(%%rbp), %%rax", -1 * node->obj->offset);
       }
       break;
     case ND_MEMBER:
       gen_addr(node->lhs);
-      genln("  add %%rax, %d", node->mem->offset);
+      genln("  add $%d, %%rax", node->mem->offset);
       break;
     case ND_FUNCCALL:
       if (node->return_val) {
@@ -246,14 +246,14 @@ static void pop(char* reg) {
 }
 
 static void pushf(char* reg) {
-  genln("  sub %%rsp, 8");
-  genln("  movsd [%%rsp], %s", reg);
+  genln("  sub $8, %%rsp");
+  genln("  movsd %s, (%%rsp)", reg);
   depth++;
 }
 
 static void popf(char* reg) {
-  genln("  movsd %s, [%%rsp]", reg);
-  genln("  add %%rsp, 8");
+  genln("  movsd (%%rsp), %s", reg);
+  genln("  add $8, %%rsp");
   depth--;
 }
 
@@ -268,12 +268,12 @@ static void push_composite_type(char* reg, Type* type) {
   }
 
   int size = align_up(type->size, 8);
-  genln("  sub %%rsp, %d", size);
+  genln("  sub $%d, %%rsp", size);
   depth += size / 8;
 
   for (int i = 0; i < type->size; i++) {
-    genln("  mov %%r10b, [%s+%d]", reg, i);
-    genln("  mov [%%rsp+%d], %%r10b", i);
+    genln("  mov %d(%s), %%r10b", i, reg);
+    genln("  mov %%r10b, %d(%%rsp)", i);
   }
 }
 
@@ -312,11 +312,11 @@ static void cmp_zero(Type* type) {
   switch (type->kind) {
     case TY_FLOAT:
       genln("  xorps %%xmm1, %%xmm1");
-      genln("  ucomiss %%xmm0, %%xmm1");
+      genln("  ucomiss %%xmm1, %%xmm0");
       return;
     case TY_DOUBLE:
       genln("  xorpd %%xmm1, %%xmm1");
-      genln("  ucomisd %%xmm0, %%xmm1");
+      genln("  ucomisd %%xmm1, %%xmm0");
       return;
     case TY_LDOUBLE:
       genln("  fldz");
@@ -325,11 +325,11 @@ static void cmp_zero(Type* type) {
       return;
     default:
       if (is_int_type(type) && type->size <= 4) {
-        genln("  cmp %%eax, 0");
+        genln("  cmp $0, %%eax");
         return;
       }
 
-      genln("  cmp %%rax, 0");
+      genln("  cmp $0, %%rax");
   }
 }
 
@@ -342,28 +342,28 @@ static void load(Node* node) {
     case TY_VL_ARRAY:
       return;
     case TY_FLOAT:
-      genln("  movss %%xmm0, [%%rax]");
+      genln("  movss (%%rax), %%xmm0");
       return;
     case TY_DOUBLE:
-      genln("  movsd %%xmm0, [%%rax]");
+      genln("  movsd (%%rax), %%xmm0");
       return;
     case TY_LDOUBLE:
-      genln("  fldt [%%rax]");
+      genln("  fldt (%%rax)");
       return;
     default: {
       char* ins = node->type->is_unsigned ? "movz" : "movs";
       switch (node->type->size) {
         case 1:
-          genln("  %sx %%eax, BYTE PTR [%%rax]", ins);
+          genln("  %sbl (%%rax), %%eax", ins);
           return;
         case 2:
-          genln("  %sx %%eax, WORD PTR [%%rax]", ins);
+          genln("  %swl (%%rax), %%eax", ins);
           return;
         case 4:
-          genln("  movsx %%rax, DWORD PTR [%%rax]");
+          genln("  movsxd (%%rax), %%rax");
           return;
         default:
-          genln("  mov %%rax, [%%rax]");
+          genln("  mov (%%rax), %%rax");
           return;
       }
     }
@@ -375,21 +375,21 @@ static void store(Node* node) {
     case TY_STRUCT:
     case TY_UNION:
       for (int i = 0; i < node->type->size; i++) {
-        genln("  mov %%r8b, %d[%%rax]", i);
-        genln("  mov %d[%%rdi], %%r8b", i);
+        genln("  mov %d(%%rax), %%r8b", i);
+        genln("  mov %%r8b, %d(%%rdi)", i);
       }
       return;
     case TY_FLOAT:
-      genln("  movss [%%rdi], %%xmm0");
+      genln("  movss %%xmm0, (%%rdi)");
       return;
     case TY_DOUBLE:
-      genln("  movsd [%%rdi], %%xmm0");
+      genln("  movsd %%xmm0, (%%rdi)");
       return;
     case TY_LDOUBLE:
-      genln("  fstpt [%%rdi]");
+      genln("  fstpt (%%rdi)");
       return;
     default:
-      genln("  mov [%%rdi], %s", reg_ax(node->type->size));
+      genln("  mov %s, (%%rdi)", reg_ax(node->type->size));
   }
 }
 
@@ -400,7 +400,7 @@ static void cast(Type* to, Type* from) {
     case TY_BOOL:
       cmp_zero(from);
       genln("  setne %%al");
-      genln("  movzx %%eax, %%al");
+      genln("  movzx %%al, %%eax");
       return;
     default: {
       int from_id = get_type_id(from);
@@ -428,26 +428,26 @@ static void gen_assign(Node* node) {
   // calculate the value which should be the result of this assignment in the node->rhs
   // so that this assign expression can do the assignment of a value of the composite type as normally.
   Member* mem = node->lhs->mem;
-  genln("  mov %%r8, %%rax");  // Keep the node->rhs value as the last expression
+  genln("  mov %%rax, %%r8");  // Keep the node->rhs value as the last expression
 
   // The bitfield value of the member
-  genln("  mov %%rdi, %%rax");
-  genln("  and %%rdi, %ld", (1L << mem->bit_width) - 1);
-  genln("  shl %%rdi, %d", mem->bit_offset);
+  genln("  mov %%rax, %%rdi");
+  genln("  and $%ld, %%rdi", (1L << mem->bit_width) - 1);
+  genln("  shl $%d, %%rdi", mem->bit_offset);
 
   // Get the value of the node->lhs without popping stack.
-  genln("  mov %%rax, [%%rsp]");
+  genln("  mov (%%rsp), %%rax");
   load(node->lhs);
   // Merge the node->lhs value of the composite type with the bitfield value.
   int mask = ((1L << mem->bit_width) - 1) << mem->bit_offset;
-  genln("  mov %%r9, %d", ~mask);
-  genln("  and %%rax, %%r9");
-  genln("  or %%rax, %%rdi");
+  genln("  mov $%d, %%r9", ~mask);
+  genln("  and %%r9, %%rax");
+  genln("  or %%rdi, %%rax");
 
   pop("%rdi");
   store(node);
 
-  genln("  mov %%rax, %%r8");
+  genln("  mov %%r8, %%rax");
 }
 
 static void gen_cond(Node* node) {
@@ -472,16 +472,16 @@ static void gen_neg(Node* node) {
   gen_expr(node->lhs);
   switch (node->type->kind) {
     case TY_FLOAT:
-      genln("  mov %%rax, 1");
-      genln("  shl %%rax, 31");
-      genln("  movq %%xmm1, %%rax");
-      genln("  xorps %%xmm0, %%xmm1");
+      genln("  mov $1, %%rax");
+      genln("  shl $31, %%rax");
+      genln("  movq %%rax, %%xmm1");
+      genln("  xorps %%xmm1, %%xmm0");
       return;
     case TY_DOUBLE:
-      genln("  mov %%rax, 1");
-      genln("  shl %%rax, 63");
-      genln("  movq %%xmm1, %%rax");
-      genln("  xorpd %%xmm0, %%xmm1");
+      genln("  mov $1, %%rax");
+      genln("  shl $63, %%rax");
+      genln("  movq %%rax, %%xmm1");
+      genln("  xorpd %%xmm1, %%xmm0");
       return;
     case TY_LDOUBLE:
       genln("  fchs");
@@ -504,8 +504,8 @@ static void push_arg(Node* arg) {
       pushf("%xmm0");
       break;
     case TY_LDOUBLE:
-      genln("  sub %%rsp, 16");
-      genln("  fstpt [%%rsp]");
+      genln("  sub $16, %%rsp");
+      genln("  fstpt (%%rsp)");
       depth += 2;
       break;
     default:
@@ -604,7 +604,7 @@ static int push_args(Node* node) {
   // which means that the stack pointer is %%aligned 16 bytes boundary
   // when the depth is even
   if ((depth + stacked) % 2 == 1) {
-    genln("  sub %%rsp, 8");
+    genln("  sub $8, %%rsp");
     stacked++;
     depth++;
   }
@@ -629,24 +629,24 @@ static bool equal_to_func(Node* node, char* func) {
 
 static void gen_alloca(Node* node) {
   gen_expr(node->args);
-  genln("  mov %%rdi, %%rax");
+  genln("  mov %%rax, %%rdi");
 
   // align the arg (the size to %%allocate) to 16 byte boundary.
-  genln("  add %%rdi, 15");
-  genln("  and %%edi, 0xfffffff0");
+  genln("  add $15, %%rdi");
+  genln("  and $0xfffffff0, %%edi");
 
   // Copy v%%alues pushed on stack at this time and keep having them at the top of stack
   // so that those v%%alues can be poped, and leave space for the size to %%allocate.
-  genln("  mov %%rcx, [%%rbp-%d]", current_func->alloca_bottom->offset);
-  genln("  sub %%rcx, %%rsp");
-  genln("  mov %%rax, %%rsp");
-  genln("  sub %%rsp, %%rdi");
-  genln("  mov %%rdx, %%rsp");
+  genln("  mov %d(%%rbp), %%rcx", -1 * current_func->alloca_bottom->offset);
+  genln("  sub %%rsp, %%rcx");
+  genln("  mov %%rsp, %%rax");
+  genln("  sub %%rdi, %%rsp");
+  genln("  mov %%rsp, %%rdx");
   genln("1:");
-  genln("  cmp %%rcx, 0");
+  genln("  cmp $0, %%rcx");
   genln("  je  2f");
-  genln("  mov %%r8b, [%%rax]");
-  genln("  mov [%%rdx], %%r8b");
+  genln("  mov (%%rax), %%r8b");
+  genln("  mov %%r8b, (%%rdx)");
   genln("  inc %%rdx");
   genln("  inc %%rax");
   genln("  dec %%rcx");
@@ -654,9 +654,9 @@ static void gen_alloca(Node* node) {
   genln("2:");
 
   // Use the left space for the %%alloca value and keep it for the next %%alloca.
-  genln("  mov %%rax, [%%rbp-%d]", current_func->alloca_bottom->offset);
-  genln("  sub %%rax, %%rdi");
-  genln("  mov [%%rbp-%d], %%rax", current_func->alloca_bottom->offset);
+  genln("  mov %d(%%rbp), %%rax", -1 * current_func->alloca_bottom->offset);
+  genln("  sub %%rdi, %%rax");
+  genln("  mov %%rax, %d(%%rbp)", -1 * current_func->alloca_bottom->offset);
 }
 
 static void store_returned_by_reg_val(Node* node) {
@@ -667,17 +667,17 @@ static void store_returned_by_reg_val(Node* node) {
   if (have_float_data(node->type, 0, 8)) {
     switch (size) {
       case 4:
-        genln("  movss [%%rbp-%d], %%xmm0", node->obj->offset);
+        genln("  movss %%xmm0, %d(%%rbp)", -1 * node->obj->offset);
         break;
       case 8:
-        genln("  movsd [%%rbp-%d], %%xmm0", node->obj->offset);
+        genln("  movsd %%xmm0, %d(%%rbp)", -1 * node->obj->offset);
         break;
     }
     float_cnt++;
   } else {
     for (int i = 0; i < size; i++) {
-      genln("  mov [%%rbp-%d], %%al", node->obj->offset - i);
-      genln("  shr %%rax, 8");
+      genln("  mov %%al, %d(%%rbp)", -1 * (node->obj->offset - i));
+      genln("  shr $8, %%rax");
     }
     general_cnt++;
   }
@@ -687,18 +687,18 @@ static void store_returned_by_reg_val(Node* node) {
     if (have_float_data(node->type, 8, 16)) {
       switch (size) {
         case 4:
-          genln("  movss [%%rbp-%d], %%xmm%d", node->obj->offset - 8, float_cnt);
+          genln("  movss %%xmm%d, %d(%%rbp)", float_cnt, -1 * (node->obj->offset - 8));
           return;
         case 8:
-          genln("  movsd [%%rbp-%d], %%xmm%d", node->obj->offset - 8, float_cnt);
+          genln("  movsd %%xmm%d, %d(%%rbp)", float_cnt, -1 * (node->obj->offset - 8));
           return;
       }
     } else {
       char* reg1 = general_cnt == 0 ? "%al" : "%dl";
       char* reg2 = general_cnt == 0 ? "%rax" : "%rdx";
       for (int i = 0; i < size; i++) {
-        genln("  mov [%%rbp-%d], %s", node->obj->offset - 8 - i, reg1);
-        genln("  shr %s, 8", reg2);
+        genln("  mov %s, %d(%%rbp)", reg1, -1 * (node->obj->offset - 8 - i));
+        genln("  shr $8, %s", reg2);
       }
     }
   }
@@ -776,23 +776,23 @@ static void gen_funccall(Node* node) {
     }
   }
 
-  genln("  mov %%r10, %%rax");
-  genln("  mov %%rax, %d", float_cnt);
-  genln("  call %%r10");
-  genln("  add %%rsp, %d", 8 * stacked);
+  genln("  mov %%rax, %%r10");
+  genln("  mov $%d, %%rax", float_cnt);
+  genln("  call *%%r10");
+  genln("  add $%d, %%rsp", 8 * stacked);
 
   depth -= stacked;
 
   char* ins = node->type->is_unsigned ? "movz" : "movs";
   switch (node->type->kind) {
     case TY_BOOL:
-      genln("  movzx %%eax, %%al");
+      genln("  movzx %%al, %%eax");
       break;
     case TY_CHAR:
-      genln("  %sx %%eax, %%al", ins);
+      genln("  %sx %%al, %%eax", ins);
       break;
     case TY_SHORT:
-      genln("  %sx %%eax, %%ax", ins);
+      genln("  %sx %%ax, %%eax", ins);
       break;
     default: {
     }
@@ -816,7 +816,7 @@ static void gen_atomic_cas(Node* node) {
 
   gen_expr(node->cas_old_val);
   // The %%rax may be overridden by the cmpxhg below, so keep it somewhere.
-  genln("  mov %%r8, %%rax");
+  genln("  mov %%rax, %%r8");
   load(node->cas_old_val);
 
   pop("%rdx");
@@ -826,12 +826,12 @@ static void gen_atomic_cas(Node* node) {
   // This cmpxchg compares the value of the node->cas_addr and the node->cas_new,
   // and store the node->cas_new to the node->cas_addr if those are equ%%al.
   // Otherwise, the value of the node->cas_addr is stored in %%rax.
-  genln("  lock cmpxchg [%%rdi], %s", reg_dx(size));
+  genln("  lock cmpxchg %s, (%%rdi)", reg_dx(size));
   genln("  sete %%cl");
   genln("  je 1f");
-  genln("  mov [%%r8], %s", reg_ax(size));
+  genln("  mov %s, (%%r8)", reg_ax(size));
   genln("1:");
-  genln("  movzx %%eax, %%cl");
+  genln("  movzx %%cl, %%eax");
 }
 
 static void gen_num(Node* node) {
@@ -841,8 +841,8 @@ static void gen_num(Node* node) {
         float f32;
         uint32_t u32;
       } val = {node->float_val};
-      genln("  mov %%eax, %u # float %Lf", val.u32, node->float_val);
-      genln("  movq %%xmm0, %%rax");
+      genln("  mov $%u, %%eax # float %Lf", val.u32, node->float_val);
+      genln("  movq %%rax, %%xmm0");
       return;
     }
     case TY_DOUBLE: {
@@ -850,8 +850,8 @@ static void gen_num(Node* node) {
         double f64;
         uint64_t u64;
       } val = {node->float_val};
-      genln("  mov %%rax, %lu # double %Lf", val.u64, node->float_val);
-      genln("  movq %%xmm0, %%rax");
+      genln("  mov $%lu, %%rax # double %Lf", val.u64, node->float_val);
+      genln("  movq %%rax, %%xmm0");
       return;
     }
     case TY_LDOUBLE: {
@@ -861,15 +861,15 @@ static void gen_num(Node* node) {
       } val;
       memset(&val, 0, sizeof(val));
       val.f80 = node->float_val;
-      genln("  mov %%rax, %lu # double %Lf", val.u64[0], node->float_val);
-      genln("  mov [%%rsp-16], %%rax");
-      genln("  mov %%rax, %lu", val.u64[1]);
-      genln("  mov [%%rsp-8], %%rax");
-      genln("  fldt [%%rsp-16]");
+      genln("  mov $%lu, %%rax  # double %Lf", val.u64[0], node->float_val);
+      genln("  mov %%rax, -16(%%rsp)");
+      genln("  mov $%lu, %%rax", val.u64[1]);
+      genln("  mov %%rax, -8(%%rsp)");
+      genln("  fldt -16(%%rsp)");
       return;
     }
     default:
-      genln("  mov %%rax, %ld", node->int_val);
+      genln("  mov $%ld, %%rax", node->int_val);
       return;
   }
 }
@@ -887,12 +887,12 @@ static void gen_logor(Node* node) {
 
   genln("  jne .Ltrue%d", label);
 
-  genln("  mov %%rax, 0");
+  genln("  mov $0, %%rax");
 
   genln("  jmp .Lend%d", label);
 
   genln(".Ltrue%d:", label);
-  genln("  mov %%rax, 1");
+  genln("  mov $1, %%rax");
 
   genln(".Lend%d:", label);
 }
@@ -910,12 +910,12 @@ static void gen_logand(Node* node) {
 
   genln("  je .Lfalse%d", label);
 
-  genln("  mov %%rax, 1");
+  genln("  mov $1, %%rax");
 
   genln("  jmp .Lend%d", label);
 
   genln(".Lfalse%d:", label);
-  genln("  mov %%rax, 0");
+  genln("  mov $0, %%rax");
 
   genln(".Lend%d:", label);
 }
@@ -933,44 +933,44 @@ static void gen_float_bin_expr(Node* node) {
 
       switch (node->kind) {
         case ND_EQ:
-          genln("  ucomi%s %%xmm1, %%xmm0", size);
+          genln("  ucomi%s %%xmm0, %%xmm1", size);
           genln("  sete %%al");
           genln("  setnp %%dl");
-          genln("  and %%al, %%dl");
-          genln("  and %%al, 1");
-          genln("  movzx %%rax, %%al");
+          genln("  and %%dl, %%al");
+          genln("  and $1, %%al");
+          genln("  movzx %%al, %%rax");
           return;
         case ND_NE:
-          genln("  ucomi%s %%xmm1, %%xmm0", size);
+          genln("  ucomi%s %%xmm0, %%xmm1", size);
           genln("  setne %%al");
           genln("  setp %%dl");
-          genln("  or %%al, %%dl");
-          genln("  and %%al, 1");
-          genln("  movzx %%rax, %%al");
+          genln("  or %%dl, %%al");
+          genln("  and $1, %%al");
+          genln("  movzx %%al, %%rax");
           return;
         case ND_LT:
-          genln("  ucomi%s %%xmm1, %%xmm0", size);
+          genln("  ucomi%s %%xmm0, %%xmm1", size);
           genln("  seta %%al");
-          genln("  and %%al, 1");
-          genln("  movzx %%rax, %%al");
+          genln("  and $1, %%al");
+          genln("  movzx %%al, %%rax");
           return;
         case ND_LE:
-          genln("  ucomi%s %%xmm1, %%xmm0", size);
+          genln("  ucomi%s %%xmm0, %%xmm1", size);
           genln("  setae %%al");
-          genln("  and %%al, 1");
-          genln("  movzx %%rax, %%al");
+          genln("  and $1, %%al");
+          genln("  movzx %%al, %%rax");
           return;
         case ND_ADD:
-          genln("  add%s %%xmm0, %%xmm1", size);
+          genln("  add%s %%xmm1, %%xmm0", size);
           return;
         case ND_SUB:
-          genln("  sub%s %%xmm0, %%xmm1", size);
+          genln("  sub%s %%xmm1, %%xmm0", size);
           return;
         case ND_MUL:
-          genln("  mul%s %%xmm0, %%xmm1", size);
+          genln("  mul%s %%xmm1, %%xmm0", size);
           return;
         case ND_DIV:
-          genln("  div%s %%xmm0, %%xmm1", size);
+          genln("  div%s %%xmm1, %%xmm0", size);
           return;
         default:
           error_token(node->token, "invalid expression");
@@ -986,37 +986,37 @@ static void gen_float_bin_expr(Node* node) {
           genln("  fcomip");
           genln("  fstp %%st(0)");
           genln("  sete %%al");
-          genln("  movzx %%rax, %%al");
+          genln("  movzx %%al, %%rax");
           return;
         case ND_NE:
           genln("  fcomip");
           genln("  fstp %%st(0)");
           genln("  setne %%al");
-          genln("  movzx %%rax, %%al");
+          genln("  movzx %%al, %%rax");
           return;
         case ND_LT:
           genln("  fcomip");
           genln("  fstp %%st(0)");
           genln("  seta %%al");
-          genln("  movzx %%rax, %%al");
+          genln("  movzx %%al, %%rax");
           return;
         case ND_LE:
           genln("  fcomip");
           genln("  fstp %%st(0)");
           genln("  setae %%al");
-          genln("  movzx %%rax, %%al");
+          genln("  movzx %%al, %%rax");
           return;
         case ND_ADD:
           genln("  faddp");
           return;
         case ND_SUB:
-          genln("  fsubp");
+          genln("  fsubrp");
           return;
         case ND_MUL:
           genln("  fmulp");
           return;
         case ND_DIV:
-          genln("  fdivp");
+          genln("  fdivrp");
           return;
         default:
           error_token(node->token, "invalid expression");
@@ -1036,7 +1036,7 @@ static void gen_bin_expr(Node* node) {
   gen_expr(node->lhs);
   push("%rax");
   gen_expr(node->rhs);
-  genln("  mov %%rdi, %%rax");
+  genln("  mov %%rax, %%rdi");
   pop("%rax");
 
   char* ax;
@@ -1054,66 +1054,66 @@ static void gen_bin_expr(Node* node) {
 
   switch (node->kind) {
     case ND_BITOR:
-      genln("  or %s, %s", ax, di);
+      genln("  or %s, %s", di, ax);
       return;
     case ND_BITXOR:
-      genln("  xor %s, %s", ax, di);
+      genln("  xor %s, %s", di, ax);
       return;
     case ND_BITAND:
-      genln("  and %s, %s", ax, di);
+      genln("  and %s, %s", di, ax);
       return;
     case ND_EQ:
-      genln("  cmp %s, %s", ax, di);
+      genln("  cmp %s, %s", di, ax);
       genln("  sete %%al");
-      genln("  movzb %%rax, %%al");
+      genln("  movzb %%al, %%rax");
       return;
     case ND_NE:
-      genln("  cmp %s, %s", ax, di);
+      genln("  cmp %s, %s", di, ax);
       genln("  setne %%al");
-      genln("  movzb %%rax, %%al");
+      genln("  movzb %%al, %%rax");
       return;
     case ND_LT:
-      genln("  cmp %s, %s", ax, di);
+      genln("  cmp %s, %s", di, ax);
       if (node->lhs->type->is_unsigned) {
         genln("  setb %%al");
       } else {
         genln("  setl %%al");
       }
-      genln("  movzb %%rax, %%al");
+      genln("  movzb %%al, %%rax");
       return;
     case ND_LE:
-      genln("  cmp %s, %s", ax, di);
+      genln("  cmp %s, %s", di, ax);
       if (node->lhs->type->is_unsigned) {
         genln("  setbe %%al");
       } else {
         genln("  setle %%al");
       }
-      genln("  movzb %%rax, %%al");
+      genln("  movzb %%al, %%rax");
       return;
     case ND_LSHIFT:
-      genln("  mov %%rcx, %%rdi");
-      genln("  shl %s, %%cl", ax);
+      genln("  mov %%rdi, %%rcx");
+      genln("  shl %%cl, %s", ax);
       return;
     case ND_RSHIFT:
-      genln("  mov %%rcx, %%rdi");
+      genln("  mov %%rdi, %%rcx");
       if (node->lhs->type->is_unsigned) {
-        genln("  shr %s, %%cl", ax);
+        genln("  shr %%cl, %s", ax);
       } else {
-        genln("  sar %s, %%cl", ax);
+        genln("  sar %%cl, %s", ax);
       }
       return;
     case ND_ADD:
-      genln("  add %s, %s", ax, di);
+      genln("  add %s, %s", di, ax);
       return;
     case ND_SUB:
-      genln("  sub %s, %s", ax, di);
+      genln("  sub %s, %s", di, ax);
       return;
     case ND_MUL:
-      genln("  imul %s, %s", ax, di);
+      genln("  imul %s, %s", di, ax);
       return;
     case ND_DIV:
       if (node->type->is_unsigned) {
-        genln("  mov %s, 0", dx);
+        genln("  mov $0, %s", dx);
         genln("  div %s", di);
       } else {
         if (node->rhs->type->size == 8) {
@@ -1126,7 +1126,7 @@ static void gen_bin_expr(Node* node) {
       return;
     case ND_MOD:
       if (node->type->is_unsigned) {
-        genln("  mov %s, 0", dx);
+        genln("  mov $0, %s", dx);
         genln("  div %s", di);
       } else {
         if (node->rhs->type->size == 8) {
@@ -1137,7 +1137,7 @@ static void gen_bin_expr(Node* node) {
         genln("  idiv %s", di);
       }
 
-      genln("  mov %%rax, %%rdx");
+      genln("  mov %%rdx, %%rax");
       return;
     default:
       UNREACHABLE("expected an expression but got %d", node->kind);
@@ -1169,7 +1169,7 @@ static void gen_expr(Node* node) {
       gen_addr(node->lhs);
       return;
     case ND_LABEL_ADDR:
-      genln("  lea %%rax, %s[%%rip]", node->label_id);
+      genln("  lea %s(%%rip), %%rax", node->label_id);
       return;
     case ND_DEREF:
       gen_expr(node->lhs);
@@ -1179,7 +1179,7 @@ static void gen_expr(Node* node) {
       gen_expr(node->lhs);
       cmp_zero(node->lhs->type);
       genln("  sete %%al");
-      genln("  movzx %%rax, %%al");
+      genln("  movzx %%al, %%rax");
       return;
     case ND_BITNOT:
       gen_expr(node->lhs);
@@ -1202,11 +1202,11 @@ static void gen_expr(Node* node) {
 
       Member* mem = node->mem;
       if (mem->is_bitfield) {
-        genln("  shl %%rax, %d", 64 - mem->bit_offset - mem->bit_width);
+        genln("  shl $%d, %%rax", 64 - mem->bit_offset - mem->bit_width);
         if (mem->type->is_unsigned) {
-          genln("  shr %%rax, %d", 64 - mem->bit_width);
+          genln("  shr $%d, %%rax", 64 - mem->bit_width);
         } else {
-          genln("  sar %%rax, %d", 64 - mem->bit_width);
+          genln("  sar $%d, %%rax", 64 - mem->bit_width);
         }
       }
       return;
@@ -1222,7 +1222,7 @@ static void gen_expr(Node* node) {
       gen_expr(node->rhs);
       pop("%rdi");
 
-      genln("  xchg [%%rdi], %s", reg_ax(node->lhs->type->size));
+      genln("  xchg %s, (%%rdi)", reg_ax(node->lhs->type->size));
       return;
     case ND_NUM:
       gen_num(node);
@@ -1230,9 +1230,9 @@ static void gen_expr(Node* node) {
     case ND_NULL:
       return;
     case ND_MEMZERO:
-      genln("  mov %%rcx, %d", node->type->size);
-      genln("  lea %%rdi, [%%rbp-%d]", node->obj->offset);
-      genln("  mov %%al, 0");
+      genln("  mov $%d, %%rcx", node->type->size);
+      genln("  lea %d(%%rbp), %%rdi", -1 * node->obj->offset);
+      genln("  mov $0, %%al");
       genln("  rep stosb");
       return;
     case ND_LOGOR:
@@ -1290,14 +1290,14 @@ static void gen_switch(Node* node) {
   char* di = node->cond->type->size == 8 ? "%rdi" : "%edi";
   for (Node* c = node->cases; c; c = c->cases) {
     if (c->case_begin == c->case_end) {
-      genln("  cmp %s, %ld", ax, c->case_begin);
+      genln("  cmp $%ld, %s", c->case_begin, ax);
       genln("  je %s", c->label_id);
       continue;
     }
 
-    genln("  mov %s, %s", di, ax);
-    genln("  sub %s, %ld", di, c->case_begin);
-    genln("  cmp %s, %ld", ax, c->case_end - c->case_begin);
+    genln("  mov %s, %s", ax, di);
+    genln("  sub $%ld, %s", c->case_begin, di);
+    genln("  cmp $%ld, %s", c->case_end - c->case_begin, ax);
     genln("  jbe %s", c->label_id);
   }
 
@@ -1356,11 +1356,11 @@ static void gen_do(Node* node) {
 }
 
 static void return_composite_val_via_ptr(Obj* func) {
-  genln("  mov %%rdi, [%%rbp-%d]", func->ptr_to_return_val->obj->offset);
+  genln("  mov %d(%%rbp), %%rdi", -1 * func->ptr_to_return_val->obj->offset);
 
   for (int i = 0; i < func->type->size; i++) {
-    genln("  mov %%dl, [%%rax+%d]", i);
-    genln("  mov [%%rdi+%d], %%dl", i);
+    genln("  mov %d(%%rax), %%dl", i);
+    genln("  mov %%dl, %d(%%rdi)", i);
   }
 }
 
@@ -1368,24 +1368,24 @@ static void return_composite_val_via_regs(Node* node) {
   int general_cnt = 0;
   int float_cnt = 0;
 
-  genln("  mov %%rdi, %%rax");
+  genln("  mov %%rax, %%rdi");
 
   int size = MIN(node->type->size, 8);
   if (have_float_data(node->type, 0, 8)) {
     switch (size) {
       case 4:
-        genln("  movss %%xmm0, [%%rdi]");
+        genln("  movss (%%rdi), %%xmm0");
         break;
       case 8:
-        genln("  movsd %%xmm0, [%%rdi]");
+        genln("  movsd (%%rdi), %%xmm0");
         break;
     }
     float_cnt++;
   } else {
-    genln("  mov %%rax, 0");
+    genln("  mov $0, %%rax");
     for (int i = size - 1; i >= 0; i--) {
-      genln("  shl %%rax, 8");
-      genln("  mov %%al, %d[%%rdi]", i);
+      genln("  shl $8, %%rax");
+      genln("  mov %d(%%rdi), %%al", i);
     }
     general_cnt++;
   }
@@ -1395,19 +1395,19 @@ static void return_composite_val_via_regs(Node* node) {
     if (have_float_data(node->type, 8, 16)) {
       switch (size) {
         case 4:
-          genln("  movss %%xmm%d, 8[%%rdi]", float_cnt);
+          genln("  movss 8(%%rdi), %%xmm%d", float_cnt);
           break;
         case 8:
-          genln("  movsd %%xmm%d, 8[%%rdi]", float_cnt);
+          genln("  movsd 8(%%rdi), %%xmm%d", float_cnt);
           break;
       }
     } else {
       char* reg8 = general_cnt == 0 ? "%al" : "%dl";
       char* reg64 = general_cnt == 0 ? "%rax" : "%rdx";
-      genln("  mov %s, 0", reg64);
+      genln("  mov $0, %s", reg64);
       for (int i = size - 1; i >= 0; i--) {
-        genln("  shl %s, 8", reg64);
-        genln("  mov %s, %d[%%rdi]", reg8, 8 + i);
+        genln("  shl $8, %s", reg64);
+        genln("  mov %d(%%rdi), %s", 8 + i, reg8);
       }
     }
   }
@@ -1464,7 +1464,7 @@ static void gen_stmt(Node* node) {
     case ND_GOTO:
       if (node->lhs) {
         gen_expr(node->lhs);
-        genln("  jmp %%rax");
+        genln("  jmp *%%rax");
         return;
       }
 
@@ -1564,29 +1564,29 @@ static void store_va_args(Obj* func) {
   // to assign __va_area__ to __va_elem
   // set __va_area__ as __va_elem manually in memory
   // __va_elem.gp_offset (unsigned int)
-  genln("  mov DWORD PTR [%%rbp-%d], %d", offset, general_cnt * 8);
+  genln("  movl $%d, %d(%%rbp)", general_cnt * 8, -1 * offset);
   // __va_elem.fp_offset (unsigned int)
-  genln("  mov DWORD PTR [%%rbp-%d], %d", offset - 4, float_cnt * 8 + 48);
+  genln("  movl $%d, %d(%%rbp)", float_cnt * 8 + 48, -1 * (offset - 4));
   // __va_elem.overflow_arg_area (void*)
-  genln("  mov QWORD PTR [%%rbp-%d], %%rbp", offset - 8);
-  genln("  add QWORD PTR [%%rbp-%d], 16", offset - 8);
+  genln("  movq %%rbp, %d(%%rbp)", -1 * (offset - 8));
+  genln("  addq $16, %d(%%rbp)", -1 * (offset - 8));
   // __va_elem.reg_save_area (void*)
-  genln("  mov QWORD PTR [%%rbp-%d], %%rbp", offset - 16);
-  genln("  sub QWORD PTR [%%rbp-%d], %d", offset - 16, offset - 24);
-  genln("  mov QWORD PTR [%%rbp-%d], %%rdi", offset - 24);
-  genln("  mov QWORD PTR [%%rbp-%d], %%rsi", offset - 32);
-  genln("  mov QWORD PTR [%%rbp-%d], %%rdx", offset - 40);
-  genln("  mov QWORD PTR [%%rbp-%d], %%rcx", offset - 48);
-  genln("  mov QWORD PTR [%%rbp-%d], %%r8", offset - 56);
-  genln("  mov QWORD PTR [%%rbp-%d], %%r9", offset - 64);
-  genln("  movsd [%%rbp-%d], %%xmm0", offset - 72);
-  genln("  movsd [%%rbp-%d], %%xmm1", offset - 80);
-  genln("  movsd [%%rbp-%d], %%xmm2", offset - 88);
-  genln("  movsd [%%rbp-%d], %%xmm3", offset - 96);
-  genln("  movsd [%%rbp-%d], %%xmm4", offset - 104);
-  genln("  movsd [%%rbp-%d], %%xmm5", offset - 112);
-  genln("  movsd [%%rbp-%d], %%xmm6", offset - 120);
-  genln("  movsd [%%rbp-%d], %%xmm7", offset - 128);
+  genln("  movq %%rbp, %d(%%rbp)", -1 * (offset - 16));
+  genln("  subq $%d, %d(%%rbp)", offset - 24, -1 * (offset - 16));
+  genln("  movq %%rdi, %d(%%rbp)", -1 * (offset - 24));
+  genln("  movq %%rsi, %d(%%rbp)", -1 * (offset - 32));
+  genln("  movq %%rdx, %d(%%rbp)", -1 * (offset - 40));
+  genln("  movq %%rcx, %d(%%rbp)", -1 * (offset - 48));
+  genln("  movq %%r8, %d(%%rbp)", -1 * (offset - 56));
+  genln("  movq %%r9, %d(%%rbp)", -1 * (offset - 64));
+  genln("  movsd %%xmm0, %d(%%rbp)", -1 * (offset - 72));
+  genln("  movsd %%xmm1, %d(%%rbp)", -1 * (offset - 80));
+  genln("  movsd %%xmm2, %d(%%rbp)", -1 * (offset - 88));
+  genln("  movsd %%xmm3, %d(%%rbp)", -1 * (offset - 96));
+  genln("  movsd %%xmm4, %d(%%rbp)", -1 * (offset - 104));
+  genln("  movsd %%xmm5, %d(%%rbp)", -1 * (offset - 112));
+  genln("  movsd %%xmm6, %d(%%rbp)", -1 * (offset - 120));
+  genln("  movsd %%xmm7, %d(%%rbp)", -1 * (offset - 128));
 }
 
 static void assign_param_offsets_for_passed_by_stack_args(Obj* func) {
@@ -1672,21 +1672,21 @@ static void assign_lvar_offsets(Obj* func) {
 static void store_general_arg(int size, int offset, int n) {
   switch (size) {
     case 1:
-      genln("  mov [%%rax+%d], %s", offset, arg_regs8[n]);
+      genln("  mov %s, %d(%%rax)", arg_regs8[n], offset);
       break;
     case 2:
-      genln("  mov [%%rax+%d], %s", offset, arg_regs16[n]);
+      genln("  mov %s, %d(%%rax)", arg_regs16[n], offset);
       break;
     case 4:
-      genln("  mov [%%rax+%d], %s", offset, arg_regs32[n]);
+      genln("  mov %s, %d(%%rax)", arg_regs32[n], offset);
       break;
     case 8:
-      genln("  mov [%%rax+%d], %s", offset, arg_regs64[n]);
+      genln("  mov %s, %d(%%rax)", arg_regs64[n], offset);
       break;
     default:
       for (int i = 0; i < size; i++) {
-        genln("  mov [%%rax+%d], %s", offset + i, arg_regs8[n]);
-        genln("  shr %s, 8", arg_regs64[n]);
+        genln("  mov %s, %d(%%rax)", arg_regs8[n], offset + i);
+        genln("  shr $8, %s", arg_regs64[n]);
       }
   }
 }
@@ -1694,10 +1694,10 @@ static void store_general_arg(int size, int offset, int n) {
 static void store_float_arg(int size, int offset, int n) {
   switch (size) {
     case 4:
-      genln("  movss [%%rax+%d], %%xmm%d", offset, n);
+      genln("  movss %%xmm%d, %d(%%rax)", n, offset);
       break;
     case 8:
-      genln("  movsd [%%rax+%d], %%xmm%d", offset, n);
+      genln("  movsd %%xmm%d, %d(%%rax)", n, offset);
       break;
   }
 }
@@ -1773,10 +1773,10 @@ static void gen_text(TopLevelObj* codes) {
     genln("%s:", func->obj->name);
 
     push_outside_frame("%rbp");
-    genln("  mov %%rbp, %%rsp");
-    genln("  sub %%rsp, %d", func->obj->stack_size);
+    genln("  mov %%rsp, %%rbp");
+    genln("  sub $%d, %%rsp", func->obj->stack_size);
 
-    genln("  mov [%%rbp-%d], %%rsp", func->obj->alloca_bottom->offset);
+    genln("  mov %%rsp, %d(%%rbp)", -1 * func->obj->alloca_bottom->offset);
 
     if (func->obj->va_area) {
       store_va_args(func->obj);
@@ -1790,11 +1790,11 @@ static void gen_text(TopLevelObj* codes) {
     // The retrun statement jumps to the return label below,
     // so this instruction does not override the returne value.
     if (equal_to_str(func->obj->name, "main")) {
-      genln("  mov %%rax, 0");
+      genln("  mov $0, %%rax");
     }
 
     genln(".Lreturn%d:", func_cnt++);
-    genln("  mov %%rsp, %%rbp");
+    genln("  mov %%rbp, %%rsp");
     pop_outside_frame("%rbp");
     genln("  ret");
 
@@ -1813,7 +1813,6 @@ void gen(char* output_filename, TopLevelObj* codes) {
   size_t buf_len = 0;
   output_file = open_memstream(&buf, &buf_len);
 
-  genln(".intel_syntax prefix");
   for (File* file = files; file; file = file->next) {
     genln(".file %d \"%s\"", file->index, file->name);
   }

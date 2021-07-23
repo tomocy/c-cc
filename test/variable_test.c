@@ -4,6 +4,10 @@ int g1, g2[4];
 
 static int g3 = 3;
 
+static int rax = 10;
+static int rdx = 20;
+static int offset = 30;
+
 int main() {
   ASSERT(3, ({
     int a;
@@ -261,6 +265,10 @@ int main() {
     double x = 42.1;
     x;
   }));
+
+  ASSERT(10, rax);
+  ASSERT(20, rdx);
+  ASSERT(30, offset);
 
   ok();
 }
