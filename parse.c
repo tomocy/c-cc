@@ -3284,8 +3284,9 @@ static Node* lvar_init(Token* token, Initer* init, DesignatedIniter* designated)
 
       return node;
     case TY_UNION: {
-      DesignatedIniter next = {designated, 0, NULL, init->mem};
-      return lvar_init(token, init->children[init->mem->index], &next);
+      Member* mem = init->mem ? init->mem : init->type->members;
+      DesignatedIniter next = {designated, 0, NULL, mem};
+      return lvar_init(token, init->children[mem->index], &next);
     }
     case TY_ARRAY: {
       Node* node = new_null_node(token);
@@ -3310,6 +3311,7 @@ static Node* lvar_initer(Token** tokens, Obj* var) {
   Initer* init = initer(tokens, &var->type);
 
   DesignatedIniter designated = {NULL, 0, var};
+
   return new_comma_node(start, new_memzero_node(start, var), lvar_init(start, init, &designated));
 }
 

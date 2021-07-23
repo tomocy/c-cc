@@ -923,5 +923,20 @@ int main() {
   ASSERT(5, gvar_return_x1(5));
   ASSERT(5, gvar_return_x2(5));
 
+  ASSERT(5, ({
+    struct s {
+      int x;
+      union {
+        int a;
+        int b;
+        int c;
+      } abc;
+    };
+
+    struct s ss = {5};
+
+    ss.x;
+  }));
+
   ok();
 }
