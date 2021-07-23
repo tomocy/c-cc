@@ -938,5 +938,10 @@ int main() {
     ss.x;
   }));
 
+  ASSERT(3, ({
+    static int x, y = 3;  // NOLINT
+    y;
+  }));
+
   ok();
 }

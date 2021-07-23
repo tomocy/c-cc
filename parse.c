@@ -3323,10 +3323,12 @@ static Node* lvar_decl(Token** tokens) {
 
   Node head = {};
   Node* cur = &head;
+  bool is_first = true;
   while (!equal_to_token(*tokens, ";")) {
-    if (cur != &head) {
+    if (!is_first) {
       expect_token(tokens, ",");
     }
+    is_first = false;
 
     Type* type = declarator(tokens, spec);
     if (!type->name) {
@@ -3343,6 +3345,7 @@ static Node* lvar_decl(Token** tokens) {
       }
       continue;
     }
+
     if (attr.alignment) {
       type = copy_type(type);
       type->alignment = attr.alignment;
