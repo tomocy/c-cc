@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM ubuntu:20.04
 
 COPY --from=mvdan/shfmt /bin/shfmt /usr/local/bin/shfmt
 
